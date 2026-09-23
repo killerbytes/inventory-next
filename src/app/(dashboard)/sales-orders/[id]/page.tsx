@@ -22,6 +22,8 @@ export default async function SalesOrderDetailsPage({
     notFound();
   }
   return (
-    <SalesOrderDetailClientWidget data={JSON.parse(JSON.stringify(order))} />
+    <SalesOrderDetailClientWidget
+      initialData={JSON.parse(JSON.stringify(order))}
+    />
   );
 }

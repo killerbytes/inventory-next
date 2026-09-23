@@ -2,13 +2,10 @@
  * Utility functions for monetary and quantity calculations, matching inventory-api 1:1.
  */
 
-import { ProductCombinationUpdate } from "@/schemas";
-
 export interface ComputableItem {
-  purchasePrice?: number;
+  purchasePrice: number;
   quantity: number;
-  discount?: number | string | null;
-  combination?: ProductCombinationUpdate;
+  discount?: number | null | undefined;
 }
 
 /**

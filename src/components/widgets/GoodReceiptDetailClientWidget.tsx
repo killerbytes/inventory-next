@@ -34,9 +34,9 @@ import { Checkbox } from "../ui/checkbox";
 const columnHelper = createColumnHelper<any>();
 
 export default function GoodReceiptDetailClientWidget({
-  data: receipt,
+  initialReceipt: receipt,
 }: {
-  data: GoodReceiptData;
+  initialReceipt: GoodReceiptData;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(receipt?.status || "COMPLETED");
@@ -50,6 +50,7 @@ export default function GoodReceiptDetailClientWidget({
         const i =
           receipt.goodReceiptLines && receipt.goodReceiptLines[Number(key)];
         if (!i) return null;
+        // delete i.combination;
         return i;
       })
       .filter(Boolean);
@@ -85,8 +86,6 @@ export default function GoodReceiptDetailClientWidget({
                     (table.getIsSomePageRowsSelected() && "indeterminate")
                   }
                   onCheckedChange={(value) => {
-                    console.log(value);
-
                     table.toggleAllPageRowsSelected(!!value);
                   }}
                   aria-label="Select all"
@@ -110,9 +109,9 @@ export default function GoodReceiptDetailClientWidget({
         cell: ({ row }) => (
           <div className="flex gap-2">
             <ColorBadge colorMap={UNIT_COLOR}>
-              {row.original.combinations.unit}
+              {row.original.combination?.unit}
             </ColorBadge>
-            <Link href={`/products/${row.original.combinations.productId}`}>
+            <Link href={`/products/${row.original.combination?.productId}`}>
               {row.original.nameSnapshot}
             </Link>
           </div>

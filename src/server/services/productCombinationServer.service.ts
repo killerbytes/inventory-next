@@ -111,6 +111,46 @@ export const productCombinationServerService = {
     return productCombination;
   },
 
+  getByProductId: async (id: number | string) => {
+    const combinations = await ProductCombination.findAll({
+      where: { productId: Number(id) },
+      include: [
+        {
+          model: VariantValue,
+          as: "values",
+          through: { attributes: [] },
+        },
+        {
+          model: Inventory,
+          as: "inventory",
+        },
+      ],
+      order: [
+        ["name", "ASC"],
+        ["isBreakPackOfId", "ASC NULLS FIRST"],
+      ],
+    });
+
+    const variants = await VariantType.findAll({
+      where: { productId: Number(id) },
+      order: [
+        ["name", "ASC"],
+        [{ model: VariantValue, as: "values" }, "value", "ASC"],
+      ],
+      include: [
+        {
+          model: VariantValue,
+          as: "values",
+        },
+      ],
+    });
+
+    return {
+      combinations,
+      variants,
+    };
+  },
+
   getByBarcode: async (barcode: string) => {
     const productCombination = await ProductCombination.findOne({
       where: { barcode },
@@ -393,7 +433,7 @@ export const productCombinationServerService = {
   updateByProductId: async (
     productId: number | string,
     combinations: ProductCombinationUpdate[],
-    userId: number,
+    userId: number = 1,
   ) => {
     const numProductId = Number(productId);
     try {
@@ -426,8 +466,6 @@ export const productCombinationServerService = {
           ],
           transaction,
         });
-
-        (product as any).combinations = existingCombinations;
 
         validateCombinations(incomingCombinations, product);
 
@@ -730,7 +768,6 @@ LIMIT :limit;
         type: QueryTypes.SELECT,
       },
     );
-    console.log(JSON.stringify(results, null, 2));
 
     return results;
   },
@@ -970,11 +1007,15 @@ LIMIT 20;
     return results;
   },
 
-  breakPack: async (payload: BreakPackInput, userId: number) => {
+  breakPack: async (payload: BreakPackInput, userId: number = 1) => {
     const { fromCombinationId, quantity, toCombinationId } = payload;
     const numFromId = Number(fromCombinationId);
     const numToId = Number(toCombinationId);
     const numQty = Number(quantity);
+
+    if (!Number.isInteger(numQty)) {
+      throw new Error("Quantity must be a whole number");
+    }
 
     return await sequelize.transaction(async (transaction) => {
       const fromInventory = await ProductCombination.findByPk(numFromId, {
@@ -1094,7 +1135,7 @@ LIMIT 20;
     });
   },
 
-  stockAdjustment: async (payload: StockAdjustmentInput, userId: number) => {
+  stockAdjustment: async (payload: StockAdjustmentInput, userId: number = 1) => {
     const validatedData = stockAdjustmentInputSchema.parse(payload);
     const { combinationId, newQuantity, reason, notes } = validatedData;
 
@@ -1202,7 +1243,7 @@ LIMIT 20;
     return result;
   },
 
-  updatePrices: async (list: UpdatePriceItem[], userId: number) => {
+  updatePrices: async (list: UpdatePriceItem[], userId: number = 1) => {
     return await sequelize.transaction(async (transaction) => {
       for (const item of list) {
         const combo = await ProductCombination.findByPk(Number(item.id), {

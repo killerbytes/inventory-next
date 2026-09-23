@@ -4,9 +4,11 @@ import {
   InferAttributes,
   InferCreationAttributes,
   Model,
+  NonAttribute,
 } from "sequelize";
 import "server-only";
 import sequelize from "../db/sequelize";
+import User from "./User";
 
 export class OrderStatusHistory extends Model<
   InferAttributes<OrderStatusHistory>,
@@ -18,6 +20,7 @@ export class OrderStatusHistory extends Model<
   declare status: string;
   declare changedBy: number;
   declare changedAt: CreationOptional<Date>;
+  declare user: NonAttribute<User>;
 
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;

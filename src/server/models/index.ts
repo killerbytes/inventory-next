@@ -106,7 +106,7 @@ GoodReceiptLine.belongsTo(GoodReceipt, {
 });
 GoodReceiptLine.belongsTo(ProductCombination, {
   foreignKey: "combinationId",
-  as: "combinations",
+  as: "combination",
 });
 GoodReceipt.hasMany(OrderStatusHistory, {
   foreignKey: "goodReceiptId",
@@ -234,7 +234,7 @@ InventoryMovement.belongsTo(GoodReceipt, {
 
 PriceHistory.belongsTo(ProductCombination, {
   foreignKey: "combinationId",
-  as: "combinations",
+  as: "combination",
 });
 PriceHistory.belongsTo(User, { foreignKey: "changedBy", as: "user" });
 
@@ -269,10 +269,10 @@ export {
   ReturnTransaction,
   SalesOrder,
   SalesOrderItem,
+  sequelize,
   StockAdjustment,
   Supplier,
   User,
   VariantType,
   VariantValue,
-  sequelize,
 };

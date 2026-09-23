@@ -1,6 +1,6 @@
 import { getAmount, getTotalAmount, normalize } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
-import { GoodReceiptInput, GoodReceiptLineData } from "@/schemas";
+import { GoodReceiptInput } from "@/schemas";
 import sequelize from "@/server/db/sequelize";
 import {
   Category,
@@ -29,6 +29,7 @@ import { Op } from "sequelize";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
+import { ReturnExchangeItem } from "./salesServer.service";
 
 export interface ListGoodReceiptsParams {
   startDate?: string | null;
@@ -239,6 +240,21 @@ export const goodReceiptServerService = {
   get: async (id: number) => {
     return await GoodReceipt.findByPk(id, {
       include: [...goodReceiptIncludes],
+      order: [
+        [
+          {
+            model: GoodReceiptLine,
+            as: "goodReceiptLines",
+          },
+          "id",
+          "ASC",
+        ],
+        [
+          { model: OrderStatusHistory, as: "goodReceiptStatusHistory" },
+          "id",
+          "DESC",
+        ],
+      ],
     });
   },
 
@@ -299,7 +315,6 @@ export const goodReceiptServerService = {
     };
   },
 
-
   getByProductCombination: async (list: (number | string)[]) => {
     const result: any[] = [];
     for (const id of list) {
@@ -308,7 +323,7 @@ export const goodReceiptServerService = {
         include: [
           {
             model: ProductCombination,
-            as: "combinations",
+            as: "combination",
           },
         ],
       });
@@ -393,8 +408,6 @@ export const goodReceiptServerService = {
   },
 
   update: async (id: number, data: any, userId?: number) => {
-    console.log(123213);
-
     try {
       return await sequelize.transaction(async (transaction) => {
         const goodReceipt = await GoodReceipt.findByPk(id, {
@@ -432,20 +445,33 @@ export const goodReceiptServerService = {
     }
   },
 
-  delete: async (id: number) => {
+  delete: async (id: number, userId?: number) => {
     return await sequelize.transaction(async (transaction) => {
       const receipt = await GoodReceipt.findByPk(id, { transaction });
       if (!receipt) {
         throw new Error(`Good Receipt with ID ${id} not found`);
       }
-      await GoodReceiptLine.destroy({
-        where: { goodReceiptId: id },
+      if (receipt.status !== ORDER_STATUS.DRAFT) {
+        throw new Error("Good Receipt is not in a valid state");
+      }
+      await updateOrder(
+        { status: ORDER_STATUS.VOID },
+        receipt,
         transaction,
-      });
-      await receipt.destroy({ transaction });
+        false,
+      );
+      await OrderStatusHistory.create(
+        {
+          goodReceiptId: receipt.id,
+          status: ORDER_STATUS.VOID,
+          changedBy: userId ?? 1,
+          changedAt: new Date(),
+        },
+        { transaction },
+      );
       return {
         success: true,
-        message: `Good Receipt ${id} deleted successfully`,
+        message: `Good Receipt ${id} voided successfully`,
       };
     });
   },
@@ -491,7 +517,7 @@ export const goodReceiptServerService = {
 
   supplierReturns: async (
     referenceId: number,
-    returns: GoodReceiptLineData[],
+    returns: ReturnExchangeItem[],
     reason: string = "Supplier Return",
   ) => {
     return await sequelize.transaction(async (transaction) => {
@@ -517,12 +543,12 @@ export const goodReceiptServerService = {
         throw new Error("No return items specified");
       }
 
-      const receiptLines = (receipt as any).goodReceiptLines || [];
+      const receiptLines = receipt.goodReceiptLines;
       let totalReturnAmount = 0;
 
       // 1. Validate items and enforce cumulative return quantity limits
       for (const ret of activeReturns) {
-        const itemLine = receiptLines.find(
+        const itemLine = receiptLines?.find(
           (l: any) => Number(l.combinationId) === Number(ret.combinationId),
         );
         if (!itemLine) {
@@ -585,13 +611,14 @@ export const goodReceiptServerService = {
 
       // 3. Process each return item & inventory reduction
       for (const ret of activeReturns) {
-        const itemLine = receiptLines.find(
+        const itemLine = receiptLines?.find(
           (l: any) => Number(l.combinationId) === Number(ret.combinationId),
         );
-        const discountPerItem = itemLine.discount
+        const discountPerItem = itemLine?.discount
           ? Number(itemLine.discount) / Number(itemLine.quantity)
           : 0;
-        const unitPrice = Number(itemLine.purchasePrice || 0) - discountPerItem;
+        const unitPrice =
+          Number(itemLine?.purchasePrice || 0) - discountPerItem;
         const returnCost = unitPrice * Number(ret.quantity);
 
         await ReturnItem.create(
@@ -779,14 +806,15 @@ export const goodReceiptServerService = {
     });
 
     const orderIds = rows.map((r: any) => r.id);
-    const returnTransactions = orderIds.length > 0
-      ? await ReturnTransaction.findAll({
-          where: {
-            referenceId: { [Op.in]: orderIds },
-            sourceType: ORDER_TYPE.PURCHASE,
-          },
-        })
-      : [];
+    const returnTransactions =
+      orderIds.length > 0
+        ? await ReturnTransaction.findAll({
+            where: {
+              referenceId: { [Op.in]: orderIds },
+              sourceType: ORDER_TYPE.PURCHASE,
+            },
+          })
+        : [];
 
     const enrichedRows = rows.map((row: any) => {
       const rowReturns = returnTransactions.filter(
@@ -856,7 +884,7 @@ const goodReceiptIncludes = [
     include: [
       {
         model: ProductCombination,
-        as: "combinations",
+        as: "combination",
       },
     ],
   },

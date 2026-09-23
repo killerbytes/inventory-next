@@ -20,7 +20,6 @@ export default function ReorderLevelsClientWidget({
   initialData = [],
 }: ReorderLevelsClientWidgetProps) {
   const records = initialData || [];
-  console.log(initialData);
 
   const columns = useMemo(
     () => [

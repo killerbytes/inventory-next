@@ -29,7 +29,6 @@ export default function RecentSalesOrders({
   orders = [],
 }: RecentSalesOrdersProps) {
   const router = useRouter();
-  console.log(orders);
 
   const columns = useMemo(
     () => [
@@ -96,22 +95,11 @@ export default function RecentSalesOrders({
       columnHelper.display({
         id: "totalAmount",
         header: () => <div className="text-right">Total Amount</div>,
-        cell: ({ row }) => {
-          const totalAmount = Number(row.original.totalAmount || 0);
-          const returnAmount = Number(row.original.totalReturnAmount || 0);
-          const exchangeAmount = Number(row.original.totalExchangeAmount || 0);
-          const netTotal = totalAmount - returnAmount + exchangeAmount;
-
-          return (
-            <div
-              className={`text-right font-mono font-semibold ${
-                returnAmount > 0 ? "text-rose-600" : "text-emerald-600"
-              }`}
-            >
-              {formatCurrency(netTotal)}
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <div className="text-right font-mono font-semibold">
+            {formatCurrency(row.original.totalAmount)}
+          </div>
+        ),
       }),
     ],
     [],

@@ -34,7 +34,7 @@ Inventory.init(
       allowNull: false,
     },
     averagePrice: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.DECIMAL(18, 6),
       defaultValue: 0,
     },
     quantity: {
@@ -60,6 +60,7 @@ Inventory.init(
     deletedAt: "deletedAt",
     defaultScope: {
       attributes: { exclude: ["createdAt", "updatedAt", "deletedAt"] },
+      order: [["id", "ASC"]],
     },
   },
 );

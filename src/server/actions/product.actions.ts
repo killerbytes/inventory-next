@@ -2,30 +2,38 @@
 
 import { PERMISSIONS } from "@/lib/rbac";
 import {
+  ProductInput,
+  ProductInputSchema,
+  ProductUpdateInput,
+  ProductUpdateSchema,
+} from "@/schemas/product.schema";
+import {
   productCombinationServerService,
   productServerService,
 } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
 
-export async function createProductAction(data: any) {
-  const result = await productServerService.create(data);
-  revalidatePath("/products");
-  return result ? JSON.parse(JSON.stringify(result)) : null;
-}
+export const createProductAction = createProtectedAction({
+  permission: PERMISSIONS.MANAGE_PRODUCTS,
+  schema: ProductInputSchema,
+  handler: async (_ctx, data: ProductInput) => {
+    const result = await productServerService.create(data);
+    revalidatePath("/products");
+    return result ? JSON.parse(JSON.stringify(result)) : null;
+  },
+});
 
-export async function updateProductAction(id: number, data: any) {
-  const result = await productServerService.update(id, data);
-  revalidatePath("/products");
-  revalidatePath(`/products/${id}`);
-  return result ? JSON.parse(JSON.stringify(result)) : null;
-}
-
-export async function deleteProductAction(id: number) {
-  const result = await productServerService.delete(id);
-  revalidatePath("/products");
-  return result ? JSON.parse(JSON.stringify(result)) : null;
-}
+export const updateProductAction = createProtectedAction({
+  permission: PERMISSIONS.MANAGE_PRODUCTS,
+  schema: ProductUpdateSchema,
+  handler: async (_ctx, id: number, data: ProductUpdateInput) => {
+    const result = await productServerService.update(id, data);
+    revalidatePath("/products");
+    revalidatePath(`/products/${id}`);
+    return result ? JSON.parse(JSON.stringify(result)) : null;
+  },
+});
 
 export const updateProductCombinationsAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_COMBINATIONS,
@@ -41,24 +49,34 @@ export const updateProductCombinationsAction = createProtectedAction({
   },
 });
 
-export async function searchProductCombinationsAction(params: any) {
-  const result = await productCombinationServerService.search(params);
-  return result ? JSON.parse(JSON.stringify(result)) : [];
-}
+export const searchProductCombinationsAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx, params: any) => {
+    const result = await productCombinationServerService.search(params);
+    return result ? JSON.parse(JSON.stringify(result)) : [];
+  },
+});
 
-export async function lookupBarcodeAction(barcode: string) {
-  try {
-    const result = await productCombinationServerService.getByBarcode(barcode);
-    return result ? JSON.parse(JSON.stringify(result)) : null;
-  } catch {
-    return null;
-  }
-}
+export const lookupBarcodeAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx, barcode: string) => {
+    try {
+      const result =
+        await productCombinationServerService.getByBarcode(barcode);
+      return result ? JSON.parse(JSON.stringify(result)) : null;
+    } catch {
+      return null;
+    }
+  },
+});
 
-export async function getCombinationsByIdsAction(ids: (number | string)[]) {
-  const result = await productCombinationServerService.getByIds(ids);
-  return result ? JSON.parse(JSON.stringify(result)) : [];
-}
+export const getCombinationsByIdsAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx, ids: (number | string)[]) => {
+    const result = await productCombinationServerService.getByIds(ids);
+    return result ? JSON.parse(JSON.stringify(result)) : [];
+  },
+});
 
 export const updatePricesAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_COMBINATIONS,

@@ -5,6 +5,7 @@ import { goodReceiptServerService } from "@/server/services/goodReceiptServer.se
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import { salesServerService } from "@/server/services/salesServer.service";
+import { PERMISSIONS } from "@/lib/rbac";
 import {
   endOfDay,
   endOfMonth,
@@ -14,10 +15,13 @@ import {
   subDays,
   subMonths,
 } from "date-fns";
+import { createProtectedAction } from "./safeAction";
 
-export async function getDashboardDataAction() {
-  try {
-    const now = new Date();
+export const getDashboardDataAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_REPORTS,
+  handler: async () => {
+    try {
+      const now = new Date();
 
     const todayStart = format(startOfDay(now), "yyyy-MM-dd HH:mm:ss");
     const todayEnd = format(endOfDay(now), "yyyy-MM-dd HH:mm:ss");
@@ -171,4 +175,5 @@ export async function getDashboardDataAction() {
       customers: [],
     };
   }
-}
+},
+});

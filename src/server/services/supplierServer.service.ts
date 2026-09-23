@@ -1,4 +1,10 @@
 import {
+  SupplierInput,
+  SupplierInputSchema,
+  SupplierUpdateInput,
+  SupplierUpdateSchema,
+} from "@/schemas";
+import {
   GoodReceipt,
   GoodReceiptLine,
   ProductCombination,
@@ -117,7 +123,7 @@ export const supplierServerService = {
         },
         {
           model: ProductCombination,
-          as: "combinations",
+          as: "combination",
           where: { productId },
           include: [
             {
@@ -136,29 +142,39 @@ export const supplierServerService = {
     });
   },
 
-  create: async (data: CreateSupplierInput) => {
+  create: async (data: SupplierInput) => {
+    const validated = SupplierInputSchema.parse(data);
     return await Supplier.create({
-      name: data.name,
-      contact: data.contactName || data.code || null,
-      email: data.email || null,
-      phone: data.phone || null,
-      address: data.address || null,
+      name: validated.name,
+      contact:
+        validated.contact || validated.contactName || validated.code || null,
+      email: validated.email || null,
+      phone: validated.phone || null,
+      address: validated.address || null,
+      notes: validated.notes || null,
+      isActive: validated.isActive,
     });
   },
 
-  update: async (id: number, data: UpdateSupplierInput) => {
+  update: async (id: number, data: SupplierUpdateInput) => {
+    const validated = SupplierUpdateSchema.parse(data);
     const supplier = await Supplier.findByPk(id);
     if (!supplier) {
       throw new Error(`Supplier with ID ${id} not found`);
     }
     return await supplier.update({
-      ...(data.name !== undefined && { name: data.name }),
-      ...((data.contactName !== undefined || data.code !== undefined) && {
-        contact: data.contactName || data.code || null,
+      ...(validated.name !== undefined && { name: validated.name }),
+      ...((validated.contact !== undefined ||
+        validated.contactName !== undefined ||
+        validated.code !== undefined) && {
+        contact:
+          validated.contact || validated.contactName || validated.code || null,
       }),
-      ...(data.email !== undefined && { email: data.email }),
-      ...(data.phone !== undefined && { phone: data.phone }),
-      ...(data.address !== undefined && { address: data.address }),
+      ...(validated.email !== undefined && { email: validated.email }),
+      ...(validated.phone !== undefined && { phone: validated.phone }),
+      ...(validated.address !== undefined && { address: validated.address }),
+      ...(validated.notes !== undefined && { notes: validated.notes }),
+      ...(validated.isActive !== undefined && { isActive: validated.isActive }),
     });
   },
 
@@ -166,6 +182,13 @@ export const supplierServerService = {
     const supplier = await Supplier.findByPk(id);
     if (!supplier) {
       throw new Error(`Supplier with ID ${id} not found`);
+    }
+    // check if supplier is used in GoodReceipt
+    const goodReceipt = await GoodReceipt.findOne({
+      where: { supplierId: id },
+    });
+    if (goodReceipt) {
+      throw new Error(`Supplier ${id} is used in GoodReceipt`);
     }
     await supplier.destroy();
     return { success: true, message: `Supplier ${id} deleted successfully` };

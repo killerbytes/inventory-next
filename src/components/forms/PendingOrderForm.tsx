@@ -8,7 +8,7 @@ import ProductLookupInput from "@/components/forms/ProductLookupInput";
 
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
-import { GoodReceiptInput, SupplierData } from "@/schemas";
+import { SupplierData } from "@/schemas";
 import { goodReceiptItemDefault, UNIT_COLOR } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
@@ -19,27 +19,25 @@ import {
   UseFormReturn,
   useWatch,
 } from "react-hook-form";
+import { Autocomplete, AutocompleteValue } from "../common/Autocomplete";
 import ColorBadge from "../common/ColorBadge";
 import { Button } from "../ui/button";
 import { Field, FieldError } from "../ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { Textarea } from "../ui/textarea";
+import {
+  GoodReceiptForm,
+  GoodReceiptLineWithCombination,
+} from "../widgets/CreateGoodReceiptClientWidget";
 import FormField from "./FormField";
 import FormTableFooter from "./FormTableFooter";
 
-const columnHelper = createColumnHelper<any>();
+const columnHelper = createColumnHelper<GoodReceiptLineWithCombination>();
 
 export default function PendingOrderForm({
   form,
   suppliers = [],
 }: {
-  form: UseFormReturn<GoodReceiptInput>;
+  form: UseFormReturn<GoodReceiptForm>;
   suppliers: SupplierData[];
 }) {
   const {
@@ -50,6 +48,7 @@ export default function PendingOrderForm({
     name: "goodReceiptLines",
     keyName: "fieldId",
   });
+  console.log(fields);
 
   const columns = React.useMemo(
     () => [
@@ -95,7 +94,7 @@ export default function PendingOrderForm({
           />
         ),
       }),
-      columnHelper.accessor("unit", {
+      columnHelper.accessor("combination.unit", {
         header: "Unit",
         meta: {
           className: "w-15",
@@ -222,7 +221,7 @@ export default function PendingOrderForm({
           />
         ),
       }),
-      columnHelper.accessor("totalAmount", {
+      columnHelper.display({
         header: "Amount",
         meta: {
           className: "text-right w-20",
@@ -262,32 +261,24 @@ export default function PendingOrderForm({
           name="supplierId"
           label="Supplier"
           render={({ field, fieldState }) => (
-            <Select
-              {...field}
-              onValueChange={field.onChange}
-              items={suppliers.map((s) => ({
-                value: String(s.id),
-                label: s.name,
-              }))}
+            <Autocomplete
+              options={suppliers || []}
+              placeholder="Supplier"
+              aria-invalid={fieldState.invalid}
+              onChange={(value) => {
+                form.setValue("supplierId", Number(value.id), {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                });
+              }}
             >
-              <SelectTrigger
-                className="w-full"
-                aria-invalid={fieldState.invalid}
-              >
-                <SelectValue>
-                  {field.value === 0
-                    ? "Select Supplier"
-                    : suppliers.find((s) => s.id === field.value)?.name}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.id} value={String(supplier.id)}>
-                    {supplier.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <AutocompleteValue
+                value={
+                  suppliers?.find((supplier) => supplier.id === field.value)
+                    ?.name
+                }
+              />
+            </Autocomplete>
           )}
         />
         <FormField
@@ -337,7 +328,7 @@ export default function PendingOrderForm({
               columns={columns}
               renderFooter={() => (
                 <FormTableFooter
-                  values={footerValues || []}
+                  values={footerValues}
                   onAdd={() => append(goodReceiptItemDefault)}
                 />
               )}

@@ -1,5 +1,6 @@
 import { ORDER_STATUS } from "@/types/definitions";
 import * as z from "zod";
+import { UserSchema } from "./user.schema";
 
 export const OrderStatusHistoryBaseSchema = z.object({
   status: z.coerce.number(),
@@ -11,6 +12,8 @@ export const OrderStatusHistorySchema = OrderStatusHistoryBaseSchema.extend({
   salesOrderId: z.coerce.number().nullish(),
   status: z.nativeEnum(ORDER_STATUS),
   changedBy: z.number(),
+  changedAt: z.coerce.date(),
+  user: UserSchema,
 });
 
 export type OrderStatusHistoryInput = z.infer<

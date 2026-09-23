@@ -9,11 +9,14 @@ import { toast } from "sonner";
 import { CustomerInput, CustomerInputSchema } from "@/schemas";
 import {
   createCustomerAction,
+  deleteCustomerAction,
   updateCustomerAction,
 } from "@/server/actions/customer.actions";
 import { useUIStore } from "@/stores/uiStore";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useTransition } from "react";
+import ConfirmDialog from "../common/ConfirmDialog";
 import Modal from "../common/Modal";
 import FormField from "../forms/FormField";
 
@@ -56,6 +59,20 @@ function CustomerModalContent() {
     });
   };
 
+  const onDelete = () => {
+    startTransition(async () => {
+      try {
+        await deleteCustomerAction(editingCustomer?.id!);
+        toast.success("Customer deleted successfully!");
+        form.reset();
+        setCustomerModalOpen(false, null);
+        router.refresh();
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to delete customer");
+      }
+    });
+  };
+
   return (
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -68,21 +85,32 @@ function CustomerModalContent() {
           label="Delivery / Billing Address"
         />
         <FormField form={form} name="contact" label="Contact Name" />
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCustomerModalOpen(false, null)}
+        <DialogFooter className="justify-between!">
+          <ConfirmDialog
+            title={`Delete ${editingCustomer?.name}`}
+            description={`Are you sure you want to delete ${editingCustomer?.name}?`}
+            onConfirm={onDelete}
           >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            Save Customer
-          </Button>
+            <Button type="button" variant="destructive" size="icon">
+              <Trash2 />
+            </Button>
+          </ConfirmDialog>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCustomerModalOpen(false, null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Save Customer
+            </Button>
+          </div>
         </DialogFooter>
       </form>
     </>

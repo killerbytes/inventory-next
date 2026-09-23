@@ -104,26 +104,15 @@ export default function VariantTypesForm({
           <div className="flex items-center gap-2">
             <Input placeholder="e.g. Size, Color, Grade" {...field} />
             {selected && onDelete && (
-              <>
-                <Button
-                  variant="outline"
-                  className="text-rose-600 hover:bg-rose-50"
-                  type="button"
-                  onClick={() => setIsConfirmDeleteOpen(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
+              <ConfirmDialog
+                title={`Delete ${selected?.name}`}
+                description={`Are you sure you want to delete ${selected?.name}?`}
+                onConfirm={onDelete}
+              >
+                <Button type="button" variant="destructive" size="icon">
+                  <Trash2 />
                 </Button>
-                <ConfirmDialog
-                  isOpen={isConfirmDeleteOpen}
-                  onClose={() => setIsConfirmDeleteOpen(false)}
-                  title="Delete Variant Type"
-                  description="Are you sure you want to delete this variant type?"
-                  onConfirm={async () => {
-                    setIsConfirmDeleteOpen(false);
-                    await onDelete();
-                  }}
-                />
-              </>
+              </ConfirmDialog>
             )}
           </div>
         )}

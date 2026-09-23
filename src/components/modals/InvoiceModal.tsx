@@ -9,7 +9,6 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { InvoiceLineData } from "@/schemas";
 import {
   InvoiceGoodReceipt,
   InvoiceGoodReceiptSchema,
@@ -74,7 +73,7 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
     if (editingInvoice) {
       const existingGr: InvoiceGoodReceipt[] = (
         editingInvoice.invoiceLines || []
-      ).map((line: InvoiceLineData) => ({
+      ).map((line) => ({
         id: line.goodReceiptId,
         referenceNo: line.goodReceipt.referenceNo,
         status: line.goodReceipt.status,
@@ -131,8 +130,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
   const selectedGr = watch("gr") || [];
 
   const handlePickerSubmit = (selected: InvoiceGoodReceipt[]) => {
-    console.log(selected);
-
     form.setValue("gr", selected, { shouldValidate: true });
   };
 
@@ -148,8 +145,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
     values: InvoiceForm,
     targetStatus: string,
   ) => {
-    console.log(values);
-
     startTransition(async () => {
       try {
         const invoiceLines = values.gr.map((item: InvoiceGoodReceipt) => ({
@@ -194,7 +189,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
   };
 
   const totalInvoiceAmount = useMemo(() => {
-    console.log(selectedGr);
     return selectedGr.reduce(
       (sum: number, item: InvoiceGoodReceipt) =>
         sum +
@@ -265,7 +259,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
     ],
     [selectedGr],
   );
-  console.log(form.getValues());
 
   return (
     <>
@@ -396,30 +389,25 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
             >
               Save as Draft
             </Button>
-
-            <Button
-              type="button"
-              disabled={isPending || selectedGr.length === 0}
-              onClick={() => setConfirmPostOpen(true)}
+            <ConfirmDialog
+              title="Post Invoice"
+              description="Posting this invoice will automatically transition all associated Good Receipts to COMPLETED status and make this invoice payable. This cannot be undone."
+              onConfirm={() =>
+                form.handleSubmit((vals) =>
+                  submitWithStatus(vals, INVOICE_STATUS.POSTED),
+                )()
+              }
             >
-              Post Invoice
-            </Button>
+              <Button
+                type="button"
+                disabled={isPending || selectedGr.length === 0}
+              >
+                Post Invoice
+              </Button>
+            </ConfirmDialog>
           </div>
         </DialogFooter>
       </form>
-      <ConfirmDialog
-        isOpen={confirmPostOpen}
-        onClose={() => setConfirmPostOpen(false)}
-        title="Post Invoice"
-        description="Posting this invoice will automatically transition all associated Good Receipts to COMPLETED status and make this invoice payable. This cannot be undone."
-        confirmText="Post Invoice"
-        variant="default"
-        onConfirm={() =>
-          form.handleSubmit((vals) =>
-            submitWithStatus(vals, INVOICE_STATUS.POSTED),
-          )()
-        }
-      />
 
       <GoodReceiptPickerModal
         supplierId={Number(selectedSupplierId)}

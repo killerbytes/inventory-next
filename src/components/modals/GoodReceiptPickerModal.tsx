@@ -43,7 +43,6 @@ function GoodReceiptPickerModalContent({
     })
       .then((res) => {
         if (!mounted) return;
-        console.log(res);
 
         const items = res?.data || [];
         setData(items);

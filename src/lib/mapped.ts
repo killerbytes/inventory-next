@@ -2,16 +2,20 @@
  * Mapped combination and variant display utilities matching inventory-api src/utils/mapped.js 1:1.
  */
 
-export function getMappedVariantValues(variants: any[] = [], values: any[] = []): Record<string, string> {
+export function getMappedVariantValues(
+  variants: any[] = [],
+  values: any[] = [],
+): Record<string, string> {
   const mappedVariantValues: Record<string, string> = {};
-  if (!Array.isArray(variants) || !Array.isArray(values)) return mappedVariantValues;
+  if (!Array.isArray(variants) || !Array.isArray(values))
+    return mappedVariantValues;
 
   variants.forEach((val) => {
     const found = values.find(
       (v) =>
         v.variantTypeId === val.id ||
         v.variantTypeId === Number(val.id) ||
-        v.variantValueId === val.id
+        v.variantValueId === val.id,
     );
     if (found) {
       mappedVariantValues[val.name] = found.value || "";
@@ -21,7 +25,10 @@ export function getMappedVariantValues(variants: any[] = [], values: any[] = [])
   return mappedVariantValues;
 }
 
-export function getMappedProductComboName(product: any, values: any[] = []): string {
+export function getMappedProductComboName(
+  product: any,
+  values: any[] = [],
+): string {
   const mapped = getMappedVariantValues(product?.variants || [], values);
 
   const keys = Object.keys(mapped);

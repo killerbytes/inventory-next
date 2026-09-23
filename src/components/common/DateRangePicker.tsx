@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { MAX_START_DATE } from "@/types/definitions";
 
 interface DateRangePickerProps {
   value?: DateRange;
@@ -97,7 +98,7 @@ export default function DateRangePicker({
           }}
           onSelect={handleSelect}
           numberOfMonths={numberOfMonths}
-          disabled={disabled}
+          disabled={disabled || { before: new Date(MAX_START_DATE) }}
         />
       </PopoverContent>
     </Popover>

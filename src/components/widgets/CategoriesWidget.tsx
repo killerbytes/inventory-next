@@ -32,8 +32,6 @@ export default function CategoriesWidget({
   const isEditing = Boolean(editingCategory?.id);
 
   const handleSortSubmit = async (sortedData: CategoryData[]) => {
-    console.log(sortedData);
-
     try {
       const sortedIds = sortedData.map((c) => c.id);
       await updateCategorySortAction(sortedIds);

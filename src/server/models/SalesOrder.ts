@@ -13,18 +13,15 @@ import OrderStatusHistory from "./OrderStatusHistory";
 import ReturnTransaction from "./ReturnTransaction";
 import SalesOrderItem from "./SalesOrderItem";
 
-import { format } from "date-fns";
-import { getNextSequence } from "@/lib/sequence";
-
 export class SalesOrder extends Model<
   InferAttributes<SalesOrder>,
   InferCreationAttributes<SalesOrder>
 > {
   declare id: CreationOptional<number>;
   declare salesOrderNumber: CreationOptional<string>;
-  declare customerId: CreationOptional<number | null>;
+  declare customerId: CreationOptional<number>;
   declare status: string;
-  declare orderDate: CreationOptional<Date | null>;
+  declare orderDate: CreationOptional<Date>;
   declare isDelivery: CreationOptional<boolean | null>;
   declare isDeliveryCompleted: CreationOptional<boolean | null>;
   declare deliveryAddress: CreationOptional<string | null>;
@@ -62,7 +59,6 @@ SalesOrder.init(
     },
     customerId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
     },
     status: {
       type: DataTypes.STRING,
@@ -71,7 +67,6 @@ SalesOrder.init(
     },
     orderDate: {
       type: DataTypes.DATE,
-      allowNull: true,
     },
     isDelivery: {
       type: DataTypes.BOOLEAN,
@@ -144,14 +139,14 @@ SalesOrder.init(
   },
 );
 
-SalesOrder.beforeValidate(async (order) => {
-  const now = new Date();
-  const yearMonth = format(now, "yyyy-MM");
+// SalesOrder.beforeValidate(async (order) => {
+//   const now = new Date();
+//   const yearMonth = format(now, "yyyy-MM");
 
-  if (!order.salesOrderNumber) {
-    const nextval = await getNextSequence("sales_order_seq", sequelize);
-    order.salesOrderNumber = `SO-${yearMonth}-${String(nextval).padStart(4, "0")}`;
-  }
-});
+//   if (!order.salesOrderNumber) {
+//     const nextval = await getNextSequence("sales_order_seq", sequelize);
+//     order.salesOrderNumber = `SO-${yearMonth}-${String(nextval).padStart(4, "0")}`;
+//   }
+// });
 
 export default SalesOrder;

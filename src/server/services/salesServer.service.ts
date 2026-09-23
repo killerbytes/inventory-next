@@ -1,5 +1,6 @@
 import { getAmount, getTotalAmount } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
+import { SalesOrderInput, SalesOrderItemData } from "@/schemas";
 import sequelize from "@/server/db/sequelize";
 import {
   Category,
@@ -40,40 +41,10 @@ export interface ListSalesOrdersParams {
   order?: "ASC" | "DESC";
 }
 
-export interface CreateSalesOrderItemInput {
-  id?: number;
-  combinationId?: number;
-  productId?: number;
-  quantity: number;
-  purchasePrice?: number;
-  originalPrice?: number;
-  discount?: number;
-  totalAmount?: number;
-  unit?: string;
-  skuSnapshot?: string;
-  nameSnapshot?: string;
-  categorySnapshot?: any;
-  variantSnapshot?: any;
-}
-
-export interface CreateSalesOrderInput {
-  customerId: number;
-  totalAmount?: number;
-  status?: string;
-  items?: CreateSalesOrderItemInput[];
-  salesOrderItems?: CreateSalesOrderItemInput[];
-  modeOfPayment?: string;
-}
-
-export interface ProcessReturnInput {
-  returnReason?: string;
-  restockingFee?: number;
-  totalRefundAmount?: number;
-}
-
 export interface ReturnExchangeItem {
   combinationId: number;
   quantity: number;
+  discount?: number | null;
 }
 
 const mappedProductCombinationProps = (productCombination: any) => {
@@ -170,7 +141,7 @@ const updateOrder = async (
       const originalPrice =
         item.originalPrice !== undefined
           ? Number(item.originalPrice)
-          : (Number(productCombination?.price) || purchasePrice);
+          : Number(productCombination?.price) || purchasePrice;
       const quantity = Number(item.quantity || 0);
       const discount = Number(item.discount || 0);
       const totalAmount =
@@ -214,9 +185,12 @@ const processReceivedOrder = async (
   isCreate: boolean = false,
 ) => {
   const items =
-    (isCreate && salesOrder.salesOrderItems?.length)
+    isCreate && salesOrder.salesOrderItems?.length
       ? salesOrder.salesOrderItems
-      : (payload.salesOrderItems || payload.items || salesOrder.salesOrderItems || []);
+      : payload.salesOrderItems ||
+        payload.items ||
+        salesOrder.salesOrderItems ||
+        [];
 
   if (!isCreate) {
     await updateOrder(
@@ -304,24 +278,13 @@ const processCompletedOrder = async (
 export const salesServerService = {
   get: async (id: number) => {
     return await SalesOrder.findByPk(id, {
-      include: [
-        { model: Customer, as: "customer" },
-        {
-          model: SalesOrderItem,
-          as: "salesOrderItems",
-          include: [{ model: ProductCombination, as: "combinations" }],
-        },
-        {
-          model: ReturnTransaction,
-          as: "returnTransactions",
-          include: [
-            {
-              model: ReturnItem,
-              as: "returnItems",
-              include: [{ model: ProductCombination, as: "combination" }],
-            },
-          ],
-        },
+      include: [...salesOrderIncludes],
+      order: [
+        [
+          { model: OrderStatusHistory, as: "salesOrderStatusHistory" },
+          "id",
+          "DESC",
+        ],
       ],
     });
   },
@@ -540,17 +503,15 @@ export const salesServerService = {
     return days.map((r) => ({ name: r.name, totalAmount: r.totalAmount }));
   },
 
-  create: async (data: CreateSalesOrderInput, userId?: number) => {
+  create: async (data: SalesOrderInput, userId?: number) => {
     try {
       return await sequelize.transaction(async (transaction) => {
-        const rawItems = data.items || data.salesOrderItems || [];
-        const status = data.status || ORDER_STATUS.DRAFT;
+        const rawItems = data.salesOrderItems || [];
+        const status = data.status;
 
         const processedItems = await Promise.all(
           rawItems.map(async (item) => {
-            const combinationId = Number(
-              item.combinationId || item.productId || 1,
-            );
+            const combinationId = Number(item.combinationId);
             const productCombination = await fetchProductCombinationWithDetails(
               combinationId,
               transaction,
@@ -665,21 +626,37 @@ export const salesServerService = {
     });
   },
 
-  delete: async (id: number) => {
+  delete: async (id: number, userId?: number) => {
     return await sequelize.transaction(async (transaction) => {
-      const order = await SalesOrder.findByPk(id, { transaction });
-      if (!order) {
-        throw new Error(`Sales Order with ID ${id} not found`);
+      const salesOrder = await SalesOrder.findByPk(id, { transaction });
+      if (!salesOrder) {
+        throw new Error("SalesOrder not found");
       }
-      await SalesOrderItem.destroy({
-        where: { salesOrderId: id },
+
+      if (salesOrder.status !== ORDER_STATUS.DRAFT) {
+        throw new Error("SalesOrder is not in a valid state");
+      }
+
+      await updateOrder(
+        {
+          status: ORDER_STATUS.VOID,
+        },
+        salesOrder,
         transaction,
-      });
-      await order.destroy({ transaction });
-      return {
-        success: true,
-        message: `Sales Order ${id} deleted successfully`,
-      };
+        false,
+      );
+
+      await OrderStatusHistory.create(
+        {
+          salesOrderId: salesOrder.id,
+          status: ORDER_STATUS.VOID,
+          changedBy: userId ?? 1,
+          changedAt: new Date(),
+        },
+        { transaction },
+      );
+
+      return salesOrder;
     });
   },
 
@@ -701,8 +678,8 @@ export const salesServerService = {
       }
 
       if (
-        salesOrder.status !== "COMPLETED" &&
-        salesOrder.status !== "RECEIVED"
+        salesOrder.status !== ORDER_STATUS.COMPLETED &&
+        salesOrder.status !== ORDER_STATUS.RECEIVED
       ) {
         throw new Error("SalesOrder is not in a valid state");
       }
@@ -713,12 +690,15 @@ export const salesServerService = {
       // Create ReturnTransaction
       const returnTx = await ReturnTransaction.create(
         {
-          sourceType: "SALES",
+          sourceType: ORDER_TYPE.SALE,
           referenceId,
           totalReturnAmount: 0,
           totalExchangeAmount: 0,
           paymentDifference: 0,
-          type: exchanges.length > 0 ? "EXCHANGE" : "RETURN",
+          type:
+            exchanges.length > 0
+              ? INVENTORY_MOVEMENT_TYPE.EXCHANGE_IN
+              : INVENTORY_MOVEMENT_TYPE.RETURN_IN,
         },
         { transaction },
       );
@@ -726,20 +706,24 @@ export const salesServerService = {
       // Process Returns
       for (const ret of returns) {
         const orderItem = (salesOrder as any).salesOrderItems?.find(
-          (item: any) =>
+          (item: SalesOrderItemData) =>
             Number(item.combinationId) === Number(ret.combinationId),
         );
-        const itemPrice = orderItem ? Number(orderItem.purchasePrice || 0) : 0;
-        const returnVal = itemPrice * ret.quantity;
-        totalReturnAmount += returnVal;
+
+        const discountPerItem = orderItem.discount / orderItem.quantity;
+        const unitPrice = orderItem.originalPrice - discountPerItem;
+
+        const totalAmount = unitPrice * ret.quantity;
+
+        totalReturnAmount += totalAmount;
 
         await ReturnItem.create(
           {
             returnTransactionId: returnTx.id,
             combinationId: ret.combinationId,
             quantity: ret.quantity,
-            unitPrice: itemPrice,
-            totalAmount: returnVal,
+            unitPrice,
+            totalAmount,
             type: "RETURN",
             reason,
           },
@@ -751,9 +735,9 @@ export const salesServerService = {
             combinationId: ret.combinationId,
             quantity: ret.quantity,
           },
-          "RETURN_IN",
+          INVENTORY_MOVEMENT_TYPE.RETURN_IN,
           returnTx.id,
-          "RETURN_TRANSACTION",
+          INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
           transaction,
         );
       }
@@ -817,30 +801,6 @@ export const salesServerService = {
         totalExchangeAmount,
         paymentDifference,
       };
-    });
-  },
-
-  processReturn: async (salesOrderId: number, payload: ProcessReturnInput) => {
-    //TODO: No user logged?
-    return await sequelize.transaction(async (transaction) => {
-      const returnTx = await ReturnTransaction.create(
-        {
-          sourceType: "SALES",
-          referenceId: Number(salesOrderId),
-          totalReturnAmount: Number(payload.totalRefundAmount) || 0,
-          totalExchangeAmount: 0,
-          paymentDifference: Number(payload.totalRefundAmount) || 0,
-          type: "RETURN",
-        },
-        { transaction },
-      );
-
-      await SalesOrder.update(
-        { status: "RETURNED" },
-        { where: { id: Number(salesOrderId) }, transaction },
-      );
-
-      return returnTx;
     });
   },
 };
@@ -923,3 +883,51 @@ AND (:endDate IS NULL OR so."orderDate" <= :endDate)
     },
   };
 };
+
+const salesOrderIncludes = [
+  {
+    model: SalesOrderItem,
+    as: "salesOrderItems",
+    attributes: { exclude: ["createdAt", "updatedAt"] },
+    include: [
+      {
+        model: ProductCombination,
+        as: "combinations",
+      },
+    ],
+  },
+  {
+    model: Customer,
+    as: "customer",
+  },
+  {
+    model: OrderStatusHistory,
+    as: "salesOrderStatusHistory",
+    include: [
+      {
+        model: User,
+        as: "user",
+      },
+    ],
+  },
+  {
+    model: ReturnTransaction,
+    as: "returnTransactions",
+    where: {
+      sourceType: ORDER_TYPE.SALE,
+    },
+    required: false,
+    include: [
+      {
+        model: ReturnItem,
+        as: "returnItems",
+        include: [
+          {
+            model: ProductCombination,
+            as: "combination",
+          },
+        ],
+      },
+    ],
+  },
+];

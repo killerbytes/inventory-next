@@ -13,7 +13,7 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { cx } from "class-variance-authority";
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import Modal from "../common/Modal";
@@ -37,8 +37,7 @@ function VariantsModalContent({
     undefined,
   );
   const [shouldOpenComboModal, setShouldOpenComboModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [isPending, startTransition] = useTransition();
   const form = useForm<VariantTypeFormInput>({
     defaultValues: {
       ...defaultValues,
@@ -59,43 +58,38 @@ function VariantsModalContent({
   }, [selected, form]);
 
   const handleSubmit = async (values: VariantTypeFormInput) => {
-    console.log(5435345, values);
+    startTransition(async () => {
+      try {
+        if (values.id) {
+          await updateVariantTypeAction(Number(values.id), values);
+          toast.success("Variant type updated successfully");
+        } else {
+          await createVariantTypeAction({ ...values, productId });
+          toast.success("Variant type created successfully");
+        }
 
-    try {
-      setIsSubmitting(true);
-
-      if (values.id) {
-        await updateVariantTypeAction(Number(values.id), values);
-        toast.success("Variant type updated successfully");
-      } else {
-        await createVariantTypeAction({ ...values, productId });
-        toast.success("Variant type created successfully");
+        setSelected(undefined);
+        form.reset(defaultValues);
+        setShouldOpenComboModal(true);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to save variant type");
       }
-
-      setSelected(undefined);
-      form.reset(defaultValues);
-      setShouldOpenComboModal(true);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save variant type");
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
-    try {
-      setIsSubmitting(true);
-      await deleteVariantTypeAction(Number(selected.id));
-      toast.success("Variant type deleted successfully");
-      setSelected(undefined);
-      form.reset(defaultValues);
-      setShouldOpenComboModal(true);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete variant type");
-    } finally {
-      setIsSubmitting(false);
-    }
+    startTransition(async () => {
+      try {
+        await deleteVariantTypeAction(Number(selected.id));
+        toast.success("Variant type deleted successfully");
+        setSelected(undefined);
+        form.reset(defaultValues);
+        setShouldOpenComboModal(true);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete variant type");
+      }
+    });
   };
 
   return (

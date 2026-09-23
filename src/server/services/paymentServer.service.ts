@@ -23,19 +23,19 @@ export interface CreatePaymentInput {
   supplierId?: number | null;
   amount?: number;
   amountPaid?: number;
-  paymentMethod?: string;
-  referenceNo?: string;
-  referenceNumber?: string;
-  notes?: string;
+  paymentMethod?: string | null;
+  referenceNo?: string | null;
+  referenceNumber?: string | null;
+  notes?: string | null;
   applications?: PaymentApplicationInput[];
 }
 
 export interface UpdatePaymentInput {
   amount?: number;
   amountPaid?: number;
-  paymentMethod?: string;
-  referenceNumber?: string;
-  notes?: string;
+  paymentMethod?: string | null;
+  referenceNumber?: string | null;
+  notes?: string | null;
 }
 
 export const paymentServerService = {
@@ -163,6 +163,7 @@ export const paymentServerService = {
           {
             supplierId: data.supplierId ? Number(data.supplierId) : null,
             amount: paymentAmount,
+            paymentDate: (data as any).paymentDate || new Date(),
             referenceNo: data.referenceNumber || data.referenceNo || null,
             notes: data.notes || null,
             changedBy: userId ?? (data as any).changedBy ?? 1,

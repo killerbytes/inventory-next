@@ -6,6 +6,7 @@ import {
   UserUpdateInput,
   UserUpdateSchema,
 } from "@/schemas";
+import { getSession } from "@/server/auth/session";
 import { userServerService } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
@@ -14,8 +15,6 @@ export const createUserAction = createProtectedAction({
   permission: "MANAGE_USERS",
   schema: UserInputSchema,
   handler: async (_ctx, input: UserInput) => {
-    console.log(2323, input);
-
     const result = await userServerService.create(input);
     revalidatePath("/users");
     return result ? JSON.parse(JSON.stringify(result)) : null;
@@ -33,9 +32,17 @@ export const updateUserAction = createProtectedAction({
 });
 
 export async function changePasswordAction(data: {
-  password?: string;
-  oldPassword?: string;
-  newPassword?: string;
+  oldPassword: string;
+  newPassword: string;
 }) {
-  return { success: true, message: "Password updated successfully" };
+  const session = await getSession();
+  if (!session?.id) {
+    throw new Error("Unauthorized: Please sign in to change password");
+  }
+
+  return await userServerService.changePassword(
+    session.id,
+    data.oldPassword,
+    data.newPassword,
+  );
 }

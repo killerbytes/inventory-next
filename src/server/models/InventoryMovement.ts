@@ -42,11 +42,11 @@ InventoryMovement.init(
       allowNull: false,
     },
     costPerUnit: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.DECIMAL(18, 6),
       allowNull: true,
     },
     totalCost: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.DECIMAL(18, 6),
       allowNull: true,
     },
     referenceType: {

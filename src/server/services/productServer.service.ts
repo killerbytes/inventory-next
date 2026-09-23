@@ -25,7 +25,7 @@ export interface CreateProductInput {
   sku?: string;
   categoryId?: number | string | null;
   baseUnit?: string;
-  description?: string;
+  description?: string | null;
 }
 
 export interface UpdateProductInput {
@@ -33,7 +33,7 @@ export interface UpdateProductInput {
   sku?: string;
   categoryId?: number | string | null;
   baseUnit?: string;
-  description?: string;
+  description?: string | null;
 }
 
 function getDefaultIncludes() {
@@ -257,117 +257,105 @@ export const productServerService = {
 
   create: async (data: CreateProductInput) => {
     const validatedData = ProductBaseSchema.parse(data);
-    try {
-      return await sequelize.transaction(async (transaction) => {
-        const product = await Product.create(
-          {
-            name: validatedData.name,
-            categoryId: validatedData.categoryId,
-            baseUnit: validatedData.baseUnit,
-            description: data.description || null,
-          },
-          { transaction },
-        );
-        await productServerService.syncCombinationNames(
-          product.id,
-          transaction,
-        );
-        await productServerService.rebuildProductSearchText(
-          product.id,
-          transaction,
-        );
-        return product;
-      });
-    } catch (error) {
-      handleServiceError(error);
-    }
+    return await sequelize.transaction(async (transaction) => {
+      const product = await Product.create(
+        {
+          name: validatedData.name,
+          categoryId: validatedData.categoryId,
+          baseUnit: validatedData.baseUnit,
+          description: data.description || null,
+        },
+        { transaction },
+      );
+      await productServerService.syncCombinationNames(
+        product.id,
+        transaction,
+      );
+      await productServerService.rebuildProductSearchText(
+        product.id,
+        transaction,
+      );
+      return product;
+    });
   },
 
   update: async (id: number, data: UpdateProductInput) => {
-    try {
-      return await sequelize.transaction(async (transaction) => {
-        const product = await Product.findByPk(id, { transaction });
-        if (!product) {
-          throw new Error(`Product with ID ${id} not found`);
-        }
-        await product.update(
-          {
-            ...(data.name !== undefined && { name: data.name }),
-            ...(data.sku !== undefined && { sku: data.sku }),
-            ...(data.categoryId !== undefined && {
-              categoryId: data.categoryId ? Number(data.categoryId) : undefined,
-            }),
-            ...(data.baseUnit !== undefined && { baseUnit: data.baseUnit }),
-            ...(data.description !== undefined && {
-              description: data.description,
-            }),
-          },
-          { transaction },
-        );
+    return await sequelize.transaction(async (transaction) => {
+      const product = await Product.findByPk(id, { transaction });
+      if (!product) {
+        throw new Error(`Product with ID ${id} not found`);
+      }
+      await product.update(
+        {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.sku !== undefined && { sku: data.sku }),
+          ...(data.categoryId !== undefined && {
+            categoryId: data.categoryId ? Number(data.categoryId) : undefined,
+          }),
+          ...(data.baseUnit !== undefined && { baseUnit: data.baseUnit }),
+          ...(data.description !== undefined && {
+            description: data.description,
+          }),
+        },
+        { transaction },
+      );
 
-        await productServerService.syncCombinationNames(
-          product.id,
-          transaction,
-        );
-        await productServerService.rebuildProductSearchText(
-          product.id,
-          transaction,
-        );
-        return product;
-      });
-    } catch (error) {
-      handleServiceError(error);
-    }
+      await productServerService.syncCombinationNames(
+        product.id,
+        transaction,
+      );
+      await productServerService.rebuildProductSearchText(
+        product.id,
+        transaction,
+      );
+      return product;
+    });
   },
 
   delete: async (id: number) => {
-    try {
-      return await sequelize.transaction(async (transaction) => {
-        const product = await Product.findByPk(id, { transaction });
-        if (!product) {
-          throw new Error(`Product with ID ${id} not found`);
-        }
+    return await sequelize.transaction(async (transaction) => {
+      const product = await Product.findByPk(id, { transaction });
+      if (!product) {
+        throw new Error(`Product with ID ${id} not found`);
+      }
 
-        const combinations = await ProductCombination.findAll({
-          where: { productId: id },
-          transaction,
-        });
-
-        for (const combo of combinations) {
-          await Inventory.destroy({
-            where: { combinationId: combo.id },
-            transaction,
-          });
-          await CombinationValue.destroy({
-            where: { combinationId: combo.id },
-            transaction,
-          });
-        }
-
-        await ProductCombination.destroy({
-          where: { productId: id },
-          transaction,
-        });
-
-        const variantTypes = await VariantType.findAll({
-          where: { productId: id },
-          attributes: ["id"],
-          transaction,
-        });
-        await VariantValue.destroy({
-          where: {
-            variantTypeId: variantTypes.map((v) => v.id),
-          },
-          transaction,
-        });
-        await VariantType.destroy({ where: { productId: id }, transaction });
-        await product.destroy({ transaction });
-
-        return { success: true, message: `Product ${id} deleted successfully` };
+      const combinations = await ProductCombination.findAll({
+        where: { productId: id },
+        transaction,
       });
-    } catch (error) {
-      handleServiceError(error);
-    }
+
+      for (const combo of combinations) {
+        await Inventory.destroy({
+          where: { combinationId: combo.id },
+          transaction,
+        });
+        await CombinationValue.destroy({
+          where: { combinationId: combo.id },
+          transaction,
+        });
+      }
+
+      await ProductCombination.destroy({
+        where: { productId: id },
+        transaction,
+      });
+
+      const variantTypes = await VariantType.findAll({
+        where: { productId: id },
+        attributes: ["id"],
+        transaction,
+      });
+      await VariantValue.destroy({
+        where: {
+          variantTypeId: variantTypes.map((v) => v.id),
+        },
+        transaction,
+      });
+      await VariantType.destroy({ where: { productId: id }, transaction });
+      await product.destroy({ transaction });
+
+      return { success: true, message: `Product ${id} deleted successfully` };
+    });
   },
 
   syncCombinationNames: async (productId: number, transaction?: any) => {

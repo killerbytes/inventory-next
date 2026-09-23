@@ -27,7 +27,6 @@ export default async function SupplierDetailPage({
   } catch (err) {
     console.error("Error querying supplier profile from PostgreSQL:", err);
   }
-  console.log(supplier, receipts);
 
   if (!supplier) {
     notFound();

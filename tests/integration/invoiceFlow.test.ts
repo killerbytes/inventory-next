@@ -65,10 +65,18 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
   });
 
   afterAll(async () => {
+    if (testSupplier) {
+      await PaymentApplication.destroy({ where: {}, force: true });
+      await Payment.destroy({ where: { supplierId: testSupplier.id }, force: true });
+      await InvoiceLine.destroy({ where: {}, force: true });
+      await Invoice.destroy({ where: { supplierId: testSupplier.id }, force: true });
+      await GoodReceiptLine.destroy({ where: {}, force: true });
+      await GoodReceipt.destroy({ where: { supplierId: testSupplier.id }, force: true });
+      await testSupplier.destroy({ force: true });
+    }
     if (testCombo) await testCombo.destroy({ force: true });
     if (testProduct) await testProduct.destroy({ force: true });
     if (testCategory) await testCategory.destroy({ force: true });
-    if (testSupplier) await testSupplier.destroy({ force: true });
   });
 
   it("creates an invoice in DRAFT state and preserves GoodReceipt status as RECEIVED", async () => {
@@ -86,6 +94,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
         {
           supplierId: testSupplier.id,
           invoiceNumber: `INV-DRAFT-${Date.now()}`,
+          invoiceDate: new Date(),
           dueDate: new Date(),
           status: INVOICE_STATUS.DRAFT,
           invoiceLines: [{ goodReceiptId: gr.id, amount: 500 }],
@@ -124,6 +133,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
         {
           supplierId: testSupplier.id,
           invoiceNumber: `INV-POSTED-${Date.now()}`,
+          invoiceDate: new Date(),
           dueDate: new Date(),
           status: INVOICE_STATUS.POSTED,
           invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
@@ -161,6 +171,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
         {
           supplierId: testSupplier.id,
           invoiceNumber: `INV-GUARD-${Date.now()}`,
+          invoiceDate: new Date(),
           dueDate: new Date(),
           status: INVOICE_STATUS.POSTED,
           invoiceLines: [{ goodReceiptId: gr.id, amount: 600 }],
@@ -177,6 +188,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
         // Manually revert to DRAFT to clean up
         await Invoice.update({ status: INVOICE_STATUS.DRAFT }, { where: { id: postedInvoice.id } });
         await invoiceServerService.delete(postedInvoice.id);
+        await Invoice.destroy({ where: { id: postedInvoice.id }, force: true });
       }
       await gr.destroy({ force: true });
     }
@@ -200,6 +212,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
         {
           supplierId: testSupplier.id,
           invoiceNumber: `INV-PAY-${Date.now()}`,
+          invoiceDate: new Date(),
           dueDate: new Date(),
           status: INVOICE_STATUS.POSTED,
           invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
@@ -253,11 +266,12 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
       const paidInvoice = await Invoice.findByPk(invoice.id);
       expect(paidInvoice?.status).toBe(INVOICE_STATUS.PAID);
     } finally {
-      if (payment1) await paymentServerService.delete(payment1.id);
-      if (payment2) await paymentServerService.delete(payment2.id);
+      if (payment1) await Payment.destroy({ where: { id: payment1.id }, force: true });
+      if (payment2) await Payment.destroy({ where: { id: payment2.id }, force: true });
       if (invoice) {
         await Invoice.update({ status: INVOICE_STATUS.DRAFT }, { where: { id: invoice.id } });
         await invoiceServerService.delete(invoice.id);
+        await Invoice.destroy({ where: { id: invoice.id }, force: true });
       }
       await gr.destroy({ force: true });
     }

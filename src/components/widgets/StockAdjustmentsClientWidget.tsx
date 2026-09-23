@@ -19,7 +19,6 @@ export default function StockAdjustmentsClientWidget({
   initialAdjustments = [],
 }: StockAdjustmentsClientWidgetProps) {
   const records = initialAdjustments || [];
-  console.log(initialAdjustments);
 
   const columns = useMemo(
     () => [

@@ -19,7 +19,13 @@ import "server-only";
 export interface GetReordersLevelsInput {
   limit?: number;
   page?: number;
-  sort?: "lastSoldAt" | "quantity" | "reorderLevel" | "name" | "transactionCount" | string;
+  sort?:
+    | "lastSoldAt"
+    | "quantity"
+    | "reorderLevel"
+    | "name"
+    | "transactionCount"
+    | string;
   order?: "ASC" | "DESC";
 }
 
@@ -71,7 +77,7 @@ export const inventoryServerService = {
         },
         {
           model: ProductCombination,
-          as: "combinations",
+          as: "combination",
           where: q ? { name: { [Op.iLike]: `%${q}%` } } : undefined,
           include: [
             {
@@ -187,6 +193,9 @@ export const inventoryServerService = {
       ) {
         referenceDate = movement.goodReceipt.receiptDate;
       }
+      delete movement.salesOrder;
+      delete movement.goodReceipt;
+
       return {
         ...movement,
         referenceDate,
@@ -196,14 +205,27 @@ export const inventoryServerService = {
     let totalAmount = 0;
     let totalQuantity = 0;
     try {
+      const sumInclude = Object.keys(combinationWhere).length
+        ? [
+            {
+              model: ProductCombination,
+              as: "combination",
+              where: combinationWhere,
+              required: true,
+            },
+          ]
+        : undefined;
+
       totalAmount =
         (await InventoryMovement.sum("totalCost", {
           where: Object.keys(where).length ? where : undefined,
-        })) || 0;
+          include: sumInclude,
+        } as any)) || 0;
       totalQuantity =
         (await InventoryMovement.sum("quantity", {
           where: Object.keys(where).length ? where : undefined,
-        })) || 0;
+          include: sumInclude,
+        } as any)) || 0;
     } catch (e) {
       // Fallback
     }
@@ -233,7 +255,7 @@ export const inventoryServerService = {
     type: string,
     referenceId: number | null = null,
     referenceType: string | null = null,
-    transaction: any,
+    transaction: any = null,
     userId: number = 1,
   ) => {
     const { combinationId } = item;
@@ -301,7 +323,7 @@ export const inventoryServerService = {
     type: string,
     referenceId: number | null = null,
     referenceType: string | null = null,
-    transaction: any,
+    transaction: any = null,
     userId: number = 1,
   ) => {
     const { combinationId } = item;

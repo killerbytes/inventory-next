@@ -72,6 +72,15 @@ Customer.init(
     defaultScope: {
       attributes: { exclude: ["createdAt", "updatedAt", "deletedAt"] },
     },
+    indexes: [
+      {
+        unique: true,
+        fields: ["email"],
+        where: {
+          deletedAt: null,
+        },
+      },
+    ],
   },
 );
 

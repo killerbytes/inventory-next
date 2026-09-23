@@ -29,7 +29,7 @@ export class SalesOrderItem extends Model<
   declare categorySnapshot: any;
   declare variantSnapshot: any;
 
-  declare combinations: NonAttribute<ProductCombination>;
+  declare combination: NonAttribute<ProductCombination>;
 
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;

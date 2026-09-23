@@ -7,7 +7,13 @@ import PageHeader from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/input";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatDate } from "@/lib/utils";
+import {
+  INVENTORY_MOVEMENT_TYPE_COLOR,
+  INVENTORY_MOVEMENT_TYPE_OPTIONS,
+  UNIT_COLOR,
+} from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
+import { cx } from "class-variance-authority";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -17,6 +23,15 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 import { DateRange } from "react-day-picker";
+import ColorBadge from "../common/ColorBadge";
+import { Badge } from "../ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -90,12 +105,17 @@ export default function InventoryMovementsClientWidget({
         id: "combination.product.name",
         header: "Product Name",
         cell: ({ row }) => (
-          <Link
-            className="text-primary"
-            href={`/products/${row.original.combination?.productId}`}
-          >
-            {row.original.combination?.name}
-          </Link>
+          <div className="flex gap-2">
+            <ColorBadge colorMap={UNIT_COLOR}>
+              {row.original.combination?.unit}
+            </ColorBadge>
+            <Link
+              className="text-primary"
+              href={`/products/${row.original.combination?.productId}`}
+            >
+              {row.original.combination?.name}
+            </Link>
+          </div>
         ),
       }),
       columnHelper.accessor("referenceId", {
@@ -109,28 +129,27 @@ export default function InventoryMovementsClientWidget({
           </div>
         ),
       }),
-      columnHelper.accessor("movementType", {
+      columnHelper.accessor("type", {
         header: "Type",
         cell: ({ row }) => {
-          const type =
-            row.original.movementType || row.original.type || "MOVEMENT";
+          const type = row.original.type;
           const isIn =
             type.includes("IN") || type === "PURCHASE" || type === "RECEIPT";
+
+          const color =
+            INVENTORY_MOVEMENT_TYPE_COLOR[
+              type as keyof typeof INVENTORY_MOVEMENT_TYPE_COLOR
+            ];
+
           return (
-            <span
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                isIn
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-rose-100 text-rose-800"
-              }`}
-            >
+            <Badge className={cx(color)}>
+              {type}
               {isIn ? (
                 <ArrowDownLeft className="h-3 w-3" />
               ) : (
                 <ArrowUpRight className="h-3 w-3" />
               )}
-              {type}
-            </span>
+            </Badge>
           );
         },
       }),
@@ -141,6 +160,8 @@ export default function InventoryMovementsClientWidget({
       columnHelper.accessor("referenceDate", {
         header: "Reference Date",
         cell: ({ row }) => {
+          console.log(row.original);
+
           return formatDate(row.original.referenceDate);
         },
       }),
@@ -193,25 +214,28 @@ export default function InventoryMovementsClientWidget({
             />
           </div>
 
-          <select
+          <Select
             value={filters.status}
-            onChange={(e) =>
+            onValueChange={(value) =>
               setFilters((prev) => ({
                 ...prev,
-                status: e.target.value,
+                status: value,
                 page: 1,
               }))
             }
-            className="h-10 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+            items={INVENTORY_MOVEMENT_TYPE_OPTIONS}
           >
-            <option value="ALL">All Types</option>
-            <option value="IN">IN</option>
-            <option value="OUT">OUT</option>
-            <option value="ADJUSTMENT_IN">ADJUSTMENT_IN</option>
-            <option value="ADJUSTMENT_OUT">ADJUSTMENT_OUT</option>
-            <option value="BREAK_PACK_IN">BREAK_PACK_IN</option>
-            <option value="BREAK_PACK_OUT">BREAK_PACK_OUT</option>
-          </select>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Movement Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {INVENTORY_MOVEMENT_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

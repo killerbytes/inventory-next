@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { formatCurrency, getTotalAmountTableFooter } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import { ComputableItem } from "../../lib/compute";
 
@@ -13,8 +13,20 @@ export default function FormTableFooter({
   onAdd,
   values,
 }: FormTableFooterProps) {
-  const total = getTotalAmountTableFooter(values);
-  console.log(values);
+  const total = values.reduce(
+    (acc, item) => {
+      const price = Number(item.purchasePrice);
+      const discount = Number(item?.discount || 0);
+      const lineTotal = price * (Number(item.quantity) || 0) - discount;
+
+      return {
+        totalAmount: acc.totalAmount + lineTotal,
+        totalPrice: acc.totalPrice + price,
+        totalDiscount: acc.totalDiscount + discount,
+      };
+    },
+    { totalAmount: 0, totalDiscount: 0, totalPrice: 0 },
+  );
 
   return (
     <>

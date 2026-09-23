@@ -1,12 +1,6 @@
 "use client";
 
-import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import ColorBadge from "@/components/common/ColorBadge";
 import {
   Table,
   TableBody,
@@ -15,7 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import ColorBadge from "@/components/common/ColorBadge";
+import { formatDateTime } from "@/lib/utils";
+import { OrderStatusHistoryData } from "@/schemas/orderStatusHistory.schema";
+import { useUIStore } from "@/stores/uiStore";
+import { ORDER_STATUS } from "@/types/definitions";
+import Modal from "../common/Modal";
 
 export interface StatusHistoryItem {
   id: number;
@@ -26,58 +24,73 @@ export interface StatusHistoryItem {
   };
 }
 
-export default function OrderHistoryModal({
+function OrderHistoryModalContent({
   data = [],
-  isOpen,
-  onClose,
 }: {
-  data: StatusHistoryItem[];
-  isOpen: boolean;
-  onClose: () => void;
+  data: OrderStatusHistoryData[];
 }) {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Order Status History</DialogTitle>
-        </DialogHeader>
-        <div className="rounded-md border overflow-hidden mt-2">
-          <Table>
-            <TableHeader>
+    <>
+      <div className="rounded-md border overflow-hidden mt-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Status</TableHead>
+              <TableHead>Changed By</TableHead>
+              <TableHead>Date & Time</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 ? (
               <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Changed By</TableHead>
-                <TableHead>Date & Time</TableHead>
+                <TableCell
+                  colSpan={3}
+                  className="text-center text-muted-foreground py-4"
+                >
+                  No status audit logs found.
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                    No status audit logs found.
+            ) : (
+              data.map((history) => (
+                <TableRow key={history.id}>
+                  <TableCell>
+                    <ColorBadge colorMap={ORDER_STATUS}>
+                      {history.status}
+                    </ColorBadge>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {history.user?.username}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDateTime(history.changedAt)}
                   </TableCell>
                 </TableRow>
-              ) : (
-                data.map((history) => (
-                  <TableRow key={history.id}>
-                    <TableCell>
-                      <ColorBadge colorMap={{ DEFAULT: "bg-purple-100 text-purple-800" }}>
-                        {history.status}
-                      </ColorBadge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {history.user?.username || "System"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(history.changedAt).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DialogContent>
-    </Dialog>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  );
+}
+
+export default function OrderHistoryModal({
+  data,
+}: {
+  data: OrderStatusHistoryData[];
+}) {
+  const { isOrderHistoryModalOpen, setOrderHistoryModalOpen } = useUIStore();
+
+  if (!isOrderHistoryModalOpen) return null;
+
+  return (
+    <Modal
+      title="Order Status History"
+      description="Order status changes and transaction histories."
+      isOpen={isOrderHistoryModalOpen}
+      onClose={() => setOrderHistoryModalOpen(false)}
+    >
+      <OrderHistoryModalContent data={data} />
+    </Modal>
   );
 }

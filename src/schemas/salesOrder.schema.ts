@@ -2,10 +2,7 @@ import { MODE_OF_PAYMENT } from "@/types/definitions";
 import * as z from "zod";
 import { CustomerSchema } from "./customer.schema";
 import { OrderStatusHistorySchema } from "./orderStatusHistory.schema";
-import {
-  ProductCombinationSchema,
-  ProductCombinationUpdateSchema,
-} from "./productCombination.schema";
+import { ProductCombinationSchema } from "./productCombination.schema";
 import { ReturnTransactionSchema } from "./returnItem.schema";
 
 export const SalesOrderItemBaseSchema = z.object({
@@ -17,12 +14,8 @@ export const SalesOrderItemBaseSchema = z.object({
   }),
   discount: z.coerce.number().nullish(),
   discountNote: z.string().nullish(),
-  combination: ProductCombinationSchema,
 });
-export const SalesOrderItemInputSchema =
-  SalesOrderItemBaseSchema.strict().extend({
-    combination: ProductCombinationUpdateSchema,
-  });
+export const SalesOrderItemInputSchema = SalesOrderItemBaseSchema.strict();
 
 export const SalesOrderItemSchema = SalesOrderItemBaseSchema.extend({
   id: z.number(),
@@ -33,6 +26,7 @@ export const SalesOrderItemSchema = SalesOrderItemBaseSchema.extend({
   nameSnapshot: z.string(),
   categorySnapshot: z.string(),
   variantSnapshot: z.string(),
+  combination: ProductCombinationSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -41,24 +35,26 @@ export type SalesOrderItemInput = z.infer<typeof SalesOrderItemInputSchema>;
 export type SalesOrderItemData = z.infer<typeof SalesOrderItemSchema>;
 
 export const SalesOrderBaseSchema = z.object({
-  salesOrderNumber: z.string(),
+  salesOrderNumber: z.string().min(2, {
+    message: "Sales order number is required.",
+  }),
   customerId: z.coerce
     .number()
     .min(1, {
       message: "Customer is required.",
     })
     .positive(),
-  orderDate: z.date(),
+  orderDate: z.coerce.date(),
   modeOfPayment: z.enum(
     Object.values(MODE_OF_PAYMENT) as [string, ...string[]],
   ),
   isDelivery: z.boolean().nullish(),
   deliveryAddress: z.string().nullish(),
   deliveryInstructions: z.string().nullish(),
-  deliveryDate: z.date().nullish(),
+  deliveryDate: z.coerce.date().nullish(),
   internalNotes: z.string().nullish(),
   notes: z.string().nullish(),
-  dueDate: z.date().nullish(),
+  dueDate: z.coerce.date().nullish(),
   checkNumber: z.string().nullish(),
   salesOrderItems: z.array(SalesOrderItemSchema).min(1, {
     message: "At least one product is required.",

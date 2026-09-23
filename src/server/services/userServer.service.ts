@@ -76,65 +76,54 @@ export const userServerService = {
   },
 
   create: async (data: UserInput) => {
-    try {
-      const validatedData = UserInputSchema.parse(data);
-      return await User.create({
-        name: validatedData.name,
-        username: validatedData.username,
-        email: validatedData.email,
-        password: User.generateHash(validatedData.password),
-      });
-    } catch (error) {
-      handleServiceError(error);
-    }
+    const validatedData = UserInputSchema.parse(data);
+    return await User.create({
+      name: validatedData.name,
+      username: validatedData.username,
+      email: validatedData.email,
+      password: User.generateHash(validatedData.password),
+    });
   },
 
   update: async (id: number, data: UserUpdateInput) => {
     const validatedData = UserUpdateSchema.parse(data);
-    try {
-      const user = await User.findByPk(id);
-      if (!user) {
-        throw new Error(`User with ID ${id} not found`);
-      }
-      return await user.update({
-        name: validatedData.name,
-        username: validatedData.username,
-        email: validatedData.email,
-        role: validatedData.role,
-        isActive: validatedData.isActive,
-      });
-    } catch (error) {
-      handleServiceError(error);
+    const user = await User.findByPk(id);
+    if (!user) {
+      throw new Error(`User with ID ${id} not found`);
     }
+    return await user.update({
+      name: validatedData.name,
+      username: validatedData.username,
+      email: validatedData.email,
+      role: validatedData.role,
+      isActive: validatedData.isActive,
+    });
   },
 
   delete: async (id: number) => {
-    try {
-      const user = await User.findByPk(id);
-      if (!user) {
-        throw new Error(`User with ID ${id} not found`);
-      }
-      await user.destroy();
-      return { success: true, message: `User ${id} deleted successfully` };
-    } catch (error) {
-      handleServiceError(error);
+    const user = await User.findByPk(id);
+    if (!user) {
+      throw new Error(`User with ID ${id} not found`);
     }
+    await user.destroy();
+    return { success: true, message: `User ${id} deleted successfully` };
   },
 
   changePassword: async (
     userId: number,
-    payload: { password?: string; newPassword?: string },
+    oldPassword: string,
+    newPassword: string,
   ) => {
     try {
-      const user = await User.findByPk(userId);
+      const user = await User.scope("withPassword").findByPk(userId);
       if (!user) {
         throw new Error(`User with ID ${userId} not found`);
       }
-      const newPass = payload.newPassword || payload.password;
-      if (!newPass) {
-        throw new Error("New password is required");
+
+      if (!User.validatePassword(oldPassword, user.password)) {
+        throw new Error("Incorrect current password");
       }
-      await user.update({ password: User.generateHash(newPass) });
+      await user.update({ password: User.generateHash(newPassword) });
       return { success: true, message: "Password updated successfully" };
     } catch (error) {
       handleServiceError(error);

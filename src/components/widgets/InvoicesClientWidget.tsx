@@ -53,7 +53,6 @@ export default function InvoicesClientWidget({
   });
 
   const invoices = initialInvoices || [];
-  console.log(invoices);
 
   const columns = useMemo(
     () => [
@@ -124,8 +123,6 @@ export default function InvoicesClientWidget({
 
   const handleRowClick = (item: any) => {
     if (item.status === INVOICE_STATUS.DRAFT) {
-      console.log(item);
-
       setInvoiceModalOpen(true, item);
     } else {
       router.push(`/invoices/${item.id}`);

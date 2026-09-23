@@ -11,7 +11,11 @@ import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { CustomerData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS_OPTIONS, STATUS_COLOR } from "@/types/definitions";
+import {
+  ORDER_STATUS,
+  ORDER_STATUS_OPTIONS,
+  STATUS_COLOR,
+} from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -166,7 +170,11 @@ export default function SalesOrdersClientWidget({
         paginate={true}
         paginationMeta={meta}
         onRowClick={(row) => {
-          router.push(`/sales-orders/${row.id}`);
+          if (row.status === ORDER_STATUS.DRAFT) {
+            setSalesOrderModalOpen(true, row);
+          } else {
+            router.push(`/sales-orders/${row.id}`);
+          }
         }}
       />
       <SalesOrderModal customers={customers} />

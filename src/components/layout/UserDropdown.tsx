@@ -1,50 +1,24 @@
 "use client";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
-import { ChevronUp, KeyRound, LogOut } from "lucide-react";
+import { useUIStore } from "@/stores/uiStore";
+import { ChevronUp, Cog, KeyRound, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
-import { toast } from "sonner";
+import AdminPanelModal from "../modals/AdminPanelModal";
+import ChangePasswordModal from "../modals/ChangePasswordModal";
 
 export default function UserDropdown() {
   const { user, logout } = useAuthStore();
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const router = useRouter();
-
-  const handleChangePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-    toast.success("Password updated successfully!");
-    setIsPasswordModalOpen(false);
-    setPassword("");
-    setConfirmPassword("");
-  };
+  const { setAdminPanelModalOpen, setChangePasswordModalOpen } = useUIStore();
 
   const handleLogout = async () => {
     try {
@@ -89,61 +63,29 @@ export default function UserDropdown() {
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" className="w-56 p-1">
           <DropdownMenuItem
-            onClick={() => setIsPasswordModalOpen(true)}
+            onClick={() => setAdminPanelModalOpen(true)}
             className="gap-2 cursor-pointer"
           >
-            <KeyRound className="h-4 w-4" /> Change Password
+            <Cog /> Admin Panel
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => setChangePasswordModalOpen(true)}
+            className="gap-2 cursor-pointer"
+          >
+            <KeyRound /> Change Password
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleLogout}
             className="gap-2 cursor-pointer text-destructive focus:text-destructive"
           >
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut /> Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">New Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">
-                Confirm New Password
-              </label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsPasswordModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Update Password</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ChangePasswordModal />
+      <AdminPanelModal />
     </>
   );
 }

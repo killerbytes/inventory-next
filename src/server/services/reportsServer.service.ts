@@ -255,11 +255,12 @@ export const reportsServerService = {
   },
 
   getInventoryValue: async () => {
-    const result: any = await Inventory.findOne({
+    const result: any = await Inventory.unscoped().findOne({
       attributes: [
         [sequelize.literal('SUM("quantity" * "averagePrice")'), "totalValue"],
       ],
       raw: true,
+      order: [],
     });
 
     return {
@@ -268,11 +269,12 @@ export const reportsServerService = {
   },
 
   getInventoryValueFromMovements: async () => {
-    const result: any = await InventoryMovement.findOne({
+    const result: any = await InventoryMovement.unscoped().findOne({
       attributes: [
         [sequelize.fn("SUM", sequelize.col("totalCost")), "totalValue"],
       ],
       raw: true,
+      order: [],
     });
 
     return {

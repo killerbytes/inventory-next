@@ -45,6 +45,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
 import ColorBadge from "../common/ColorBadge";
 import { PermissionGuard } from "../common/PermissionGuard";
+import ShowMore from "../common/ShowMore";
 import ProductModal from "../modals/ProductModal";
 
 interface ProductDetailClientWidgetProps {
@@ -79,7 +80,6 @@ export default function ProductDetailClientWidget({
     setBreakPackModalOpen,
     setStockAdjustmentModalOpen,
   } = useUIStore();
-  console.log(product);
 
   const activeTab = useMemo(() => {
     const tabParam = searchParams?.get("tab");
@@ -235,11 +235,11 @@ export default function ProductDetailClientWidget({
 
   const priceHistoryColumns = useMemo(
     () => [
-      columnHelper.accessor("combinations.name", {
+      columnHelper.accessor("combination.name", {
         header: "Name",
         meta: { className: "w-2/4 min-w-[180px]" },
         cell: (info) => {
-          const combo = info.row.original.combinations;
+          const combo = info.row.original.combination;
           return (
             <div className="flex gap-2 items-center">
               <ColorBadge colorMap={UNIT_COLOR}>
@@ -287,15 +287,15 @@ export default function ProductDetailClientWidget({
 
   const supplierHistoryColumns = useMemo(
     () => [
-      columnHelper.accessor("combinations.name", {
+      columnHelper.accessor("combination.name", {
         header: "Name",
-        cell: (info) => info.row.original.combinations?.name || "N/A",
+        cell: (info) => info.row.original.combination?.name,
       }),
       columnHelper.accessor("unit", {
         header: "Unit",
         cell: (info) => (
           <ColorBadge colorMap={UNIT_COLOR}>
-            {String(info.getValue() || "PCS")}
+            {String(info.getValue())}
           </ColorBadge>
         ),
       }),
@@ -487,15 +487,17 @@ export default function ProductDetailClientWidget({
                     {variant.name}
                   </div>
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(variant.values || []).map((v: any) => (
-                      <Badge
-                        key={v.id || v.value}
-                        variant="outline"
-                        className="text-xs font-normal"
-                      >
-                        {v.value}
-                      </Badge>
-                    ))}
+                    <ShowMore>
+                      {(variant.values || []).map((v: any) => (
+                        <Badge
+                          key={v.id || v.value}
+                          variant="outline"
+                          className="text-xs font-normal"
+                        >
+                          {v.value}
+                        </Badge>
+                      ))}
+                    </ShowMore>
                   </div>
                 </div>
               ))}

@@ -173,6 +173,10 @@ export const invoiceServerService = {
     }
   },
 
+  getPaginated: async (params: ListInvoicesParams = {}) => {
+    return await invoiceServerService.getAll(params);
+  },
+
   create: async (data: InvoiceInput, userId?: number) => {
     try {
       return await sequelize.transaction(async (transaction) => {

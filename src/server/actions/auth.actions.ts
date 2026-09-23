@@ -1,6 +1,6 @@
 "use server";
 
-import { clearSessionCookie, setSessionCookie } from "@/server/auth/session";
+import { setSessionCookie } from "@/server/auth/session";
 import { User } from "@/server/models";
 
 export interface LoginResult {
@@ -18,56 +18,45 @@ export interface LoginResult {
  * Server action to authenticate user credentials against PostgreSQL User model.
  */
 export async function loginAction(credentials: {
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
 }): Promise<LoginResult> {
-  try {
-    const { username, password } = credentials;
-    if (!username || !password) {
-      return { success: false, error: "Username and password are required" };
-    }
+  const { username, password } = credentials;
 
-    const user = await User.scope("withPassword").findOne({
-      where: { username },
-    });
-
-    if (!user) {
-      return { success: false, error: "Invalid username or password" };
-    }
-
-    if (!User.validatePassword(password, user.password)) {
-      return { success: false, error: "Invalid username or password" };
-    }
-
-    const sessionUser = {
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      role: user.role || "User",
-    };
-
-    await setSessionCookie(sessionUser);
-
-    return {
-      success: true,
-      user: sessionUser,
-    };
-  } catch (error: any) {
+  if (!username || !password) {
     return {
       success: false,
-      error: error?.message || "Authentication failed",
+      error: "Username and password are required.",
     };
   }
-}
 
-/**
- * Server action for logging out.
- */
-export async function logoutAction(): Promise<{ success: boolean }> {
-  try {
-    await clearSessionCookie();
-  } catch (err) {
-    console.error("Failed to clear session cookie:", err);
+  const user = await User.scope("withPassword").findOne({
+    where: { username: username.trim() },
+  });
+
+  if (!user) {
+    throw new Error("Invalid username or password");
   }
-  return { success: true };
+
+  if (!User.validatePassword(password, user.password)) {
+    throw new Error("Invalid username or password");
+  }
+
+  if (!user.isActive) {
+    throw new Error("Account is inactive. Please contact an administrator.");
+  }
+
+  const sessionUser = {
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    role: user.role,
+  };
+
+  await setSessionCookie(sessionUser);
+
+  return {
+    success: true,
+    user: sessionUser,
+  };
 }

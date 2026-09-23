@@ -1,15 +1,15 @@
 "use client";
 
-import { UserData } from "@/schemas";
+import { SessionUserData } from "@/schemas";
 import React, { createContext, useContext, useEffect, useRef } from "react";
 import { createStore, useStore } from "zustand";
 
 export interface AuthState {
   token: string | null;
-  user: UserData | null;
+  user: SessionUserData | null;
   isAuthenticated: boolean;
   setToken: (token: string | null) => void;
-  setUser: (user: UserData | null) => void;
+  setUser: (user: SessionUserData | null) => void;
   logout: () => void;
 }
 
@@ -35,7 +35,7 @@ export const defaultAuthStore = createAuthStore();
 export const AuthContext = createContext<AuthStore | null>(null);
 
 export interface AuthProviderProps {
-  user?: UserData | null;
+  user?: SessionUserData | null;
   token?: string | null;
   fallback?: React.ReactNode;
   children: React.ReactNode;
@@ -46,11 +46,7 @@ export interface AuthProviderProps {
  * Synchronously initializes the store on both SSR render and client hydration
  * using the server-supplied session user to guarantee hydration parity.
  */
-export function AuthProvider({
-  user,
-  token,
-  children,
-}: AuthProviderProps) {
+export function AuthProvider({ user, token, children }: AuthProviderProps) {
   const storeRef = useRef<AuthStore | null>(null);
 
   if (!storeRef.current) {
@@ -79,7 +75,7 @@ export function AuthProvider({
  * falling back to the default standalone store for non-wrapped contexts or unit tests.
  */
 export function useAuthStore<T = AuthState>(
-  selector?: (state: AuthState) => T
+  selector?: (state: AuthState) => T,
 ): T {
   const contextStore = useContext(AuthContext);
   const targetStore = contextStore ?? defaultAuthStore;

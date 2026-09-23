@@ -3,7 +3,10 @@ import * as z from "zod";
 export const BreakPackBaseSchema = z.object({
   fromCombinationId: z.coerce.number().positive(),
   toCombinationId: z.coerce.number().positive(),
-  quantity: z.coerce.number().positive(),
+  quantity: z
+    .number({ invalid_type_error: "Quantity must be a number" })
+    .int("Quantity must be a whole number")
+    .positive(),
 });
 
 export const BreakPackInputSchema = BreakPackBaseSchema.strict();

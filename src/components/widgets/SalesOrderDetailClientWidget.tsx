@@ -29,23 +29,32 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { SalesOrderData } from "@/schemas";
 import { cancelSalesOrderAction } from "@/server/actions/salesOrder.actions";
+import { useUIStore } from "@/stores/uiStore";
 import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/types/definitions";
 import { createColumnHelper, RowSelectionState } from "@tanstack/react-table";
 import { cx } from "class-variance-authority";
-import { AlertCircle, Ban, Car, EllipsisVertical, Undo } from "lucide-react";
+import {
+  AlertCircle,
+  Ban,
+  Car,
+  EllipsisVertical,
+  GalleryVerticalEnd,
+  Undo,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import OrderHistoryModal from "../modals/OrderHistoryModal";
 
 const columnHelper = createColumnHelper<any>();
 
 interface SalesOrderDetailClientWidgetProps {
-  data: SalesOrderData;
+  initialData: SalesOrderData;
 }
 
 export default function SalesOrderDetailClientWidget({
-  data,
+  initialData: data,
 }: SalesOrderDetailClientWidgetProps) {
   const router = useRouter();
   const [returnEnabled, setReturnEnabled] = useState(false);
@@ -53,6 +62,7 @@ export default function SalesOrderDetailClientWidget({
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const { isOrderHistoryModalOpen, setOrderHistoryModalOpen } = useUIStore();
 
   if (!data) {
     return (
@@ -221,6 +231,13 @@ export default function SalesOrderDetailClientWidget({
                 <EllipsisVertical className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setOrderHistoryModalOpen(true)}
+                >
+                  <GalleryVerticalEnd />
+                  Order History
+                </DropdownMenuItem>
+
                 <DropdownMenuItem onClick={() => setIsDeliveryModalOpen(true)}>
                   <Car className="h-4 w-4 mr-2" />
                   Delivery Details
@@ -423,6 +440,7 @@ export default function SalesOrderDetailClientWidget({
         returns={selectedReturns}
         salesOrder={true}
       />
+      <OrderHistoryModal data={data.salesOrderStatusHistory} />
     </div>
   );
 }

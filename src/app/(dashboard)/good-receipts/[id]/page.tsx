@@ -28,6 +28,8 @@ export default async function GoodReceiptDetailsPage({
   }
 
   return (
-    <GoodReceiptDetailClientWidget data={JSON.parse(JSON.stringify(receipt))} />
+    <GoodReceiptDetailClientWidget
+      initialReceipt={JSON.parse(JSON.stringify(receipt))}
+    />
   );
 }

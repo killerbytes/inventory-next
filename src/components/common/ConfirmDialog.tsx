@@ -1,66 +1,93 @@
-"use client";
-
-import React from "react";
-import { AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-
-interface ConfirmDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  title: string;
-  description: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: "default" | "destructive";
-}
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CircleAlert, Loader2Icon } from "lucide-react";
+import React from "react";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Checkbox } from "../ui/checkbox";
 
 export default function ConfirmDialog({
-  isOpen,
-  onClose,
+  children,
   onConfirm,
-  title,
-  description,
+  title = "Confirm",
+  description = `Are you sure you want to continue?`,
   confirmText = "Confirm",
-  cancelText = "Cancel",
-  variant = "destructive",
-}: ConfirmDialogProps) {
+  isLoading,
+  shouldConfirm,
+}: {
+  children: React.ReactNode;
+  onConfirm: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+  title?: string;
+  description?: string;
+  confirmText?: string;
+  isLoading?: boolean;
+  shouldConfirm?: () => boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [requiresConfirm, setRequiresConfirm] = React.useState(false);
+  const [confirmed, setConfirmed] = React.useState(true);
+  React.useEffect(() => {
+    if (shouldConfirm && open) {
+      const result: boolean = shouldConfirm();
+      setRequiresConfirm(result);
+      setConfirmed(!result);
+    }
+  }, [open, shouldConfirm]);
+
+  const handleConfirm = async (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ) => {
+    await onConfirm(e);
+    setOpen(false);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader className="flex flex-row items-center gap-3">
-          <div className={`p-3 rounded-full ${variant === "destructive" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription className="mt-1">{description}</DialogDescription>
-          </div>
-        </DialogHeader>
-        <DialogFooter className="mt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {cancelText}
-          </Button>
-          <Button
-            type="button"
-            variant={variant}
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger>{children}</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription className="flex flex-col gap-4">
+            {description}
+            {requiresConfirm && (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertTitle>Wholesale items</AlertTitle>
+                <AlertDescription>
+                  This order includes wholesale items. Please confirm that you
+                  intend to resell these products.
+                  <Checkbox
+                    onCheckedChange={(checked) =>
+                      setConfirmed(checked === true)
+                    }
+                    checked={confirmed}
+                  />{" "}
+                  Check to confirm
+                </AlertDescription>
+              </Alert>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isLoading || !confirmed}
+            onClick={handleConfirm}
+            autoFocus
           >
+            {isLoading && <Loader2Icon className="animate-spin" />}
             {confirmText}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

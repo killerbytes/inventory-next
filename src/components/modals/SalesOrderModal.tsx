@@ -1,13 +1,21 @@
 "use client";
 
+import DraftAutoSaver from "@/components/common/DraftAutoSaver";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
+import {
+  clearDraft,
+  DRAFT_STORAGE_KEYS,
+  loadDraft,
+  saveDraft,
+} from "@/lib/draftStorage";
 import { formatCurrency } from "@/lib/utils";
 import {
   CustomerData,
+  ProductCombinationSchema,
   SalesOrderInput,
   SalesOrderInputSchema,
-  SalesOrderItemInput,
+  SalesOrderItemInputSchema,
 } from "@/schemas";
 import { createSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
@@ -20,9 +28,10 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
-import React, { useTransition } from "react";
+import React, { useEffect, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import z from "zod";
 import ColorBadge from "../common/ColorBadge";
 import DataTable from "../common/DataTable";
 import DatePicker from "../common/DatePicker";
@@ -43,15 +52,28 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 
-const columnHelper = createColumnHelper<SalesOrderItemInput>();
+const SalesOrderItemWithCombination = SalesOrderItemInputSchema.extend({
+  combination: ProductCombinationSchema.nullable(),
+});
+
+const SalesOrderFormSchema = SalesOrderInputSchema.extend({
+  salesOrderItems: z.array(SalesOrderItemWithCombination),
+});
+type SalesOrderForm = z.infer<typeof SalesOrderFormSchema>;
+type SalesOrderItemWithCombination = z.infer<
+  typeof SalesOrderItemWithCombination
+>;
+
+const columnHelper = createColumnHelper<SalesOrderItemWithCombination>();
 
 function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   const [isPending, startTransition] = useTransition();
   const { setSalesOrderModalOpen } = useUIStore();
 
-  const form = useForm<SalesOrderInput>({
-    resolver: zodResolver(SalesOrderInputSchema),
+  const form = useForm<SalesOrderForm>({
+    resolver: zodResolver(SalesOrderFormSchema),
     defaultValues: {
+      salesOrderNumber: "",
       customerId: 0,
       orderDate: new Date(),
       modeOfPayment: MODE_OF_PAYMENT.CASH,
@@ -79,12 +101,40 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     keyName: "fieldId",
   });
 
-  const onSubmit = async (values: SalesOrderInput) => {
-    console.log(values);
+  useEffect(() => {
+    try {
+      const storedDraft = loadDraft<SalesOrderInput>(
+        DRAFT_STORAGE_KEYS.SALES_ORDER,
+        ["orderDate", "deliveryDate", "dueDate"],
+      );
+      if (storedDraft) {
+        form.reset(storedDraft);
+      }
+    } catch {
+      toast.error("Failed to load draft.");
+    }
+  }, [form.reset]);
 
+  const handleSaveDraft = () => {
+    try {
+      saveDraft(DRAFT_STORAGE_KEYS.SALES_ORDER, form.getValues());
+      toast.success("Draft saved successfully!");
+    } catch {
+      toast.error("Failed to save draft.");
+    }
+  };
+
+  const onSubmit = async (values: SalesOrderForm) => {
     startTransition(async () => {
       try {
-        await createSalesOrderAction(values);
+        const payload: SalesOrderInput = {
+          ...values,
+          salesOrderItems: values.salesOrderItems.map(
+            ({ combination, ...item }) => item,
+          ),
+        };
+        await createSalesOrderAction(payload);
+        clearDraft(DRAFT_STORAGE_KEYS.SALES_ORDER);
         toast.success(`Sales order created successfully!`);
         setSalesOrderModalOpen(false);
       } catch (error: any) {
@@ -92,7 +142,6 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
       }
     });
   };
-  console.log(form.getValues(), errors);
 
   const columns = React.useMemo(
     () => [
@@ -175,6 +224,8 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                   selected={combination}
                   aria-invalid={
                     !!errors.salesOrderItems?.[row.index]?.combinationId
+                      ?.message ||
+                    !!errors.salesOrderItems?.[row.index]?.combination?.price
                       ?.message
                   }
                   exclude={
@@ -185,11 +236,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                   noBreakPacks
                   onChange={(value) => {
                     field.onChange(value.id);
-                    console.log(value);
-
                     form.setValue(
                       `salesOrderItems.${row.index}.combination`,
                       value,
+                      { shouldValidate: true },
                     );
                   }}
                 />
@@ -246,7 +296,16 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
               control={form.control}
               name="salesOrderItems"
             >
-              {(value: any) => formatCurrency(value?.combination?.price || 0)}
+              {(value: any) => (
+                <>
+                  {errors.salesOrderItems?.[row.index]?.combination?.price
+                    ?.message ? (
+                    <p className="text-xs text-rose-600">Price not set</p>
+                  ) : (
+                    formatCurrency(value?.combination?.price || 0)
+                  )}
+                </>
+              )}
             </LineColumn>
           );
         },
@@ -286,6 +345,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   return (
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DraftAutoSaver
+          form={form}
+          storageKey={DRAFT_STORAGE_KEYS.SALES_ORDER}
+        />
         <FormField
           form={form}
           name="customerId"
@@ -386,14 +449,18 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                 columns={columns}
                 renderFooter={() => (
                   <FormTableFooter
-                    values={footerValues || []}
+                    values={footerValues.map((v) => ({
+                      purchasePrice: v?.combination?.price || 0,
+                      quantity: v?.quantity || 0,
+                      discount: Number(v?.discount || 0),
+                    }))}
                     onAdd={() =>
                       append({
                         combinationId: 0,
                         quantity: 1,
                         discount: 0,
                         discountNote: "",
-                        combination: { productId: 0, unit: "" },
+                        combination: null,
                       })
                     }
                   />
@@ -406,7 +473,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           )}
         />
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
           <Button
             type="button"
             variant="outline"
@@ -415,13 +482,23 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {isPending ? "Creating..." : "Create Sales Order"}
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveDraft}
+              disabled={isPending}
+            >
+              Save Draft
+            </Button>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isPending ? "Creating..." : "Create Sales Order"}
+            </Button>
+          </div>
         </DialogFooter>
       </form>
     </>

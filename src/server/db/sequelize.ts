@@ -1,12 +1,16 @@
-import "server-only";
-import { Sequelize } from "sequelize";
 import pg from "pg";
+import { Sequelize } from "sequelize";
+import "server-only";
 
-const host = process.env.DB_HOST || "localhost";
-const port = Number(process.env.DB_PORT) || 5432;
-const username = process.env.DB_USERNAME || "postgres";
-const password = process.env.DB_PASSWORD || "killer";
-const database = process.env.DB_NAME || "inventory_db";
+const host = process.env.DB_HOST;
+const port = Number(process.env.DB_PORT);
+const username = process.env.DB_USERNAME;
+const password = process.env.DB_PASSWORD;
+const database = process.env.DB_NAME;
+
+if (!host || !port || !username || !password || !database) {
+  throw new Error("Missing database configuration");
+}
 
 export const sequelize = new Sequelize(database, username, password, {
   host,

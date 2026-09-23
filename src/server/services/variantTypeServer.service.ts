@@ -8,6 +8,7 @@ export interface CreateVariantTypeInput {
   name: string;
   productId?: number;
   values?: any[];
+  isTemplate?: boolean;
 }
 
 export interface UpdateVariantTypeInput {
@@ -17,7 +18,7 @@ export interface UpdateVariantTypeInput {
   isBreakpackFilter?: boolean;
 }
 
-export const variantTypesServerService = {
+export const variantTypeServerService = {
   get: async (id: number) => {
     return await VariantType.findByPk(id, {
       include: [{ model: VariantValue, as: "values" }],
@@ -70,7 +71,6 @@ export const variantTypesServerService = {
 
   update: async (id: number, data: UpdateVariantTypeInput) => {
     const { id: _id, values = [], ...rest } = data;
-    console.log(565, JSON.stringify(data, null, 2));
     try {
       const variantType = await VariantType.findByPk(id);
       if (!variantType) {
@@ -121,7 +121,10 @@ export const variantTypesServerService = {
           }
         }
 
-        return variantType;
+        return await VariantType.findByPk(id, {
+          include: [{ model: VariantValue, as: "values" }],
+          transaction,
+        });
       });
     } catch (error) {
       handleServiceError(error);
@@ -145,5 +148,3 @@ export const variantTypesServerService = {
     return { success: true, message: `VariantType ${id} deleted successfully` };
   },
 };
-
-export const variantTypeServerService = variantTypesServerService;

@@ -1,12 +1,15 @@
 import AppSidebar from "@/components/layout/AppSidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { requireSession } from "@/server/auth/guards";
 import React from "react";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireSession();
+
   return (
     <>
       <AppSidebar />

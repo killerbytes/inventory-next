@@ -1,3 +1,5 @@
+import { formatLabel, titleCase } from "@/lib/utils";
+
 export { ROUTES } from "@/lib/routes";
 
 export const MAX_START_DATE = "2025-08-12";
@@ -16,29 +18,8 @@ export const USER_ROLE_OPTIONS = Object.values(UserRole).map((value) => ({
 }));
 
 export const ORDER_TYPE = {
-  SALE: "SALES",
+  SALE: "SALE",
   PURCHASE: "PURCHASE",
-};
-
-export function titleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-export function formatLabel(str: string) {
-  return str
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-export const GLOBAL_COLOR = {
-  PRODUCT: "text-orange-900",
-  CATEGORY: "text-blue-900",
 };
 
 export const INVENTORY_MOVEMENT_TYPE = {
@@ -117,11 +98,6 @@ export const STATUS_COLOR = {
   CHECK: "text-yellow-500 border-yellow-500",
 };
 
-export const BUTTON_COLOR = {
-  RECEIVED: "bg-orange-500 text-white",
-  COMPLETED: "bg-green-600 text-white ",
-};
-
 export const PAGINATION = {
   PAGE: 1,
   PAGE_SIZE: 25,
@@ -130,8 +106,6 @@ export const PAGINATION = {
 
 export const DATE_FORMAT = "dd-MMM-yy";
 export const DATETIME_FORMAT = "dd-MMM-yy h:mm a";
-
-export const STATUS = ["DRAFT", "RECEIVED", "COMPLETED", "CANCELLED"];
 
 export const ORDER_STATUS = {
   ALL: "ALL",
@@ -184,16 +158,6 @@ export const UNIT = {
   DOZ: "DOZ",
 };
 
-export const WHOLESALE_UNITS = {
-  RLS: "RLS",
-  BOX: "BOX",
-  BAG: "BAG",
-  GAL: "GAL",
-  PCK: "PCK",
-  SET: "SET",
-  DOZ: "DOZ",
-};
-
 export const UNIT_COLOR = {
   undefined: "text-black",
   PCS: "bg-green-100 text-black border-green-500",
@@ -201,14 +165,14 @@ export const UNIT_COLOR = {
   FTS: "bg-lime-100 text-black border-lime-500",
   KGS: "bg-cyan-200 text-black border-cyan-500",
   LTS: "bg-teal-100 text-black border-teal-500",
-  BTL: "bg--lime text-black border-lime-500",
-  BOX: "bg-indigo-600 ",
-  BAG: "bg-yellow-900",
-  GAL: "bg-green-900",
-  PCK: "bg-blue-900",
-  SET: "bg-pink-900",
-  RLS: "bg-purple-900",
-  DOZ: "bg-orange-600",
+  BTL: "bg-lime-100 text-black border-lime-500",
+  BOX: "bg-indigo-600 text-white",
+  BAG: "bg-yellow-900 text-white",
+  GAL: "bg-green-900 text-white",
+  PCK: "bg-blue-900 text-white",
+  SET: "bg-pink-900 text-white",
+  RLS: "bg-purple-900 text-white",
+  DOZ: "bg-orange-600 text-white",
 };
 
 export const UNIT_OPTIONS = Object.values(UNIT).map((value) => ({
@@ -216,10 +180,6 @@ export const UNIT_OPTIONS = Object.values(UNIT).map((value) => ({
   label: titleCase(value.toLowerCase()),
 }));
 
-export const ERROR = {
-  VALIDATION_ERROR: "VALIDATION_ERROR",
-  NOT_FOUND: "NOT_FOUND",
-};
 export const RETURN_TYPE = {
   RETURN_IN: "RETURN_IN",
   EXCHANGE_IN: "EXCHANGE_IN",
@@ -265,21 +225,12 @@ export const INVOICE_STATUS = {
 };
 
 export const goodReceiptItemDefault = {
-  quantity: 0,
+  quantity: 1,
   combinationId: 0,
   discount: 0,
   discountNote: "",
   purchasePrice: 0,
-  combination: undefined,
-};
-
-export const PAGINATION_RESPONSE = {
-  data: [],
-  meta: {
-    total: 0,
-    totalPages: 0,
-    currentPage: 0,
-  },
+  combination: null,
 };
 
 export interface Summary {

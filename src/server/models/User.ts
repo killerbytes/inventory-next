@@ -1,3 +1,4 @@
+import { UserRole } from "@/types/definitions";
 import bcrypt from "bcrypt";
 import {
   CreationOptional,
@@ -20,14 +21,13 @@ export class User extends Model<
   declare password: string;
   declare isActive: CreationOptional<boolean>;
   declare role: CreationOptional<string>;
-  declare refreshToken: CreationOptional<string | null>;
 
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;
   declare readonly deletedAt: CreationOptional<Date | null>;
 
   static generateHash(password: string) {
-    return bcrypt.hashSync(password, bcrypt.genSaltSync(8));
+    return bcrypt.hashSync(password, bcrypt.genSaltSync(10));
   }
 
   static validatePassword(password: string, hash: string) {
@@ -66,11 +66,10 @@ User.init(
     },
     role: {
       type: DataTypes.STRING,
-      defaultValue: "User",
-    },
-    refreshToken: {
-      type: DataTypes.STRING,
-      allowNull: true,
+      defaultValue: "USER",
+      validate: {
+        isIn: [Object.values(UserRole)],
+      },
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -90,21 +89,12 @@ User.init(
     deletedAt: "deletedAt",
     defaultScope: {
       attributes: {
-        exclude: [
-          "password",
-          "refreshToken",
-          "createdAt",
-          "updatedAt",
-          "deletedAt",
-        ],
+        exclude: ["password", "createdAt", "updatedAt", "deletedAt"],
       },
     },
     scopes: {
       withPassword: {
         attributes: { include: ["password"] },
-      },
-      withRefreshToken: {
-        attributes: { include: ["refreshToken"] },
       },
     },
   },

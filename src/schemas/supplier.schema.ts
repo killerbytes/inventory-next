@@ -12,6 +12,8 @@ export const SupplierBaseSchema = z.object({
     .optional()
     .nullable(),
   contact: z.string().optional().nullable(),
+  contactName: z.string().optional().nullable(),
+  code: z.string().optional().nullable(),
   phone: z
     .string()
     .min(2, {
@@ -27,7 +29,7 @@ export const SupplierBaseSchema = z.object({
     .optional()
     .nullable(),
   notes: z.string().optional().nullable(),
-  isActive: z.boolean(),
+  isActive: z.boolean().optional(),
 });
 
 export const SupplierInputSchema = SupplierBaseSchema.strict();

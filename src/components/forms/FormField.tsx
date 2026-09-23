@@ -19,6 +19,7 @@ interface Props {
   name: string;
   label?: string;
   form: UseFormReturn<any>;
+  type?: string;
   placeholder?: string;
 }
 
@@ -34,6 +35,7 @@ export default function FormField({ render, children, form, ...props }: Props) {
             render({ field, fieldState })
           ) : (
             <Input
+              type={props.type}
               placeholder={props.placeholder}
               {...field}
               aria-invalid={fieldState.invalid}

@@ -68,6 +68,15 @@ Product.init(
     defaultScope: {
       attributes: { exclude: ["createdAt", "updatedAt", "deletedAt"] },
     },
+    indexes: [
+      {
+        unique: true,
+        fields: ["name", "baseUnit"],
+        where: {
+          deletedAt: null,
+        },
+      },
+    ],
   },
 );
 

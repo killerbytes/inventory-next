@@ -4,9 +4,11 @@ import {
   InferAttributes,
   InferCreationAttributes,
   Model,
+  NonAttribute,
 } from "sequelize";
 import "server-only";
 import sequelize from "../db/sequelize";
+import InvoiceLine from "./InvoiceLine";
 
 export class Invoice extends Model<
   InferAttributes<Invoice>,
@@ -21,6 +23,8 @@ export class Invoice extends Model<
   declare totalAmount: number;
   declare notes: CreationOptional<string | null>;
   declare changedBy: CreationOptional<number | null>;
+
+  declare invoiceLines: NonAttribute<InvoiceLine[]>;
 
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;

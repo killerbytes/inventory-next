@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SupplierData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Container, Plus } from "lucide-react";
+import { Container, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import PageHeader from "../layout/PageHeader";
@@ -39,21 +39,6 @@ export default function SuppliersWidget({
           </div>
         ),
       }),
-      columnHelper.accessor("contact", {
-        header: "Contact Person",
-        cell: (info) => info.getValue(),
-      }),
-      columnHelper.accessor("phone", {
-        header: "Phone Number",
-        meta: {
-          className: "text-xs",
-        },
-        cell: (info) => <div className="whitespace-pre">{info.getValue()}</div>,
-      }),
-      columnHelper.accessor("email", {
-        header: "Email Address",
-        cell: (info) => info.getValue(),
-      }),
       columnHelper.accessor("address", {
         header: "Address",
         meta: {
@@ -61,6 +46,21 @@ export default function SuppliersWidget({
         },
         cell: (info) => (
           <span className="text-muted-foreground">{info.getValue()}</span>
+        ),
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSupplierModalOpen(true, row.original)}
+            >
+              <Pencil />
+            </Button>
+          </div>
         ),
       }),
     ],

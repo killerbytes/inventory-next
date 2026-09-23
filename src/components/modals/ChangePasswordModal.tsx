@@ -1,106 +1,109 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { DialogFooter } from "@/components/ui/dialog";
+import { ChangePasswordInput, ChangePasswordInputSchema } from "@/schemas";
 import { changePasswordAction } from "@/server/actions/user.actions";
+import { useUIStore } from "@/stores/uiStore";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTransition } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import Modal from "../common/Modal";
+import FormField from "../forms/FormField";
 
-interface ChangePasswordModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+function ChangePasswordModalContent() {
+  const [isPending, startTransition] = useTransition();
+  const { setChangePasswordModalOpen } = useUIStore();
 
-export default function ChangePasswordModal({
-  isOpen,
-  onClose,
-}: ChangePasswordModalProps) {
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const form = useForm<ChangePasswordInput>({
+    resolver: zodResolver(ChangePasswordInputSchema),
+    defaultValues: {
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters.");
-      return;
-    }
+  const onSubmit = async (values: ChangePasswordInput) => {
+    console.log(values);
 
-    setIsSubmitting(true);
-    try {
-      await changePasswordAction({
-        oldPassword: currentPassword,
-        newPassword,
-      });
-      toast.success("Password changed successfully!");
-      onClose();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update password.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // if (values.newPassword !== values.confirmPassword) {
+    //   toast.error("New passwords do not match.");
+    //   return;
+    // }
+    // if (values.newPassword.length < 6) {
+    //   toast.error("Password must be at least 6 characters.");
+    //   return;
+    // }
+
+    startTransition(async () => {
+      try {
+        await changePasswordAction({
+          oldPassword: values.oldPassword,
+          newPassword: values.newPassword,
+        });
+        toast.success("Password changed successfully!");
+        setChangePasswordModalOpen(false);
+      } catch (error: any) {
+        toast.error(error.message || "Failed to update password.");
+      }
+    });
   };
+  console.log(form.getValues(), form.formState.errors);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle>Change Account Password</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">New Password</Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Update Password"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          name="oldPassword"
+          form={form}
+          label="Current Password"
+          type="password"
+        />
+        <FormField
+          name="newPassword"
+          form={form}
+          label="New Password"
+          type="password"
+        />
+        <FormField
+          name="confirmPassword"
+          form={form}
+          label="Confirm New Password"
+          type="password"
+        />
+        <DialogFooter className="pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setChangePasswordModalOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving..." : "Update Password"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}
+
+export default function ChangePasswordModal() {
+  const { isChangePasswordModalOpen, setChangePasswordModalOpen } =
+    useUIStore();
+
+  if (!isChangePasswordModalOpen) return null;
+
+  return (
+    <Modal
+      title="Change Account Password"
+      description="Update your account password."
+      isOpen={isChangePasswordModalOpen}
+      onClose={() => setChangePasswordModalOpen(false)}
+    >
+      <ChangePasswordModalContent />
+    </Modal>
   );
 }

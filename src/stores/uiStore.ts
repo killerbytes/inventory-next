@@ -4,6 +4,7 @@ import {
   InvoiceData,
   ProductCombinationData,
   ProductData,
+  SalesOrderData,
   SupplierData,
   UserData,
 } from "@/schemas";
@@ -14,7 +15,11 @@ interface UIState {
   editingUser?: UserData | null;
   setUserModalOpen: (open: boolean, user?: UserData | null) => void;
   isSalesOrderModalOpen: boolean;
-  setSalesOrderModalOpen: (open: boolean) => void;
+  editingSalesOrder?: SalesOrderData | null;
+  setSalesOrderModalOpen: (
+    open: boolean,
+    salesOrder?: SalesOrderData | null,
+  ) => void;
   isProductModalOpen: boolean;
   editingProduct: ProductData | null;
   setProductModalOpen: (open: boolean, product?: ProductData | null) => void;
@@ -48,16 +53,24 @@ interface UIState {
   setReturnExchangeModalOpen: (open: boolean) => void;
   isInvoiceModalOpen: boolean;
   editingInvoice?: InvoiceData | null;
-  setInvoiceModalOpen: (open: boolean, invoice?: InvoiceData) => void;
+  setInvoiceModalOpen: (open: boolean, invoice?: InvoiceData | null) => void;
   isGoodReceiptPickerModalOpen: boolean;
   setGoodReceiptPickerModalOpen: (open: boolean) => void;
+  isOrderHistoryModalOpen: boolean;
+  setOrderHistoryModalOpen: (open: boolean) => void;
+  isChangePasswordModalOpen: boolean;
+  setChangePasswordModalOpen: (open: boolean) => void;
+  isAdminPanelModalOpen: boolean;
+  setAdminPanelModalOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   isUserModalOpen: false,
   editingUser: null,
   isSalesOrderModalOpen: false,
-  setSalesOrderModalOpen: (open) => set({ isSalesOrderModalOpen: open }),
+  editingSalesOrder: null,
+  setSalesOrderModalOpen: (open, salesOrder = null) =>
+    set({ isSalesOrderModalOpen: open, editingSalesOrder: salesOrder }),
   setUserModalOpen: (open, user = null) =>
     set({ isUserModalOpen: open, editingUser: user }),
   isProductModalOpen: false,
@@ -98,4 +111,11 @@ export const useUIStore = create<UIState>((set) => ({
   isGoodReceiptPickerModalOpen: false,
   setGoodReceiptPickerModalOpen: (open) =>
     set({ isGoodReceiptPickerModalOpen: open }),
+  isOrderHistoryModalOpen: false,
+  setOrderHistoryModalOpen: (open) => set({ isOrderHistoryModalOpen: open }),
+  isChangePasswordModalOpen: false,
+  setChangePasswordModalOpen: (open) =>
+    set({ isChangePasswordModalOpen: open }),
+  isAdminPanelModalOpen: false,
+  setAdminPanelModalOpen: (open) => set({ isAdminPanelModalOpen: open }),
 }));

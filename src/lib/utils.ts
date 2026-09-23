@@ -4,7 +4,6 @@ import { DATE_FORMAT, DATETIME_FORMAT } from "@/types/definitions";
 import { clsx, type ClassValue } from "clsx";
 import { format } from "date-fns";
 import { twMerge } from "tailwind-merge";
-import { ComputableItem } from "./compute";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -139,27 +138,6 @@ export interface FooterTotals {
   totalDiscount: number;
 }
 
-export const getTotalAmountTableFooter = (
-  data: ComputableItem[],
-): FooterTotals => {
-  return (data || []).reduce<FooterTotals>(
-    (acc, item) => {
-      const price = Number(
-        item?.combination?.price || item?.purchasePrice || 0,
-      );
-      const discount = Number(item?.discount || 0);
-      const lineTotal = price * (Number(item?.quantity) || 0) - discount;
-
-      return {
-        totalAmount: acc.totalAmount + lineTotal,
-        totalPrice: acc.totalPrice + price,
-        totalDiscount: acc.totalDiscount + discount,
-      };
-    },
-    { totalAmount: 0, totalDiscount: 0, totalPrice: 0 },
-  );
-};
-
 interface ProductCombinationWithSubItem extends ProductCombinationData {
   subItem?: ProductCombinationWithSubItem[];
 }
@@ -198,3 +176,11 @@ export const mappedStatusHistory = (
   });
   return map;
 };
+
+export function titleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}

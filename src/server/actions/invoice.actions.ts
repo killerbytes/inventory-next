@@ -22,8 +22,6 @@ export const updateInvoiceAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_INVOICES,
   schema: InvoiceInputSchema,
   handler: async ({ user }, id: number, payload: InvoiceInput) => {
-    console.log(123, payload);
-
     const result = await invoiceServerService.update(id, payload);
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${id}`);
@@ -32,24 +30,15 @@ export const updateInvoiceAction = createProtectedAction({
   },
 });
 
-export const deleteInvoiceAction = createProtectedAction({
+export const getGoodReceiptsBySupplierAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_INVOICES,
-  handler: async ({ user }, id: number) => {
-    const result = await invoiceServerService.delete(id);
-    revalidatePath("/invoices");
-    return result ? JSON.parse(JSON.stringify(result)) : null;
+  handler: async (_ctx, supplierId: number, params: any = {}) => {
+    const result = await goodReceiptServerService.getBySupplierId(
+      supplierId,
+      params,
+    );
+    return result
+      ? JSON.parse(JSON.stringify(result))
+      : { data: [], meta: { total: 0, totalPages: 0, currentPage: 1 } };
   },
 });
-
-export async function getGoodReceiptsBySupplierAction(
-  supplierId: number,
-  params: any = {},
-) {
-  const result = await goodReceiptServerService.getBySupplierId(
-    supplierId,
-    params,
-  );
-  return result
-    ? JSON.parse(JSON.stringify(result))
-    : { data: [], meta: { total: 0, totalPages: 0, currentPage: 1 } };
-}

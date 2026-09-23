@@ -42,6 +42,7 @@ Supplier.init(
     },
     email: {
       type: DataTypes.STRING,
+      validate: { isEmail: true },
     },
     phone: {
       type: DataTypes.TEXT,
@@ -75,6 +76,15 @@ Supplier.init(
     defaultScope: {
       attributes: { exclude: ["createdAt", "updatedAt"] },
     },
+    indexes: [
+      {
+        unique: true,
+        fields: ["email"],
+        where: {
+          deletedAt: null,
+        },
+      },
+    ],
   },
 );
 

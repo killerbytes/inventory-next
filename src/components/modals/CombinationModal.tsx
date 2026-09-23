@@ -90,8 +90,6 @@ function CombinationModalContent({ product }: { product: ProductData }) {
   }: FormCombinations) => {
     startTransition(async () => {
       try {
-        console.log(product, combinations);
-
         await updateProductCombinationsAction(productId, combinations);
         toast.success("Combinations saved successfully");
         // onClose();
@@ -101,7 +99,6 @@ function CombinationModalContent({ product }: { product: ProductData }) {
       }
     });
   };
-  console.log(form.formState.errors);
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
     const baseCols: ColumnDef<any>[] = [
@@ -467,9 +464,7 @@ function CombinationModalContent({ product }: { product: ProductData }) {
             type="submit"
             disabled={isPending}
             className="gap-2"
-            onClick={form.handleSubmit(handleBatchSubmit, (e) => {
-              console.log(form.getValues(), e);
-            })}
+            onClick={form.handleSubmit(handleBatchSubmit)}
           >
             {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

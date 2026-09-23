@@ -1,7 +1,6 @@
 import { ORDER_STATUS } from "@/types/definitions";
 import z from "zod";
 import { OrderStatusHistorySchema } from "./orderStatusHistory.schema";
-import { ProductCombinationSchema } from "./productCombination.schema";
 import { ReturnTransactionSchema } from "./returnItem.schema";
 import { SupplierSchema } from "./supplier.schema";
 
@@ -13,13 +12,7 @@ export const GoodReceiptLineBaseSchema = z.object({
   discountNote: z.string().nullish(),
 });
 
-export const GoodReceiptLineInputSchema =
-  GoodReceiptLineBaseSchema.strict().extend({
-    combination: ProductCombinationSchema.omit({
-      inventory: true,
-      values: true,
-    }).optional(),
-  });
+export const GoodReceiptLineInputSchema = GoodReceiptLineBaseSchema.strict();
 export const GoodReceiptLineSchema = GoodReceiptLineInputSchema.extend({
   id: z.number(),
   goodReceiptId: z.coerce.number(),

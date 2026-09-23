@@ -26,9 +26,10 @@ export const InvoiceInputSchema = InvoiceBaseSchema.extend({
   invoiceLines: z.array(InvoiceLineInputSchema),
 });
 
-export const InvoiceSchema = InvoiceInputSchema.extend({
+export const InvoiceSchema = InvoiceBaseSchema.extend({
   id: z.number(),
   totalAmount: z.coerce.number(),
+  invoiceLines: z.array(InvoiceLineSchema),
 });
 
 export type InvoiceLineInput = z.infer<typeof InvoiceLineInputSchema>;

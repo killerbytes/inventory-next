@@ -13,6 +13,7 @@ import {
   ReturnExchangeFormSchema,
 } from "@/schemas";
 import { supplierReturnsAction } from "@/server/actions/goodReceipt.actions";
+import { returnExchangeAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
 import { UNIT_COLOR } from "@/types/definitions";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -112,43 +113,44 @@ function ReturnExchangeModalContent({
   };
 
   const onSubmit = async (values: ReturnExchangeFormInput) => {
-    console.log(values);
-
     startTransition(async () => {
       try {
-        // if (salesOrder) {
-        //   const activeExchanges = exchangeItems.map((item) => ({
-        //     combinationId: item.combinationId,
-        //     quantity: Number(item.quantity),
-        //   }));
+        if (salesOrder) {
+          const activeReturns = values.returns.map((item) => ({
+            combinationId: item.combinationId,
+            quantity: Number(item.quantity),
+          }));
+          const activeExchanges = exchangeItems.map((item) => ({
+            combinationId: item.combinationId,
+            quantity: Number(item.quantity),
+          }));
 
-        //   const result = await returnExchangeAction(referenceId, {
-        //     returns: activeReturns,
-        //     exchanges: activeExchanges,
-        //     reason: reason || "Customer Return/Exchange",
-        //   });
+          const result = await returnExchangeAction(referenceId, {
+            returns: activeReturns,
+            exchanges: activeExchanges,
+            reason: values.reason || "Customer Return/Exchange",
+          });
 
-        //   toast.success(
-        //     result?.message ||
-        //       "Sales Order Return/Exchange submitted successfully!",
-        //   );
-        // } else {
-        await supplierReturnsAction(values.referenceId, {
-          returns: values.returns,
-          reason: values.reason,
-        });
+          toast.success(
+            result?.message ||
+              "Sales Order Return/Exchange submitted successfully!",
+          );
+        } else {
+          await supplierReturnsAction(values.referenceId, {
+            returns: values.returns,
+            reason: values.reason,
+          });
 
-        toast.success("Supplier returns processed successfully!");
-        // }
+          toast.success("Supplier returns processed successfully!");
+        }
 
-        // setReturnExchangeModalOpen(false);
+        setReturnExchangeModalOpen(false);
         router.refresh();
       } catch (err: any) {
         toast.error(err?.message || "Failed to process return/exchange");
       }
     });
   };
-  console.log(fields);
 
   const returnColumns = useMemo(
     () => [
@@ -300,7 +302,6 @@ function ReturnExchangeModalContent({
     ],
     [],
   );
-  console.log(form.formState.errors, form.getValues());
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 my-2">

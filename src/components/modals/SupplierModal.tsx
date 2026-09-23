@@ -7,10 +7,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { createSupplierAction } from "@/server/actions/supplier.actions";
+import {
+  createSupplierAction,
+  deleteSupplierAction,
+  updateSupplierAction,
+} from "@/server/actions/supplier.actions";
 import { useUIStore } from "@/stores/uiStore";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
+import ConfirmDialog from "../common/ConfirmDialog";
 import Modal from "../common/Modal";
 import FormField from "../forms/FormField";
 
@@ -21,25 +27,51 @@ function SupplierModalContent() {
   const isEditing = Boolean(editingSupplier?.id);
   const form = useForm<SupplierInput>({
     resolver: zodResolver(SupplierInputSchema),
-    defaultValues: {
-      name: editingSupplier?.name || "",
-      address: editingSupplier?.address || "",
-      phone: editingSupplier?.phone || "",
-      email: editingSupplier?.email || "",
-      contact: editingSupplier?.contact || "",
-    },
+    values: useMemo(() => {
+      return {
+        name: editingSupplier?.name || "",
+        address: editingSupplier?.address || "",
+        phone: editingSupplier?.phone || "",
+        email: editingSupplier?.email || "",
+        contact: editingSupplier?.contact || "",
+      };
+    }, [editingSupplier]),
   });
 
   const onSubmit = async (values: SupplierInput) => {
-    try {
-      await createSupplierAction(values);
-      toast.success(`Supplier "${values.name}" created successfully!`);
-      form.reset();
-      setSupplierModalOpen(false, null);
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create supplier");
-    }
+    startTransition(async () => {
+      try {
+        if (isEditing && editingSupplier?.id) {
+          await updateSupplierAction(editingSupplier.id, values);
+        } else {
+          await createSupplierAction(values);
+        }
+        toast.success(
+          `Supplier "${values.name}" ${isEditing ? "updated" : "created"} successfully!`,
+        );
+        form.reset();
+        setSupplierModalOpen(false, null);
+        router.refresh();
+      } catch (err: any) {
+        toast.error(
+          err?.message ||
+            `Failed to ${isEditing ? "update" : "create"} supplier`,
+        );
+      }
+    });
+  };
+  const onDelete = () => {
+    startTransition(async () => {
+      try {
+        await deleteSupplierAction(editingSupplier?.id!);
+        toast.success("Supplier deleted successfully!");
+        form.reset();
+        setSupplierModalOpen(false, null);
+        router.refresh();
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to delete supplier");
+      }
+    });
   };
 
   return (
@@ -75,17 +107,28 @@ function SupplierModalContent() {
           label="Contact Person"
           placeholder="John Doe"
         />
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setSupplierModalOpen(false, null)}
+        <DialogFooter className="justify-between!">
+          <ConfirmDialog
+            title={`Delete ${editingSupplier?.name}`}
+            description={`Are you sure you want to delete ${editingSupplier?.name}?`}
+            onConfirm={onDelete}
           >
-            Cancel
-          </Button>
-          <Button disabled={isPending} type="submit">
-            {isEditing ? "Update Supplier" : "Save Supplier"}
-          </Button>
+            <Button type="button" variant="destructive" size="icon">
+              <Trash2 />
+            </Button>
+          </ConfirmDialog>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSupplierModalOpen(false, null)}
+            >
+              Cancel
+            </Button>
+            <Button disabled={isPending} type="submit">
+              {isEditing ? "Update Supplier" : "Save Supplier"}
+            </Button>
+          </div>
         </DialogFooter>
       </form>
     </>
