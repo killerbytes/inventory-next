@@ -1,5 +1,7 @@
 import InventoryMovementsClientWidget from "@/components/widgets/InventoryMovementsClientWidget";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
+import { PAGINATION } from "@/types/definitions";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +11,16 @@ export default async function MovementsPage({
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
   const params = (await searchParams) || {};
-  const page = Number(params.page) || 1;
-  const limit = Number(params.limit) || 25;
+  const page = Number(params.page) || PAGINATION.PAGE;
+  const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const status = params.status === "ALL" ? undefined : params.status;
   const q = params.q || undefined;
-  const startDate = params.startDate || undefined;
-  const endDate = params.endDate || undefined;
+
+  const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const defaultEndDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+
+  const startDate = params.startDate || defaultStartDate;
+  const endDate = params.endDate || defaultEndDate;
 
   let rows: any[] = [];
   let meta = {
@@ -26,6 +32,7 @@ export default async function MovementsPage({
     totalValue: { label: "Total Amount", value: 0 },
     totalQuantity: { label: "Total Quantity", value: 0 },
   };
+  console.log(startDate, endDate);
 
   try {
     const result = await inventoryServerService.getMovements({
@@ -48,6 +55,8 @@ export default async function MovementsPage({
       initialMovements={rows}
       meta={meta}
       summary={summary}
+      startDate={startDate}
+      endDate={endDate}
     />
   );
 }

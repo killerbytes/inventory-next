@@ -42,8 +42,18 @@ export const GoodReceiptInputSchema = GoodReceiptBaseSchema.strict().extend({
     .array(GoodReceiptLineInputSchema)
     .min(1, "Product/s must be included"),
 });
-export const GoodReceiptUpdateSchema = GoodReceiptInputSchema.partial().extend({
-  cancellationReason: z.string(),
+export const GoodReceiptLineUpdateSchema = GoodReceiptLineBaseSchema.extend({
+  id: z.number().optional(),
+});
+
+export const GoodReceiptUpdateSchema = z.object({
+  supplierId: z.coerce.number().positive().optional(),
+  receiptDate: z.coerce.date().optional(),
+  referenceNo: z.string().optional(),
+  internalNotes: z.string().nullish(),
+  status: z.nativeEnum(ORDER_STATUS).optional(),
+  cancellationReason: z.string().nullish(),
+  goodReceiptLines: z.array(GoodReceiptLineUpdateSchema).optional(),
 });
 export const GoodReceiptSchema = GoodReceiptInputSchema.extend({
   id: z.number(),

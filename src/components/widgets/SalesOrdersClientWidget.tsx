@@ -83,9 +83,6 @@ export default function SalesOrdersClientWidget({
       }),
       columnHelper.accessor("customer.name", {
         header: "Customer",
-        cell: (info) => (
-          <span className="font-medium text-sm">{info.getValue()}</span>
-        ),
       }),
       columnHelper.accessor("status", {
         header: "Status",
@@ -98,7 +95,6 @@ export default function SalesOrdersClientWidget({
       columnHelper.accessor("totalAmount", {
         header: () => "Total Amount",
         meta: {
-          className: "font-bold text-emerald-600",
           align: "right",
         },
         cell: (info) => formatCurrency(info.getValue()),

@@ -59,11 +59,9 @@ export default function InvoicesClientWidget({
       columnHelper.accessor("invoiceNumber", {
         header: "Invoice #",
         cell: ({ row }) => (
-          <div className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center gap-2">
             <CreditCard className="h-4 w-4 text-blue-600" />
-            <span className="text-primary hover:underline cursor-pointer">
-              {row.original.invoiceNumber || `INV-${row.original.id}`}
-            </span>
+            {row.original.invoiceNumber || `INV-${row.original.id}`}
           </div>
         ),
       }),
@@ -71,12 +69,10 @@ export default function InvoicesClientWidget({
         header: "Supplier",
         cell: ({ row }) => {
           const supplier = row.original.supplier;
-          if (!supplier)
-            return <span className="text-muted-foreground">—</span>;
           return (
             <Link
               href={`/suppliers/${supplier.id}`}
-              className="text-primary hover:underline font-medium"
+              className="text-primary"
               onClick={(e) => e.stopPropagation()}
             >
               {supplier.name}

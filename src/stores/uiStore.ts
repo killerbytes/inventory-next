@@ -1,6 +1,7 @@
 import {
   CategoryData,
   CustomerData,
+  GoodReceiptData,
   InvoiceData,
   ProductCombinationData,
   ProductData,
@@ -54,6 +55,12 @@ interface UIState {
   isInvoiceModalOpen: boolean;
   editingInvoice?: InvoiceData | null;
   setInvoiceModalOpen: (open: boolean, invoice?: InvoiceData | null) => void;
+  isGoodReceiptModalOpen: boolean;
+  editingGoodReceipt?: GoodReceiptData | null;
+  setGoodReceiptModalOpen: (
+    open: boolean,
+    goodReceipt?: GoodReceiptData | null,
+  ) => void;
   isGoodReceiptPickerModalOpen: boolean;
   setGoodReceiptPickerModalOpen: (open: boolean) => void;
   isOrderHistoryModalOpen: boolean;
@@ -108,6 +115,10 @@ export const useUIStore = create<UIState>((set) => ({
   isInvoiceModalOpen: false,
   setInvoiceModalOpen: (open, invoice = null) =>
     set({ isInvoiceModalOpen: open, editingInvoice: invoice }),
+  isGoodReceiptModalOpen: false,
+  editingGoodReceipt: null,
+  setGoodReceiptModalOpen: (open, goodReceipt = null) =>
+    set({ isGoodReceiptModalOpen: open, editingGoodReceipt: goodReceipt }),
   isGoodReceiptPickerModalOpen: false,
   setGoodReceiptPickerModalOpen: (open) =>
     set({ isGoodReceiptPickerModalOpen: open }),

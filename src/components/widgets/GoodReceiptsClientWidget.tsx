@@ -1,10 +1,13 @@
 "use client";
 
+import GoodReceiptModal from "@/components/modals/GoodReceiptModal";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { formatDateTime } from "@/lib/utils";
-import { GoodReceiptData } from "@/schemas";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { GoodReceiptData, SupplierData } from "@/schemas";
+import { useUIStore } from "@/stores/uiStore";
 import {
   Meta,
+  ORDER_STATUS,
   ORDER_STATUS_OPTIONS,
   PAGINATION,
   STATUS_COLOR,
@@ -35,12 +38,15 @@ export default function GoodReceiptsClientWidget({
   meta,
   startDate,
   endDate,
+  suppliers = [],
 }: {
   rows?: GoodReceiptData[];
   meta?: Meta;
   startDate?: string;
   endDate?: string;
+  suppliers?: SupplierData[];
 }) {
+  const { setGoodReceiptModalOpen } = useUIStore();
   const { filters, setFilters } = useUrlFilters({
     page: PAGINATION.PAGE,
     limit: PAGINATION.PAGE_SIZE,
@@ -68,23 +74,24 @@ export default function GoodReceiptsClientWidget({
       }),
       columnHelper.accessor("referenceNo", {
         header: "Reference",
-        cell: ({ row }) => (
-          <div className="font-semibold text-foreground flex items-center gap-2">
-            {row.original.referenceNo || `GR-${row.original.id}`}
-          </div>
-        ),
       }),
       columnHelper.accessor((row) => row.supplier?.name, {
         id: "supplier.name",
         header: "Supplier",
         cell: ({ row }) => (
-          <span>{row.original.supplier?.name || "Supplier"}</span>
+          <Link
+            className="text-primary"
+            href={`/suppliers/${row.original.supplier?.id}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {row.original.supplier?.name}
+          </Link>
         ),
       }),
       columnHelper.accessor("status", {
         header: "Status",
         cell: ({ row }) => {
-          const status = row.original.status || "DRAFT";
+          const status = row.original.status;
           return <ColorBadge colorMap={STATUS_COLOR}>{status}</ColorBadge>;
         },
       }),
@@ -96,16 +103,11 @@ export default function GoodReceiptsClientWidget({
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       }),
       columnHelper.accessor("totalAmount", {
-        header: () => <div className="text-right">Total Amount</div>,
-        cell: ({ row }) => (
-          <div className="text-right font-bold text-emerald-600">
-            ₱
-            {Number(row.original.totalAmount || 0).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </div>
-        ),
+        header: "Total Amount",
+        meta: {
+          align: "right",
+        },
+        cell: ({ row }) => formatCurrency(row.original.totalAmount || 0),
       }),
     ],
     [],
@@ -117,11 +119,12 @@ export default function GoodReceiptsClientWidget({
         title="Good Receipts"
         description="Track incoming supplier shipments, verify stock receipts, and manage PO arrivals."
       >
-        <Link href="/good-receipts/create">
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-            <Plus className="h-4 w-4" /> Create Order
-          </Button>
-        </Link>
+        <Button
+          onClick={() => setGoodReceiptModalOpen(true)}
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+        >
+          <Plus className="h-4 w-4" /> Create Order
+        </Button>
       </PageHeader>
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -166,9 +169,15 @@ export default function GoodReceiptsClientWidget({
         paginate={true}
         paginationMeta={meta}
         onRowClick={(row) => {
-          router.push(`/good-receipts/${row.id}`);
+          if (row.status === ORDER_STATUS.DRAFT) {
+            setGoodReceiptModalOpen(true, row);
+          } else {
+            router.push(`/good-receipts/${row.id}`);
+          }
         }}
       />
+
+      <GoodReceiptModal suppliers={suppliers} />
     </div>
   );
 }

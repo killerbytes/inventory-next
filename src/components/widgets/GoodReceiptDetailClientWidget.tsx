@@ -111,7 +111,10 @@ export default function GoodReceiptDetailClientWidget({
             <ColorBadge colorMap={UNIT_COLOR}>
               {row.original.combination?.unit}
             </ColorBadge>
-            <Link href={`/products/${row.original.combination?.productId}`}>
+            <Link
+              href={`/products/${row.original.combination?.productId}`}
+              className="text-primary"
+            >
               {row.original.nameSnapshot}
             </Link>
           </div>

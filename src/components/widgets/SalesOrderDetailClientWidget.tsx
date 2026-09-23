@@ -32,7 +32,6 @@ import { cancelSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
 import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/types/definitions";
 import { createColumnHelper, RowSelectionState } from "@tanstack/react-table";
-import { cx } from "class-variance-authority";
 import {
   AlertCircle,
   Ban,
@@ -155,9 +154,7 @@ export default function SalesOrderDetailClientWidget({
       }),
       columnHelper.accessor("nameSnapshot", {
         header: "Product",
-        meta: {
-          className: "flex items-center gap-2",
-        },
+        meta: {},
         cell: ({ row }) => {
           const productId =
             row.original.combinations?.productId || row.original.productId;
@@ -165,18 +162,14 @@ export default function SalesOrderDetailClientWidget({
             row.original.nameSnapshot || row.original.combinations?.name;
 
           return (
-            <>
+            <div className="flex items-center gap-2">
               <ColorBadge colorMap={UNIT_COLOR}>
                 {String(row.original.unit || "PCS")}
               </ColorBadge>
-
-              <Link
-                href={`/products/${productId}`}
-                className={cx("text-primary", `font-medium hover:underline`)}
-              >
+              <Link href={`/products/${productId}`} className="text-primary">
                 {name}
               </Link>
-            </>
+            </div>
           );
         },
       }),

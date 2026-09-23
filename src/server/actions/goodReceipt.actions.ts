@@ -5,6 +5,7 @@ import {
   GoodReceiptInput,
   GoodReceiptInputSchema,
   GoodReceiptLineData,
+  GoodReceiptUpdateSchema,
   ReturnExchangeFormSchema,
 } from "@/schemas";
 import { goodReceiptServerService } from "@/server/services";
@@ -26,9 +27,7 @@ export const createGoodReceiptAction = createProtectedAction({
 
 export const updateGoodReceiptAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_GOODS,
-  schema: z.object({
-    status: z.nativeEnum(ORDER_STATUS),
-  }),
+  schema: GoodReceiptUpdateSchema,
   handler: async ({ user }, id: number, data: any) => {
     const result = await goodReceiptServerService.update(id, data, user.id);
     revalidatePath("/good-receipts");

@@ -6,10 +6,11 @@ import Pager from "@/components/common/Pager";
 import PageHeader from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/input";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   INVENTORY_MOVEMENT_TYPE_COLOR,
   INVENTORY_MOVEMENT_TYPE_OPTIONS,
+  Meta,
   UNIT_COLOR,
 } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -38,27 +39,29 @@ const columnHelper = createColumnHelper<any>();
 
 interface InventoryMovementsClientWidgetProps {
   initialMovements: any[];
-  meta?: {
-    total: number;
-    totalPages: number;
-    currentPage: number;
-  };
+  meta?: Meta;
   summary?: {
     totalValue?: { label: string; value: number };
     totalQuantity?: { label: string; value: number };
   };
+  startDate?: string;
+  endDate?: string;
 }
 
 export default function InventoryMovementsClientWidget({
   initialMovements,
   meta,
   summary,
+  startDate,
+  endDate,
 }: InventoryMovementsClientWidgetProps) {
   const { filters, setFilters } = useUrlFilters({
     page: 1,
     limit: 25,
     status: "ALL",
     q: "",
+    startDate,
+    endDate,
   });
 
   const movements = initialMovements || [];
@@ -122,7 +125,7 @@ export default function InventoryMovementsClientWidget({
               {row.original.combination?.unit}
             </ColorBadge>
             <Link
-              className="text-primary"
+              className="text-primary font-medium"
               href={`/products/${row.original.combination?.productId}`}
             >
               {row.original.combination?.name}
@@ -135,9 +138,7 @@ export default function InventoryMovementsClientWidget({
         cell: ({ row }) => (
           <div className="text-foreground flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary" />
-            {row.original.referenceType
-              ? `${row.original.referenceType}-${row.original.referenceId}`
-              : `MOV-${row.original.id}`}
+            {row.original.referenceType}-{row.original.referenceId}
           </div>
         ),
       }),
@@ -156,11 +157,7 @@ export default function InventoryMovementsClientWidget({
           return (
             <Badge className={cx(color)}>
               {type}
-              {isIn ? (
-                <ArrowDownLeft className="h-3 w-3" />
-              ) : (
-                <ArrowUpRight className="h-3 w-3" />
-              )}
+              {isIn ? <ArrowDownLeft /> : <ArrowUpRight />}
             </Badge>
           );
         },
@@ -213,14 +210,7 @@ export default function InventoryMovementsClientWidget({
               {summary.totalValue?.label || "Total Movement Value"}
             </p>
             <p className="text-2xl font-bold font-mono text-emerald-600 mt-1">
-              ₱
-              {Number(summary.totalValue?.value || 0).toLocaleString(
-                undefined,
-                {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                },
-              )}
+              {formatCurrency(summary.totalValue?.value || 0)}
             </p>
           </Card>
           <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
@@ -253,14 +243,14 @@ export default function InventoryMovementsClientWidget({
 
         <div className="flex items-center gap-2 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search Reference or Product..."
               value={filters.q}
               onChange={(e) =>
                 setFilters((prev) => ({ ...prev, q: e.target.value, page: 1 }))
               }
-              className="pl-9 h-10 text-xs"
+              className="pl-8"
             />
           </div>
 

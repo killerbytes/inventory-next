@@ -1,7 +1,7 @@
 import SalesOrdersClientWidget from "@/components/widgets/SalesOrdersClientWidget";
 import { CustomerData, SalesOrderData } from "@/schemas";
 import { customerServerService, salesServerService } from "@/server/services";
-import { Meta } from "@/types/definitions";
+import { Meta, PAGINATION } from "@/types/definitions";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +12,8 @@ export default async function SalesOrdersPage({
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
   const params = (await searchParams) || {};
-  const page = Number(params.page) || 1;
-  const limit = Number(params.limit) || 25;
+  const page = Number(params.page) || PAGINATION.PAGE;
+  const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const offset = (page - 1) * limit;
 
   const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
