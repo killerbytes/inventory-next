@@ -111,8 +111,9 @@ export const userServerService = {
 
   changePassword: async (
     userId: number,
-    oldPassword: string,
     newPassword: string,
+    oldPassword?: string,
+    isAdminReset: boolean = false,
   ) => {
     try {
       const user = await User.scope("withPassword").findByPk(userId);
@@ -120,9 +121,15 @@ export const userServerService = {
         throw new Error(`User with ID ${userId} not found`);
       }
 
-      if (!User.validatePassword(oldPassword, user.password)) {
-        throw new Error("Incorrect current password");
+      if (!isAdminReset) {
+        if (!oldPassword) {
+          throw new Error("Current password is required");
+        }
+        if (!User.validatePassword(oldPassword, user.password)) {
+          throw new Error("Incorrect current password");
+        }
       }
+
       await user.update({ password: User.generateHash(newPassword) });
       return { success: true, message: "Password updated successfully" };
     } catch (error) {

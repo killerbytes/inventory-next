@@ -1,3 +1,5 @@
+import { getNextSequence } from "@/lib/sequence";
+import { format } from "date-fns";
 import {
   CreationOptional,
   DataTypes,
@@ -139,14 +141,14 @@ SalesOrder.init(
   },
 );
 
-// SalesOrder.beforeValidate(async (order) => {
-//   const now = new Date();
-//   const yearMonth = format(now, "yyyy-MM");
+SalesOrder.beforeCreate(async (order: any) => {
+  const now = new Date();
+  const yearMonth = format(now, "yyyy-MM");
 
-//   if (!order.salesOrderNumber) {
-//     const nextval = await getNextSequence("sales_order_seq", sequelize);
-//     order.salesOrderNumber = `SO-${yearMonth}-${String(nextval).padStart(4, "0")}`;
-//   }
-// });
+  if (!order.salesOrderNumber) {
+    const nextval = await getNextSequence("sales_order_seq", sequelize);
+    order.salesOrderNumber = `SO-${yearMonth}-${String(nextval).padStart(4, "0")}`;
+  }
+});
 
 export default SalesOrder;

@@ -13,6 +13,7 @@ import {
   SalesOrderItem,
   User,
 } from "@/server/models";
+import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
 import { col, fn, Op } from "sequelize";
 import "server-only";
 
@@ -69,6 +70,7 @@ export const inventoryServerService = {
       offset,
       order: [[sort, order]],
       where,
+      distinct: true,
       include: [
         {
           model: User,
@@ -144,6 +146,7 @@ export const inventoryServerService = {
       offset,
       order: [[sort, order]],
       where: Object.keys(where).length ? where : undefined,
+      distinct: true,
       include: [
         {
           model: User,
@@ -211,19 +214,27 @@ export const inventoryServerService = {
               model: ProductCombination,
               as: "combination",
               where: combinationWhere,
+              attributes: [],
               required: true,
             },
           ]
         : undefined;
 
+      const sumWhere = {
+        [Op.and]: [
+          Object.keys(where).length ? where : {},
+          { type: { [Op.ne]: INVENTORY_MOVEMENT_TYPE.ADJUSTMENT_OUT } },
+        ],
+      };
+
       totalAmount =
         (await InventoryMovement.sum("totalCost", {
-          where: Object.keys(where).length ? where : undefined,
+          where: sumWhere,
           include: sumInclude,
         } as any)) || 0;
       totalQuantity =
         (await InventoryMovement.sum("quantity", {
-          where: Object.keys(where).length ? where : undefined,
+          where: sumWhere,
           include: sumInclude,
         } as any)) || 0;
     } catch (e) {

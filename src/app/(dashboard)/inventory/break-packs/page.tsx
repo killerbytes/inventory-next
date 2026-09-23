@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 export default async function BreakPacksPage() {
   let records: any[] = [];
   try {
-    records = await reportsServerService.getBreakPacks();
+    const res = await reportsServerService.getBreakPacks();
+    records = Array.isArray(res) ? res : res.rows;
   } catch (err) {
     console.error("Error fetching break packs on server:", err);
     records = [];

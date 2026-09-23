@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeAll, beforeEach } from "vitest";
-import { setupDatabase, resetDatabase } from "../setup";
-import { User } from "@/server/models";
 import { loginAction } from "@/server/actions/auth.actions";
 import { changePasswordAction } from "@/server/actions/user.actions";
 import { setTestSession } from "@/server/auth/session";
+import { User } from "@/server/models";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { resetDatabase, setupDatabase } from "../setup";
 
 beforeAll(async () => {
   await setupDatabase();
@@ -32,7 +32,7 @@ describe("Auth & Password Actions (Integration)", () => {
       loginAction({
         username: inactiveUser.username,
         password,
-      })
+      }),
     ).rejects.toThrow(/Account is inactive|disabled/i);
   });
 
@@ -82,7 +82,6 @@ describe("Auth & Password Actions (Integration)", () => {
 
     // Act: change password for user
     const result = await changePasswordAction({
-      userId: user.id,
       oldPassword,
       newPassword,
     });
@@ -120,10 +119,9 @@ describe("Auth & Password Actions (Integration)", () => {
     // Act & Assert
     await expect(
       changePasswordAction({
-        userId: user.id,
         oldPassword: wrongOldPassword,
         newPassword,
-      })
+      }),
     ).rejects.toThrow(/Incorrect current password|Invalid/i);
   });
 });

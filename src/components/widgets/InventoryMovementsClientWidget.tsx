@@ -25,6 +25,7 @@ import { useMemo } from "react";
 import { DateRange } from "react-day-picker";
 import ColorBadge from "../common/ColorBadge";
 import { Badge } from "../ui/badge";
+import { Card } from "../ui/card";
 import {
   Select,
   SelectContent,
@@ -37,10 +38,21 @@ const columnHelper = createColumnHelper<any>();
 
 interface InventoryMovementsClientWidgetProps {
   initialMovements: any[];
+  meta?: {
+    total: number;
+    totalPages: number;
+    currentPage: number;
+  };
+  summary?: {
+    totalValue?: { label: string; value: number };
+    totalQuantity?: { label: string; value: number };
+  };
 }
 
 export default function InventoryMovementsClientWidget({
   initialMovements,
+  meta,
+  summary,
 }: InventoryMovementsClientWidgetProps) {
   const { filters, setFilters } = useUrlFilters({
     page: 1,
@@ -160,8 +172,6 @@ export default function InventoryMovementsClientWidget({
       columnHelper.accessor("referenceDate", {
         header: "Reference Date",
         cell: ({ row }) => {
-          console.log(row.original);
-
           return formatDate(row.original.referenceDate);
         },
       }),
@@ -175,7 +185,11 @@ export default function InventoryMovementsClientWidget({
     [],
   );
 
-  const totalPages = Math.ceil(filteredMovements.length / filters.limit) || 1;
+  const totalPages = meta
+    ? meta.totalPages
+    : Math.ceil(filteredMovements.length / filters.limit) || 1;
+  const totalCount = meta ? meta.total : filteredMovements.length;
+  const displayData = meta ? movements : paginatedMovements;
 
   return (
     <div className="space-y-6">
@@ -183,6 +197,42 @@ export default function InventoryMovementsClientWidget({
         title="Inventory Movements"
         description="Audit trail of all inbound receipts, sales stock subtractions, adjustments, and break packs."
       />
+
+      {summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {summary.totalQuantity?.label || "Total Movement Volume"}
+            </p>
+            <p className="text-2xl font-bold font-mono text-foreground mt-1">
+              {Number(summary.totalQuantity?.value || 0).toLocaleString()}
+            </p>
+          </Card>
+          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {summary.totalValue?.label || "Total Movement Value"}
+            </p>
+            <p className="text-2xl font-bold font-mono text-emerald-600 mt-1">
+              ₱
+              {Number(summary.totalValue?.value || 0).toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}
+            </p>
+          </Card>
+          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Total Audited Records
+            </p>
+            <p className="text-2xl font-bold font-mono text-primary mt-1">
+              {totalCount.toLocaleString()}
+            </p>
+          </Card>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <DateRangePicker
@@ -239,11 +289,11 @@ export default function InventoryMovementsClientWidget({
         </div>
       </div>
 
-      <DataTable columns={columns} data={paginatedMovements} paginate={false} />
+      <DataTable columns={columns} data={displayData} paginate={false} />
 
       <Pager
         meta={{
-          total: filteredMovements.length,
+          total: totalCount,
           totalPages,
           currentPage: filters.page,
         }}

@@ -5,7 +5,7 @@ import GroupedCommandList, {
   ProductComboItem,
 } from "@/components/common/GroupedCommandList";
 import ProductComboSearchCommand from "@/components/common/ProductComboSearchCommand";
-import { getMappedSearchProductCombinations } from "@/lib/utils";
+import { getMappedSearchProductCombinations } from "@/lib/api-clients/productSearch";
 import { ChevronsUpDown } from "lucide-react";
 import { useCallback, useState } from "react";
 

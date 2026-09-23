@@ -21,7 +21,7 @@ export const reportsServerService = {
       include: [
         {
           model: ProductCombination,
-          as: "combinations",
+          as: "combination",
           include: [{ model: Product, as: "product" }],
         },
         { model: User, as: "user" },
@@ -46,8 +46,18 @@ export const reportsServerService = {
     return res.map((r) => r.get({ plain: true }));
   },
 
-  getBreakPacks: async () => {
-    return await BreakPack.findAll({
+  getBreakPacks: async (
+    params: { limit?: number; page?: number; offset?: number } = {},
+  ) => {
+    const { limit, page } = params;
+    const offset =
+      params.offset !== undefined
+        ? params.offset
+        : limit && page
+          ? (page - 1) * limit
+          : undefined;
+
+    const queryOptions: any = {
       include: [
         {
           model: ProductCombination,
@@ -62,7 +72,24 @@ export const reportsServerService = {
         { model: User, as: "user" },
       ],
       order: [["id", "DESC"]],
-    });
+    };
+
+    if (limit !== undefined) {
+      queryOptions.limit = limit;
+      queryOptions.offset = offset || 0;
+      queryOptions.distinct = true;
+      const { count, rows } = await BreakPack.findAndCountAll(queryOptions);
+      return {
+        rows,
+        meta: {
+          total: count,
+          totalPages: Math.ceil(count / limit),
+          currentPage: page || 1,
+        },
+      };
+    }
+
+    return await BreakPack.findAll(queryOptions);
   },
 
   getPopularProducts: async (params: any = {}) => {

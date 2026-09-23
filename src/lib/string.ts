@@ -49,7 +49,7 @@ export function getSKU(
   category: number | string,
   unit?: string,
   values?: any[],
-  suffix: string = ""
+  suffix: string = "",
 ): string {
   const preProcess = (str: any) => {
     let processed = String(str || "");
@@ -91,7 +91,7 @@ export function getSKU(
 
   if (values && values.length > 0) {
     const processedValues = [...values]
-      .sort((a, b) => (Number(a.id || 0)) - (Number(b.id || 0)))
+      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
       .map((val) => shortenValue(val.value || val.name || val));
 
     parts.push(...processedValues);
@@ -106,4 +106,20 @@ export function getSKU(
 
 export function getBarcode(id: number | string): string {
   return String(id).padStart(8, "0");
+}
+
+export function titleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function formatLabel(str: string) {
+  return str
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

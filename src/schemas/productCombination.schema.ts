@@ -24,7 +24,6 @@ export const ProductCombinationUpdateSchema =
   ProductCombinationBaseSchema.extend({
     id: z.coerce.number().nullish(),
     name: z.string().nullish(),
-    price: z.coerce.number().positive(),
   });
 
 export const ProductCombinationSchema = ProductCombinationBaseSchema.extend({

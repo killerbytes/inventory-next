@@ -1,4 +1,4 @@
-import { formatLabel, titleCase } from "@/lib/utils";
+import { formatLabel, titleCase } from "@/lib/string";
 
 export { ROUTES } from "@/lib/routes";
 

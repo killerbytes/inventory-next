@@ -1,8 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { getMappedSearchProductCombinations } from "@/lib/api-clients/productSearch";
 import { PERMISSIONS } from "@/lib/rbac";
-import { cn, getMappedSearchProductCombinations } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import {
   Annoyed,

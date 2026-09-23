@@ -1,5 +1,6 @@
 "use server";
 
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 import {
   UserInput,
   UserInputSchema,
@@ -12,7 +13,7 @@ import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
 
 export const createUserAction = createProtectedAction({
-  permission: "MANAGE_USERS",
+  permission: PERMISSIONS.MANAGE_USERS,
   schema: UserInputSchema,
   handler: async (_ctx, input: UserInput) => {
     const result = await userServerService.create(input);
@@ -22,7 +23,7 @@ export const createUserAction = createProtectedAction({
 });
 
 export const updateUserAction = createProtectedAction({
-  permission: "MANAGE_USERS",
+  permission: PERMISSIONS.MANAGE_USERS,
   schema: UserUpdateSchema,
   handler: async (_ctx, id: number, input: UserUpdateInput) => {
     const result = await userServerService.update(id, input);
@@ -32,7 +33,8 @@ export const updateUserAction = createProtectedAction({
 });
 
 export async function changePasswordAction(data: {
-  oldPassword: string;
+  userId?: number;
+  oldPassword?: string;
   newPassword: string;
 }) {
   const session = await getSession();
@@ -40,9 +42,20 @@ export async function changePasswordAction(data: {
     throw new Error("Unauthorized: Please sign in to change password");
   }
 
+  const targetUserId = data.userId || session.id;
+  const isSelf = targetUserId === session.id;
+  const isAdmin = hasPermission(session.role, PERMISSIONS.MANAGE_USERS);
+
+  if (!isSelf && !isAdmin) {
+    throw new Error(
+      "Forbidden: You do not have permission to change another user's password",
+    );
+  }
+
   return await userServerService.changePassword(
-    session.id,
-    data.oldPassword,
+    targetUserId,
     data.newPassword,
+    data.oldPassword,
+    isAdmin && !isSelf,
   );
 }

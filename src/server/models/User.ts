@@ -87,6 +87,15 @@ User.init(
     tableName: "Users",
     paranoid: true,
     deletedAt: "deletedAt",
+    hooks: {
+      beforeValidate: (user: User) => {
+        if (user.role) {
+          user.role = user.role.trim().toUpperCase();
+        } else {
+          user.role = "USER";
+        }
+      },
+    },
     defaultScope: {
       attributes: {
         exclude: ["password", "createdAt", "updatedAt", "deletedAt"],

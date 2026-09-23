@@ -1,5 +1,4 @@
 import { ProductCombinationData } from "@/schemas";
-import { searchProductCombinationsAction } from "@/server/actions/product.actions";
 import { DATE_FORMAT, DATETIME_FORMAT } from "@/types/definitions";
 import { clsx, type ClassValue } from "clsx";
 import { format } from "date-fns";
@@ -11,14 +10,6 @@ export function cn(...inputs: ClassValue[]) {
 
 export function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-export function formatLabel(str: string) {
-  return str
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 export const getInitials = (name: string) => {
@@ -80,58 +71,6 @@ export const getScore = (value: string, search: string) => {
   return 0;
 };
 
-export const getMappedSearchProductCombinations = async (params: {
-  search: string;
-  limit?: number;
-  noBreakPacks?: boolean;
-}) => {
-  const { search } = params;
-  if (!search || search.length < 2) {
-    return [];
-  }
-
-  const response = await searchProductCombinationsAction({
-    limit: params.limit ?? 20,
-    ...params,
-  });
-
-  const searchResults = Array.isArray(response)
-    ? response
-    : Array.isArray((response as any)?.data)
-      ? (response as any).data
-      : [];
-
-  const result: any[] = [];
-  const words = search
-    .toLowerCase()
-    .replace(/[-_()]/g, " ")
-    .split(/\s+/)
-    .filter((i) => i.length > 0);
-
-  for (const item of searchResults) {
-    const combinations = (item.combinations || []).map((i: any) => {
-      return {
-        ...i,
-        product: item,
-      };
-    });
-
-    const filtered = (combinations ?? []).filter((i: any) => {
-      const textToSearch = `${i.name || ""} ${item.name || ""} ${
-        item.description || ""
-      }`
-        .toLowerCase()
-        .replace(/[-_()]/g, " ");
-
-      return words.every((word) => textToSearch.includes(word));
-    });
-
-    result.push(...filtered);
-  }
-
-  return result;
-};
-
 export interface FooterTotals {
   totalAmount: number;
   totalPrice: number;
@@ -176,11 +115,3 @@ export const mappedStatusHistory = (
   });
   return map;
 };
-
-export function titleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
