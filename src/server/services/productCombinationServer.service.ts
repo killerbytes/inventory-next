@@ -408,27 +408,27 @@ export const productCombinationServerService = {
   //   };
   // },
 
-  // getByCategoryId: async (categoryId: number | string) => {
-  //   const combinations = await ProductCombination.findAll({
-  //     include: [
-  //       {
-  //         model: Product,
-  //         as: "product",
-  //         where: { categoryId: Number(categoryId) },
-  //       },
-  //       {
-  //         model: Inventory,
-  //         as: "inventory",
-  //       },
-  //     ],
-  //     order: [[{ model: Product, as: "product" }, "name", "ASC"]],
-  //     where: {
-  //       isActive: true,
-  //     },
-  //   });
+  getByCategoryId: async (categoryId: number | string) => {
+    const combinations = await ProductCombination.findAll({
+      include: [
+        {
+          model: Product,
+          as: "product",
+          where: { categoryId: Number(categoryId) },
+        },
+        {
+          model: Inventory,
+          as: "inventory",
+        },
+      ],
+      order: [[{ model: Product, as: "product" }, "name", "ASC"]],
+      where: {
+        isActive: true,
+      },
+    });
 
-  //   return combinations;
-  // },
+    return combinations;
+  },
 
   updateByProductId: async (
     productId: number | string,
@@ -1135,7 +1135,10 @@ LIMIT 20;
     });
   },
 
-  stockAdjustment: async (payload: StockAdjustmentInput, userId: number = 1) => {
+  stockAdjustment: async (
+    payload: StockAdjustmentInput,
+    userId: number = 1,
+  ) => {
     const validatedData = stockAdjustmentInputSchema.parse(payload);
     const { combinationId, newQuantity, reason, notes } = validatedData;
 

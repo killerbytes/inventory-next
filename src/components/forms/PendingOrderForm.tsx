@@ -48,7 +48,6 @@ export default function PendingOrderForm({
     name: "goodReceiptLines",
     keyName: "fieldId",
   });
-  console.log(fields);
 
   const columns = React.useMemo(
     () => [

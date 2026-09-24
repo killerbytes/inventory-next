@@ -17,7 +17,7 @@ export function AppProvider({
     <AuthProvider user={user}>
       <SidebarProvider>
         {children}
-        <Toaster position="top-right" richColors />
+        <Toaster position="bottom-left" richColors />
       </SidebarProvider>
     </AuthProvider>
   );

@@ -26,8 +26,6 @@ function ChangePasswordModalContent() {
   });
 
   const onSubmit = async (values: ChangePasswordInput) => {
-    console.log(values);
-
     // if (values.newPassword !== values.confirmPassword) {
     //   toast.error("New passwords do not match.");
     //   return;
@@ -50,7 +48,6 @@ function ChangePasswordModalContent() {
       }
     });
   };
-  console.log(form.getValues(), form.formState.errors);
 
   return (
     <>

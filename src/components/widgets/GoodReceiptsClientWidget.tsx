@@ -13,6 +13,7 @@ import {
   STATUS_COLOR,
 } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
+import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ import { DateRange } from "react-day-picker";
 import ColorBadge from "../common/ColorBadge";
 import { DataTable } from "../common/DataTable";
 import DateRangePicker from "../common/DateRangePicker";
+import SummaryCard from "../common/SummaryCard";
 import PageHeader from "../layout/PageHeader";
 import { Button } from "../ui/button";
 import {
@@ -34,14 +36,20 @@ import {
 const columnHelper = createColumnHelper<GoodReceiptData>();
 
 export default function GoodReceiptsClientWidget({
-  rows,
-  meta,
+  initialRows,
+  initialMeta,
+  initialSummary,
   startDate,
   endDate,
   suppliers = [],
 }: {
-  rows?: GoodReceiptData[];
-  meta?: Meta;
+  initialRows?: GoodReceiptData[];
+  initialMeta?: Meta;
+  initialSummary?: {
+    totalAmount: number;
+    totalReturnAmount: number;
+    totalPayableAmount: number;
+  };
   startDate?: string;
   endDate?: string;
   suppliers?: SupplierData[];
@@ -58,8 +66,8 @@ export default function GoodReceiptsClientWidget({
   const router = useRouter();
   const dateRange: DateRange = useMemo(
     () => ({
-      from: filters.startDate ? new Date(filters.startDate) : undefined,
-      to: filters.endDate ? new Date(filters.endDate) : undefined,
+      from: filters.startDate ? parseISO(filters.startDate) : undefined,
+      to: filters.endDate ? parseISO(filters.endDate) : undefined,
     }),
     [filters.startDate, filters.endDate],
   );
@@ -95,12 +103,12 @@ export default function GoodReceiptsClientWidget({
           return <ColorBadge colorMap={STATUS_COLOR}>{status}</ColorBadge>;
         },
       }),
-      columnHelper.accessor("createdAt", {
+      columnHelper.accessor("receiptDate", {
         header: "Receipt Date",
         meta: {
           className: "text-muted-foreground text-xs",
         },
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
+        cell: ({ row }) => formatDateTime(row.original.receiptDate),
       }),
       columnHelper.accessor("totalAmount", {
         header: "Total Amount",
@@ -126,19 +134,41 @@ export default function GoodReceiptsClientWidget({
           <Plus className="h-4 w-4" /> Create Order
         </Button>
       </PageHeader>
+      {initialSummary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xl">
+          <SummaryCard
+            label="Total Amount"
+            value={formatCurrency(initialSummary.totalAmount)}
+          />
+          <SummaryCard
+            label="Total Payable"
+            value={
+              <span className="text-red-500">
+                {formatCurrency(initialSummary.totalPayableAmount)}
+              </span>
+            }
+          />
+          <SummaryCard
+            label="Total Return"
+            value={
+              <span className="text-yellow-500">
+                {formatCurrency(initialSummary.totalReturnAmount)}
+              </span>
+            }
+          />
+        </div>
+      )}
 
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="flex flex-col md:flex-row gap-4 items-center">
         <DateRangePicker
           value={dateRange}
           onChange={(range) => {
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
-                ? range.from.toISOString().split("T")[0]
+                ? format(range.from, "yyyy-MM-dd")
                 : undefined,
-              endDate: range.to
-                ? range.to.toISOString().split("T")[0]
-                : undefined,
+              endDate: range.to ? format(range.to, "yyyy-MM-dd") : undefined,
               page: 1,
             }));
           }}
@@ -165,9 +195,9 @@ export default function GoodReceiptsClientWidget({
 
       <DataTable
         columns={columns}
-        data={rows || []}
+        data={initialRows || []}
         paginate={true}
-        paginationMeta={meta}
+        paginationMeta={initialMeta}
         onRowClick={(row) => {
           if (row.status === ORDER_STATUS.DRAFT) {
             setGoodReceiptModalOpen(true, row);

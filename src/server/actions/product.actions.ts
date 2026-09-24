@@ -57,6 +57,15 @@ export const searchProductCombinationsAction = createProtectedAction({
   },
 });
 
+export const getProductCombinationsByCategoryIdAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx, categoryId: number) => {
+    const result =
+      await productCombinationServerService.getByCategoryId(categoryId);
+    return result ? JSON.parse(JSON.stringify(result)) : [];
+  },
+});
+
 export const lookupBarcodeAction = createProtectedAction({
   permission: PERMISSIONS.VIEW_PRODUCTS,
   handler: async (_ctx, barcode: string) => {

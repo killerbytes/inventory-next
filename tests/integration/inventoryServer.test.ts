@@ -617,7 +617,6 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       (m: any) =>
         m.referenceType === "GOOD_RECEIPT" && Number(m.referenceId) === 1,
     );
-    console.log(123, JSON.stringify(grMovement, null, 2));
 
     expect(grMovement).toBeDefined();
     expect(grMovement.goodReceipt).toBeUndefined();

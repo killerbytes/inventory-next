@@ -32,7 +32,6 @@ export default async function MovementsPage({
     totalValue: { label: "Total Amount", value: 0 },
     totalQuantity: { label: "Total Quantity", value: 0 },
   };
-  console.log(startDate, endDate);
 
   try {
     const result = await inventoryServerService.getMovements({

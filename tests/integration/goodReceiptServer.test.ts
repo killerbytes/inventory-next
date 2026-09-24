@@ -483,4 +483,90 @@ describe("Good Receipt Service (Integration)", () => {
   it("should throw an error for a non-existent good receipt", async () => {
     await expect(goodReceiptServerService.get(9999)).resolves.toBeNull();
   });
+
+  it("should filter by receiptDate with end-of-day boundary safety and exclude next month records", async () => {
+    // Arrange: Create Receipt on July 31st (inside July)
+    const receiptJuly = await goodReceiptServerService.create(
+      {
+        supplierId: 1,
+        receiptDate: new Date("2026-07-31T10:00:00"),
+        referenceNo: "GR-JULY-31",
+        goodReceiptLines: [{ combinationId: 1, quantity: 5, purchasePrice: 50 }],
+      },
+      user0.id,
+    );
+
+    // Create Receipt on August 1st midnight local (represented as 2026-07-31 16:00:00Z in UTC if in GMT+8, or 2026-08-01 local)
+    const receiptAugust = await goodReceiptServerService.create(
+      {
+        supplierId: 1,
+        receiptDate: new Date("2026-08-01T00:00:00"),
+        referenceNo: "GR-AUG-01",
+        goodReceiptLines: [{ combinationId: 1, quantity: 10, purchasePrice: 50 }],
+      },
+      user0.id,
+    );
+
+    // Act: Query for July 2026 (2026-07-01 to 2026-07-31)
+    const result = await goodReceiptServerService.getAll({
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+
+    // Assert: Only July receipt should be returned; August 1st must be strictly excluded
+    const returnedIds = result.data.map((r: any) => r.id);
+    expect(returnedIds).toContain(receiptJuly?.id);
+    expect(returnedIds).not.toContain(receiptAugust?.id);
+  });
+
+  it("should prevent cross-receipt line item IDOR overwrites during update", async () => {
+    // Arrange: Receipt A
+    const receiptA = await goodReceiptServerService.create(
+      {
+        supplierId: 1,
+        receiptDate: new Date(),
+        referenceNo: "GR-RECA",
+        goodReceiptLines: [{ combinationId: 1, quantity: 10, purchasePrice: 100 }],
+      },
+      user0.id,
+    );
+
+    // Receipt B
+    const receiptB = await goodReceiptServerService.create(
+      {
+        supplierId: 1,
+        receiptDate: new Date(),
+        referenceNo: "GR-RECB",
+        goodReceiptLines: [{ combinationId: 1, quantity: 50, purchasePrice: 200 }],
+      },
+      user0.id,
+    );
+
+    const lineB = receiptB?.goodReceiptLines?.[0];
+    expect(lineB).toBeDefined();
+
+    // Act: Attempt to update Receipt A but specify lineB's ID with tampered values
+    await goodReceiptServerService.update(
+      receiptA!.id,
+      {
+        goodReceiptLines: [
+          {
+            id: lineB!.id,
+            combinationId: 1,
+            quantity: 999,
+            purchasePrice: 1,
+          },
+        ],
+      },
+      user0.id,
+    );
+
+    // Assert: Line B on Receipt B must NOT have been modified
+    const refreshedReceiptB = await goodReceiptServerService.get(receiptB!.id);
+    const lineBAfter = refreshedReceiptB?.goodReceiptLines?.find((l) => l.id === lineB!.id);
+    expect(lineBAfter).toBeDefined();
+    expect(Number(lineBAfter?.quantity)).toBe(50);
+    expect(Number(lineBAfter?.purchasePrice)).toBe(200);
+  });
 });
+

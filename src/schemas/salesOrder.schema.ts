@@ -19,7 +19,6 @@ export const SalesOrderItemInputSchema = SalesOrderItemBaseSchema.strict();
 
 export const SalesOrderItemSchema = SalesOrderItemBaseSchema.extend({
   id: z.number(),
-  originalPrice: z.coerce.number(),
   totalAmount: z.coerce.number(),
   unit: z.string(),
   skuSnapshot: z.string(),
@@ -27,6 +26,7 @@ export const SalesOrderItemSchema = SalesOrderItemBaseSchema.extend({
   categorySnapshot: z.string(),
   variantSnapshot: z.string(),
   combination: ProductCombinationSchema,
+  originalPrice: z.coerce.number().positive(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

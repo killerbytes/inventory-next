@@ -1,57 +1,32 @@
 "use client";
 
-import { DataTable } from "@/components/common/DataTable";
 import ProductModal from "@/components/modals/ProductModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProductData } from "@/schemas";
+import { CategoryData, ProductData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import { UserRole } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Package, Plus } from "lucide-react";
-import Link from "next/link";
-import { useMemo } from "react";
 import { RoleGuard } from "../common/RoleGuard";
 import PageHeader from "../layout/PageHeader";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
+import { LazyProductsByCategory } from "./products/LazyProductsByCategory";
 
 const columnHelper = createColumnHelper<ProductData>();
 
 export default function ProductsWidget({
-  initialProducts,
+  initialCategories,
 }: {
-  initialProducts: ProductData[];
+  initialCategories: CategoryData[];
 }) {
-  const products = initialProducts;
+  const categories = initialCategories;
   const { setProductModalOpen } = useUIStore();
-
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor("name", {
-        header: "Product Name",
-        cell: (info) => (
-          <Link
-            href={`/products/${info.row.original.id}`}
-            className="font-semibold"
-          >
-            {info.getValue()}
-          </Link>
-        ),
-      }),
-      columnHelper.accessor("sku", {
-        header: "SKU",
-        cell: (info) => (
-          <span className="font-mono text-xs font-semibold">
-            {info.getValue() || `PROD-${info.row.original.id}`}
-          </span>
-        ),
-      }),
-      columnHelper.accessor("category.name", {
-        header: "Category",
-        cell: (info) => info.getValue() || "Uncategorized",
-      }),
-    ],
-    [],
-  );
 
   return (
     <div className="space-y-6">
@@ -75,11 +50,20 @@ export default function ProductsWidget({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            Product Inventory ({products.length})
+            Categories
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={products} searchKey="name" />
+          <Accordion>
+            {categories?.map((i) => (
+              <AccordionItem key={i.id} value={i.id}>
+                <AccordionTrigger>{i.name}</AccordionTrigger>
+                <AccordionContent>
+                  <LazyProductsByCategory categoryId={i.id} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </CardContent>
       </Card>
 

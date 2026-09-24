@@ -1,6 +1,9 @@
 import GoodReceiptsClientWidget from "@/components/widgets/GoodReceiptsClientWidget";
 import { GoodReceiptData, SupplierData } from "@/schemas";
-import { goodReceiptServerService, supplierServerService } from "@/server/services";
+import {
+  goodReceiptServerService,
+  supplierServerService,
+} from "@/server/services";
 import { Meta, PaginatedResponse, PAGINATION } from "@/types/definitions";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
@@ -29,30 +32,40 @@ export default async function GoodReceiptsPage({
     totalPages: 0,
     currentPage: 0,
   };
+  let summary = {
+    totalAmount: 0,
+    totalReturnAmount: 0,
+    totalPayableAmount: 0,
+  };
   try {
-    const result: PaginatedResponse<GoodReceiptData> =
-      await goodReceiptServerService.getAll({
-        startDate,
-        endDate,
-        status: params.status === "ALL" ? undefined : params.status,
-        search: params.q,
-        limit,
-        offset,
-      });
+    const result = await goodReceiptServerService.getAll({
+      startDate,
+      endDate,
+      status: params.status === "ALL" ? undefined : params.status,
+      search: params.q,
+      limit,
+      offset,
+    });
 
-    rows = result.data;
+    rows = JSON.parse(JSON.stringify(result.data));
     meta = result.meta;
+    if (result.summary) {
+      summary = result.summary;
+    }
 
     const supplierRecords = await supplierServerService.getAll();
-    suppliers = supplierRecords ? JSON.parse(JSON.stringify(supplierRecords)) : [];
+    suppliers = supplierRecords
+      ? JSON.parse(JSON.stringify(supplierRecords))
+      : [];
   } catch (err) {
     console.error("Failed to fetch good receipts on server:", err);
   }
 
   return (
     <GoodReceiptsClientWidget
-      rows={JSON.parse(JSON.stringify(rows))}
-      meta={meta}
+      initialRows={rows}
+      initialMeta={meta}
+      initialSummary={summary}
       startDate={startDate}
       endDate={endDate}
       suppliers={suppliers}

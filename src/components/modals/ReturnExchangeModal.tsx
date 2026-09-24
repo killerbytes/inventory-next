@@ -60,8 +60,7 @@ function ReturnExchangeModalContent({
   const [exchangeItems, setExchangeItems] = useState<ExchangeItemLine[]>([]);
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
-  const { isReturnExchangeModalOpen, setReturnExchangeModalOpen } =
-    useUIStore();
+  const { setReturnExchangeModalOpen } = useUIStore();
 
   const form = useForm<ReturnExchangeFormInput>({
     defaultValues: {

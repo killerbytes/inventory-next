@@ -61,7 +61,6 @@ export default function CreateGoodReceiptClientWidget({
     resolver: zodResolver(GoodReceiptFormSchema),
     values: goodReceiptDefault,
   });
-  console.log(form.getValues(), form.formState.errors);
 
   useEffect(() => {
     try {

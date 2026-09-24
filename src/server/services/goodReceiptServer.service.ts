@@ -148,7 +148,7 @@ const updateOrder = async (
 
       if (item.id) {
         await GoodReceiptLine.update(lineData, {
-          where: { id: item.id },
+          where: { id: item.id, goodReceiptId: goodReceipt.id },
           transaction,
         });
       } else {
@@ -271,12 +271,16 @@ export const goodReceiptServerService = {
     const where: any = {};
 
     if (startDate || endDate) {
-      where.createdAt = {};
+      where.receiptDate = {};
       if (startDate) {
-        where.createdAt[Op.gte] = new Date(startDate);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.receiptDate[Op.gte] = start;
       }
       if (endDate) {
-        where.createdAt[Op.lte] = new Date(endDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.receiptDate[Op.lte] = end;
       }
     }
 

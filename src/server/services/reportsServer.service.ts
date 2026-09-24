@@ -30,22 +30,6 @@ export const reportsServerService = {
     });
   },
 
-  getInventoryMovements: async () => {
-    const res = await InventoryMovement.findAll({
-      include: [
-        {
-          model: ProductCombination,
-          as: "combination",
-          include: [{ model: Product, as: "product" }],
-        },
-        { model: User, as: "user" },
-      ],
-      order: [["id", "DESC"]],
-    });
-
-    return res.map((r) => r.get({ plain: true }));
-  },
-
   getBreakPacks: async (
     params: { limit?: number; page?: number; offset?: number } = {},
   ) => {

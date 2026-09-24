@@ -160,7 +160,7 @@ export default function ProductDetailClientWidget({
         header: "SRP Price",
         meta: {
           align: "right",
-          className: "font-mono font-semibold text-[12px]",
+          className: "font-mono font-semibold",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -169,7 +169,7 @@ export default function ProductDetailClientWidget({
         header: "Average Price",
         meta: {
           align: "right",
-          className: "font-mono text-[12px]",
+          className: "font-mono",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -202,8 +202,7 @@ export default function ProductDetailClientWidget({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="shadow-sm"
+                  size="icon"
                   onClick={() => {
                     setStockAdjustmentModalOpen(true, rowOriginal);
                   }}
@@ -215,8 +214,7 @@ export default function ProductDetailClientWidget({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="shadow-sm"
+                  size="icon"
                   disabled={qty === 0}
                   onClick={() => {
                     setBreakPackModalOpen(true, rowOriginal);
@@ -252,22 +250,22 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("fromPrice", {
         header: "From",
+        meta: {
+          className: "font-mono",
+        },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("toPrice", {
         header: "To",
+        meta: {
+          className: "font-mono font-semibold",
+        },
         cell: (info) => {
           const from = Number(info.row.original.fromPrice || 0);
           const to = Number(info.getValue() || 0);
           const isIncrease = to >= from;
           return (
-            <span
-              className={
-                isIncrease
-                  ? "font-bold text-emerald-600"
-                  : "font-bold text-rose-600"
-              }
-            >
+            <span className={isIncrease ? "text-emerald-600" : "text-rose-600"}>
               {formatCurrency(to)}
             </span>
           );
@@ -275,6 +273,10 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("changedAt", {
         header: "Changed Date",
+        meta: {
+          className: "text-xs text-muted-foreground",
+        },
+
         cell: (info) => formatDateTime(info.getValue()),
       }),
       columnHelper.accessor("user", {
@@ -289,22 +291,24 @@ export default function ProductDetailClientWidget({
     () => [
       columnHelper.accessor("combination.name", {
         header: "Name",
-        cell: (info) => info.row.original.combination?.name,
-      }),
-      columnHelper.accessor("unit", {
-        header: "Unit",
-        cell: (info) => (
-          <ColorBadge colorMap={UNIT_COLOR}>
-            {String(info.getValue())}
-          </ColorBadge>
+        cell: ({ row }) => (
+          <div className="flex gap-2">
+            <ColorBadge colorMap={UNIT_COLOR}>
+              {String(row.original.combination?.unit)}
+            </ColorBadge>
+            {row.original.combination?.name}
+          </div>
         ),
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: (info) => Number(info.getValue() || 0),
+        cell: (info) => <Badge>{Number(info.getValue() || 0)}</Badge>,
       }),
       columnHelper.accessor("purchasePrice", {
         header: "Purchase Price",
+        meta: {
+          className: "font-mono",
+        },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("goodReceipt.supplier.name", {
@@ -341,6 +345,9 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("goodReceipt.receiptDate", {
         header: "Date",
+        meta: {
+          className: "text-xs text-muted-foreground",
+        },
         cell: (info) => formatDate(info.row.original.goodReceipt?.receiptDate),
       }),
     ],
@@ -373,14 +380,20 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: (info) => Number(info.getValue() || 0),
+        cell: (info) => <Badge>{Number(info.getValue() || 0)}</Badge>,
       }),
       columnHelper.accessor("costPerUnit", {
         header: "Cost Per Unit",
+        meta: {
+          className: "font-mono",
+        },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("totalCost", {
         header: "Total Cost",
+        meta: {
+          className: "font-mono",
+        },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("referenceId", {
@@ -405,11 +418,11 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("referenceDate", {
         header: "Reference Date",
+        meta: {
+          className: "text-xs text-muted-foreground",
+        },
+
         cell: (info) => formatDate(info.getValue()),
-      }),
-      columnHelper.accessor("updatedAt", {
-        header: "Updated At",
-        cell: (info) => formatDateTime(info.getValue()),
       }),
       columnHelper.accessor("user", {
         header: "User",
@@ -486,8 +499,8 @@ export default function ProductDetailClientWidget({
                   <div className="uppercase text-xs font-semibold text-muted-foreground tracking-wider">
                     {variant.name}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <ShowMore>
+                  <ShowMore>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
                       {(variant.values || []).map((v: any) => (
                         <Badge
                           key={v.id || v.value}
@@ -497,8 +510,8 @@ export default function ProductDetailClientWidget({
                           {v.value}
                         </Badge>
                       ))}
-                    </ShowMore>
-                  </div>
+                    </div>
+                  </ShowMore>
                 </div>
               ))}
             </div>

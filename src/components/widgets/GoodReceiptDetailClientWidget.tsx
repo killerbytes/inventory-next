@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PERMISSIONS } from "@/lib/rbac";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { GoodReceiptData } from "@/schemas";
 import {
   cancelGoodReceiptAction,
@@ -50,8 +50,8 @@ export default function GoodReceiptDetailClientWidget({
         const i =
           receipt.goodReceiptLines && receipt.goodReceiptLines[Number(key)];
         if (!i) return null;
-        // delete i.combination;
-        return i;
+        const { combination, ...rest } = i;
+        return rest;
       })
       .filter(Boolean);
   }, [rowSelection, receipt.goodReceiptLines]);
@@ -108,11 +108,9 @@ export default function GoodReceiptDetailClientWidget({
         meta: { className: "w-2/4 min-w-[400px]" },
         cell: ({ row }) => (
           <div className="flex gap-2">
-            <ColorBadge colorMap={UNIT_COLOR}>
-              {row.original.combination?.unit}
-            </ColorBadge>
+            <ColorBadge colorMap={UNIT_COLOR}>{row.original.unit}</ColorBadge>
             <Link
-              href={`/products/${row.original.combination?.productId}`}
+              href={`/products/${row.original.productId}`}
               className="text-primary"
             >
               {row.original.nameSnapshot}
@@ -192,7 +190,7 @@ export default function GoodReceiptDetailClientWidget({
         </div>
 
         <div className="flex items-center gap-2">
-          {(status !== ORDER_STATUS.DRAFT || status !== ORDER_STATUS.VOID) && (
+          {status !== ORDER_STATUS.DRAFT && status !== ORDER_STATUS.VOID && (
             <PermissionGuard permission={PERMISSIONS.RETURN_GOODS}>
               <Button
                 variant="outline"
@@ -239,9 +237,7 @@ export default function GoodReceiptDetailClientWidget({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Receipt Date:</span>
               <span className="font-semibold">
-                {receipt.createdAt
-                  ? new Date(receipt.createdAt).toLocaleDateString()
-                  : "—"}
+                {formatDateTime(receipt.receiptDate)}
               </span>
             </div>
             <div className="flex justify-between">

@@ -6,8 +6,8 @@ import Pager from "@/components/common/Pager";
 import PageHeader from "@/components/layout/PageHeader";
 import InvoiceModal from "@/components/modals/InvoiceModal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { formatLabel } from "@/lib/string";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SupplierData } from "@/schemas/supplier.schema";
 import { useUIStore } from "@/stores/uiStore";
@@ -18,10 +18,22 @@ import {
   STATUS_COLOR,
 } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
-import { CreditCard, Plus, Search } from "lucide-react";
+import { CreditCard, Plus, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -141,31 +153,37 @@ export default function InvoicesClientWidget({
       </PageHeader>
 
       <div className="flex items-center gap-2 max-w-md">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search invoice # or supplier..."
+        <InputGroup>
+          <InputGroupInput
+            placeholder="Search..."
             value={filters.q}
             onChange={(e) =>
               setFilters((prev) => ({ ...prev, q: e.target.value, page: 1 }))
             }
-            className="pl-9 h-10 text-xs"
           />
-        </div>
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+        </InputGroup>
 
-        <select
+        <Select
           value={filters.status}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, status: e.target.value, page: 1 }))
+          onValueChange={(value) =>
+            setFilters({ ...filters, status: !value ? "ALL" : value, page: 1 })
           }
-          className="h-10 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
         >
-          <option value="ALL">All Statuses</option>
-          <option value={INVOICE_STATUS.DRAFT}>Draft</option>
-          <option value={INVOICE_STATUS.POSTED}>Posted</option>
-          <option value={INVOICE_STATUS.PARTIALLY_PAID}>Partially Paid</option>
-          <option value={INVOICE_STATUS.PAID}>Paid</option>
-        </select>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All</SelectItem>
+            {Object.values(INVOICE_STATUS).map((key) => (
+              <SelectItem key={key} value={key}>
+                {formatLabel(key)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <DataTable

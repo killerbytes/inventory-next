@@ -388,10 +388,14 @@ export const salesServerService = {
     if (startDate || endDate) {
       where.orderDate = {};
       if (startDate) {
-        where.orderDate[Op.gte] = new Date(startDate);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        where.orderDate[Op.gte] = start;
       }
       if (endDate) {
-        where.orderDate[Op.lte] = new Date(endDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.orderDate[Op.lte] = end;
       }
     }
 
@@ -521,8 +525,14 @@ export const salesServerService = {
               throw new Error("Product Combination not found");
             }
 
-            const purchasePrice = Number(productCombination.price) || 0;
-            const originalPrice = Number(productCombination.price) || 0;
+            if (Number(productCombination.price) <= 0) {
+              throw new Error(
+                `Product "${productCombination.name}" price is not set. Please set the product price first.`,
+              );
+            }
+
+            const purchasePrice = Number(productCombination.price);
+            const originalPrice = Number(productCombination.price);
 
             const quantity = Number(item.quantity || 0);
             const discount = Number(item.discount || 0);

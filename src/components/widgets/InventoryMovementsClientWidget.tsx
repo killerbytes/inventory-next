@@ -1,39 +1,39 @@
 "use client";
 
+import ColorBadge from "@/components/common/ColorBadge";
 import { DataTable } from "@/components/common/DataTable";
 import DateRangePicker from "@/components/common/DateRangePicker";
 import Pager from "@/components/common/Pager";
+import SummaryCard from "@/components/common/SummaryCard";
 import PageHeader from "@/components/layout/PageHeader";
-import { Input } from "@/components/ui/input";
-import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  INVENTORY_MOVEMENT_TYPE_COLOR,
-  INVENTORY_MOVEMENT_TYPE_OPTIONS,
-  Meta,
-  UNIT_COLOR,
-} from "@/types/definitions";
-import { createColumnHelper } from "@tanstack/react-table";
-import { cx } from "class-variance-authority";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ClipboardList,
-  Search,
-} from "lucide-react";
-import Link from "next/link";
-import { useMemo } from "react";
-import { DateRange } from "react-day-picker";
-import ColorBadge from "../common/ColorBadge";
-import { Badge } from "../ui/badge";
-import { Card } from "../ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "@/components/ui/select";
+import useDebounce from "@/hooks/useDebounce";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import {
+  INVENTORY_MOVEMENT_REFERENCE_TYPE,
+  INVENTORY_MOVEMENT_TYPE_COLOR,
+  INVENTORY_MOVEMENT_TYPE_OPTIONS,
+  Meta,
+  UNIT_COLOR,
+} from "@/types/definitions";
+import { createColumnHelper } from "@tanstack/react-table";
+import { format, parseISO } from "date-fns";
+import { ClipboardList, SearchIcon } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { DateRange } from "react-day-picker";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../ui/input-group";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -64,55 +64,32 @@ export default function InventoryMovementsClientWidget({
     endDate,
   });
 
-  const movements = initialMovements || [];
+  const [searchQuery, setSearchQuery] = useState(filters.q || "");
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    setSearchQuery(filters.q || "");
+  }, [filters.q]);
+
+  useEffect(() => {
+    if (debouncedQuery !== (filters.q || "")) {
+      setFilters((prev) => ({
+        ...prev,
+        q: debouncedQuery,
+        page: 1,
+      }));
+    }
+  }, [debouncedQuery, filters.q, setFilters]);
 
   const dateRange: DateRange = useMemo(
     () => ({
-      from: filters.startDate ? new Date(filters.startDate) : undefined,
-      to: filters.endDate ? new Date(filters.endDate) : undefined,
+      from: filters.startDate ? parseISO(filters.startDate) : undefined,
+      to: filters.endDate ? parseISO(filters.endDate) : undefined,
     }),
     [filters.startDate, filters.endDate],
   );
 
-  const filteredMovements = useMemo(() => {
-    return movements.filter((mov) => {
-      // Search filter
-      const matchesSearch =
-        !filters.q ||
-        (mov.referenceType
-          ? `${mov.referenceType}-${mov.referenceId}`
-          : `MOV-${mov.id}`
-        )
-          .toLowerCase()
-          .includes(filters.q.toLowerCase()) ||
-        (mov.combination?.product?.name || "")
-          .toLowerCase()
-          .includes(filters.q.toLowerCase());
-
-      // Type filter
-      const type = mov.movementType || mov.type || "MOVEMENT";
-      const matchesStatus =
-        filters.status === "ALL" ||
-        type.toUpperCase() === filters.status.toUpperCase();
-
-      // Date range filter
-      const movDate = mov.createdAt ? new Date(mov.createdAt) : null;
-      let matchesDate = true;
-      if (movDate && dateRange?.from) {
-        matchesDate = matchesDate && movDate >= dateRange.from;
-      }
-      if (movDate && dateRange?.to) {
-        matchesDate = matchesDate && movDate <= dateRange.to;
-      }
-
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-  }, [movements, filters.q, filters.status, dateRange]);
-
-  const paginatedMovements = useMemo(() => {
-    const start = (filters.page - 1) * filters.limit;
-    return filteredMovements.slice(start, start + filters.limit);
-  }, [filteredMovements, filters.page, filters.limit]);
+  const movements = initialMovements || [];
 
   const columns = useMemo(
     () => [
@@ -120,73 +97,129 @@ export default function InventoryMovementsClientWidget({
         id: "combination.product.name",
         header: "Product Name",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <Link
+            className="flex gap-2 items-center text-primary hover:underline"
+            href={`/products/${row.original.combination?.productId || 1}`}
+          >
             <ColorBadge colorMap={UNIT_COLOR}>
-              {row.original.combination?.unit}
+              {String(row.original.combination?.unit || "")}
             </ColorBadge>
-            <Link
-              className="text-primary font-medium"
-              href={`/products/${row.original.combination?.productId}`}
-            >
-              {row.original.combination?.name}
-            </Link>
-          </div>
-        ),
-      }),
-      columnHelper.accessor("referenceId", {
-        header: "Reference #",
-        cell: ({ row }) => (
-          <div className="text-foreground flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            {row.original.referenceType}-{row.original.referenceId}
-          </div>
+            <span>{row.original.combination?.name}</span>
+          </Link>
         ),
       }),
       columnHelper.accessor("type", {
         header: "Type",
-        cell: ({ row }) => {
-          const type = row.original.type;
-          const isIn =
-            type.includes("IN") || type === "PURCHASE" || type === "RECEIPT";
-
-          const color =
-            INVENTORY_MOVEMENT_TYPE_COLOR[
-              type as keyof typeof INVENTORY_MOVEMENT_TYPE_COLOR
-            ];
-
-          return (
-            <Badge className={cx(color)}>
-              {type}
-              {isIn ? <ArrowDownLeft /> : <ArrowUpRight />}
-            </Badge>
-          );
+        meta: {
+          align: "center",
+          headerClassName: "text-center",
+          className: "text-center",
         },
+        cell: ({ row }) => (
+          <ColorBadge colorMap={INVENTORY_MOVEMENT_TYPE_COLOR}>
+            {row.original.type}
+          </ColorBadge>
+        ),
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: ({ row }) => Number(row.original.quantity),
+        meta: {
+          align: "right",
+          headerClassName: "text-right",
+          className: "text-right",
+        },
+        cell: ({ row }) => (
+          <span className="font-mono">{Number(row.original.quantity)}</span>
+        ),
+      }),
+      columnHelper.accessor("costPerUnit", {
+        header: "Cost Per Unit",
+        meta: {
+          align: "right",
+          headerClassName: "text-right",
+          className: "text-right",
+        },
+        cell: ({ row }) => (
+          <span className="font-mono">
+            {formatCurrency(Number(row.original.costPerUnit || 0))}
+          </span>
+        ),
+      }),
+      columnHelper.accessor("totalCost", {
+        header: "Total Cost",
+        meta: {
+          align: "right",
+          headerClassName: "text-right",
+          className: "text-right",
+        },
+        cell: ({ row }) => (
+          <span className="font-mono">
+            {formatCurrency(Number(row.original.totalCost || 0))}
+          </span>
+        ),
+      }),
+      columnHelper.accessor("referenceId", {
+        header: "Reference",
+        cell: ({ row }) => {
+          let route: string | null = null;
+          if (
+            row.original.referenceType ===
+            INVENTORY_MOVEMENT_REFERENCE_TYPE.GOOD_RECEIPT
+          ) {
+            route = `/good-receipts/${row.original.referenceId}`;
+          } else if (
+            row.original.referenceType ===
+            INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER
+          ) {
+            route = `/sales-orders/${row.original.referenceId}`;
+          }
+
+          const label = `${row.original.referenceType || "REF"}-${row.original.referenceId}`;
+
+          return route ? (
+            <Link
+              href={route}
+              className="text-primary hover:underline flex items-center gap-1.5 font-medium"
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              {label}
+            </Link>
+          ) : (
+            <div className="text-foreground flex items-center gap-1.5 text-muted-foreground">
+              <ClipboardList className="h-3.5 w-3.5" />
+              {label}
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("referenceDate", {
         header: "Reference Date",
-        cell: ({ row }) => {
-          return formatDate(row.original.referenceDate);
+        meta: {
+          className: "w-0 whitespace-nowrap text-xs text-muted-foreground",
         },
+        cell: ({ row }) => formatDate(row.original.referenceDate),
       }),
-      columnHelper.accessor((row) => row.user?.name, {
-        id: "user.name",
+      columnHelper.accessor("updatedAt", {
+        header: "Updated At",
+        meta: {
+          className: "w-0 whitespace-nowrap text-xs text-muted-foreground",
+        },
+        cell: ({ row }) => formatDateTime(row.original.updatedAt),
+      }),
+      columnHelper.accessor((row) => row.user?.username || row.user?.name, {
+        id: "user.username",
         header: "Recorded By",
         cell: ({ row }) =>
-          row.original.user?.name || `User #${row.original.userId}`,
+          row.original.user?.username ||
+          row.original.user?.name ||
+          (row.original.userId ? `User #${row.original.userId}` : "—"),
       }),
     ],
     [],
   );
 
-  const totalPages = meta
-    ? meta.totalPages
-    : Math.ceil(filteredMovements.length / filters.limit) || 1;
-  const totalCount = meta ? meta.total : filteredMovements.length;
-  const displayData = meta ? movements : paginatedMovements;
+  const totalPages = meta ? meta.totalPages : 1;
+  const totalCount = meta ? meta.total : movements.length;
 
   return (
     <div className="space-y-6">
@@ -197,30 +230,18 @@ export default function InventoryMovementsClientWidget({
 
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {summary.totalQuantity?.label || "Total Movement Volume"}
-            </p>
-            <p className="text-2xl font-bold font-mono text-foreground mt-1">
-              {Number(summary.totalQuantity?.value || 0).toLocaleString()}
-            </p>
-          </Card>
-          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {summary.totalValue?.label || "Total Movement Value"}
-            </p>
-            <p className="text-2xl font-bold font-mono text-emerald-600 mt-1">
-              {formatCurrency(summary.totalValue?.value || 0)}
-            </p>
-          </Card>
-          <Card className="p-4 bg-card/60 backdrop-blur-md border border-border/50 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Audited Records
-            </p>
-            <p className="text-2xl font-bold font-mono text-primary mt-1">
-              {totalCount.toLocaleString()}
-            </p>
-          </Card>
+          <SummaryCard
+            label={summary.totalQuantity?.label || "Total Movement Volume"}
+            value={Number(summary.totalQuantity?.value || 0).toLocaleString()}
+          />
+          <SummaryCard
+            label={summary.totalValue?.label || "Total Movement Value"}
+            value={formatCurrency(summary.totalValue?.value || 0)}
+          />
+          <SummaryCard
+            label="Total Audited Records"
+            value={totalCount.toLocaleString()}
+          />
         </div>
       )}
 
@@ -231,29 +252,26 @@ export default function InventoryMovementsClientWidget({
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
-                ? range.from.toISOString().split("T")[0]
+                ? format(range.from, "yyyy-MM-dd")
                 : undefined,
-              endDate: range.to
-                ? range.to.toISOString().split("T")[0]
-                : undefined,
+              endDate: range.to ? format(range.to, "yyyy-MM-dd") : undefined,
               page: 1,
             }));
           }}
         />
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search Reference or Product..."
-              value={filters.q}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, q: e.target.value, page: 1 }))
-              }
-              className="pl-8"
-            />
-          </div>
+        <InputGroup>
+          <InputGroupInput
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+        </InputGroup>
 
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <Select
             value={filters.status}
             onValueChange={(value) =>
@@ -263,7 +281,6 @@ export default function InventoryMovementsClientWidget({
                 page: 1,
               }))
             }
-            items={INVENTORY_MOVEMENT_TYPE_OPTIONS}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Movement Type" />
@@ -279,7 +296,16 @@ export default function InventoryMovementsClientWidget({
         </div>
       </div>
 
-      <DataTable columns={columns} data={displayData} paginate={false} />
+      <DataTable
+        columns={columns}
+        data={movements}
+        paginate={false}
+        meta={{
+          disabledRow: {
+            "combination.deletedAt": true,
+          },
+        }}
+      />
 
       <Pager
         meta={{

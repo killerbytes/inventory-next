@@ -5,41 +5,24 @@ import Modal from "@/components/common/Modal";
 import PendingOrderForm from "@/components/forms/PendingOrderForm";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
+import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
+import { SupplierData } from "@/schemas";
 import {
-  clearDraft,
-  DRAFT_STORAGE_KEYS,
-  loadDraft,
-  saveDraft,
-} from "@/lib/draftStorage";
-import { ProductCombinationSchema, SupplierData } from "@/schemas";
-import {
-  GoodReceiptInputSchema,
-  GoodReceiptLineInputSchema,
+  GoodReceiptFormSchema,
+  GoodReceiptModalForm,
 } from "@/schemas/goodReceipt.schema";
 import {
   createGoodReceiptAction,
   updateGoodReceiptAction,
 } from "@/server/actions/goodReceipt.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { goodReceiptItemDefault } from "@/types/definitions";
+import { goodReceiptItemDefault, ORDER_STATUS } from "@/types/definitions";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import z from "zod";
-
-const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
-  id: z.number().optional(),
-  combination: ProductCombinationSchema.nullable(),
-});
-
-const GoodReceiptFormSchema = GoodReceiptInputSchema.extend({
-  goodReceiptLines: z.array(GoodReceiptLineWithCombination),
-});
-
-export type GoodReceiptModalForm = z.infer<typeof GoodReceiptFormSchema>;
 
 const goodReceiptDefault: GoodReceiptModalForm = {
   referenceNo: "",
@@ -112,6 +95,7 @@ function GoodReceiptModalContent({
       try {
         const payload = {
           ...values,
+          ...(isEdit && { status: ORDER_STATUS.RECEIVED }),
           goodReceiptLines: values.goodReceiptLines.map(
             ({ combination, ...rest }) => rest,
           ),
@@ -134,19 +118,34 @@ function GoodReceiptModalContent({
     });
   }
 
-  const handleSaveDraft = () => {
-    try {
-      saveDraft(DRAFT_STORAGE_KEYS.PURCHASE, form.getValues());
-      toast.success("Draft saved successfully!");
-    } catch {
-      toast.error("Failed to save draft.");
-    }
+  const handleSaveDraft = async (values: GoodReceiptModalForm) => {
+    startTransition(async () => {
+      try {
+        const payload = {
+          ...values,
+          status: ORDER_STATUS.DRAFT,
+          goodReceiptLines: values.goodReceiptLines.map(
+            ({ combination, ...rest }) => rest,
+          ),
+        };
+
+        await updateGoodReceiptAction(Number(editingGoodReceipt?.id), payload);
+        toast.success("Draft saved successfully!");
+        setGoodReceiptModalOpen(false);
+        router.refresh();
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to save draft.");
+      }
+    });
   };
 
   return (
     <div className="space-y-4">
       {!isEdit && (
-        <DraftAutoSaver form={form as any} storageKey={DRAFT_STORAGE_KEYS.PURCHASE} />
+        <DraftAutoSaver
+          form={form as any}
+          storageKey={DRAFT_STORAGE_KEYS.PURCHASE}
+        />
       )}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <PendingOrderForm form={form as any} suppliers={suppliers} />
@@ -162,11 +161,11 @@ function GoodReceiptModalContent({
           </Button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {!isEdit && (
+            {isEdit && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleSaveDraft}
+                onClick={form.handleSubmit(handleSaveDraft)}
                 disabled={isPending}
               >
                 Save Draft
@@ -180,10 +179,10 @@ function GoodReceiptModalContent({
               <Save className="h-4 w-4 mr-1" />
               {isPending
                 ? isEdit
-                  ? "Updating Order..."
+                  ? "Receiving Order..."
                   : "Creating Order..."
                 : isEdit
-                  ? "Update Order"
+                  ? "Receive Order"
                   : "Create Order"}
             </Button>
           </div>
@@ -198,8 +197,11 @@ export default function GoodReceiptModal({
 }: {
   suppliers?: SupplierData[];
 }) {
-  const { isGoodReceiptModalOpen, setGoodReceiptModalOpen, editingGoodReceipt } =
-    useUIStore();
+  const {
+    isGoodReceiptModalOpen,
+    setGoodReceiptModalOpen,
+    editingGoodReceipt,
+  } = useUIStore();
 
   if (!isGoodReceiptModalOpen) return null;
 

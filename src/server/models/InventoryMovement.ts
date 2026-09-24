@@ -76,9 +76,6 @@ InventoryMovement.init(
     sequelize,
     modelName: "InventoryMovement",
     tableName: "InventoryMovements",
-    defaultScope: {
-      attributes: { exclude: ["updatedAt"] },
-    },
   },
 );
 

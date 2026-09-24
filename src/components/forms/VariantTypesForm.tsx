@@ -140,7 +140,7 @@ export default function VariantTypesForm({
       <Field className="space-y-2">
         <FieldLabel>Values</FieldLabel>
 
-        <ScrollArea className="max-h-[220px]">
+        <ScrollArea className="h-[220px]">
           <DataTable data={tableData} columns={columns} />
         </ScrollArea>
 

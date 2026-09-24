@@ -1,6 +1,7 @@
 import { ORDER_STATUS } from "@/types/definitions";
 import z from "zod";
 import { OrderStatusHistorySchema } from "./orderStatusHistory.schema";
+import { ProductCombinationSchema } from "./productCombination.schema";
 import { ReturnTransactionSchema } from "./returnItem.schema";
 import { SupplierSchema } from "./supplier.schema";
 
@@ -55,7 +56,12 @@ export const GoodReceiptUpdateSchema = z.object({
   cancellationReason: z.string().nullish(),
   goodReceiptLines: z.array(GoodReceiptLineUpdateSchema).optional(),
 });
-export const GoodReceiptSchema = GoodReceiptInputSchema.extend({
+const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
+  id: z.number().optional(),
+  combination: ProductCombinationSchema.nullable(),
+});
+
+export const GoodReceiptSchema = GoodReceiptBaseSchema.extend({
   id: z.number(),
   totalAmount: z.coerce.number(),
   status: z.nativeEnum(ORDER_STATUS),
@@ -65,6 +71,9 @@ export const GoodReceiptSchema = GoodReceiptInputSchema.extend({
   cancellationReason: z.string().nullable(),
   returnTransactions: z.array(ReturnTransactionSchema).default([]),
   goodReceiptStatusHistory: z.array(OrderStatusHistorySchema),
+  goodReceiptLines: z
+    .array(GoodReceiptLineWithCombination)
+    .min(1, "Product/s must be included"),
 });
 
 export type GoodReceiptInput = z.infer<typeof GoodReceiptInputSchema>;
@@ -81,3 +90,12 @@ export const InvoiceGoodReceiptSchema = z.object({
   supplier: z.any().optional(),
 });
 export type InvoiceGoodReceipt = z.infer<typeof InvoiceGoodReceiptSchema>;
+
+export const GoodReceiptFormSchema = GoodReceiptInputSchema.extend({
+  goodReceiptLines: z.array(GoodReceiptLineWithCombination),
+});
+
+export type GoodReceiptLineWithCombination = z.infer<
+  typeof GoodReceiptLineWithCombination
+>;
+export type GoodReceiptModalForm = z.infer<typeof GoodReceiptFormSchema>;

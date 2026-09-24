@@ -20,6 +20,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useMemo } from "react";
+import { format, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
 import ColorBadge from "../common/ColorBadge";
 import {
@@ -62,8 +63,8 @@ export default function SalesOrdersClientWidget({
 
   const dateRange: DateRange = useMemo(
     () => ({
-      from: filters.startDate ? new Date(filters.startDate) : undefined,
-      to: filters.endDate ? new Date(filters.endDate) : undefined,
+      from: filters.startDate ? parseISO(filters.startDate) : undefined,
+      to: filters.endDate ? parseISO(filters.endDate) : undefined,
     }),
     [filters.startDate, filters.endDate],
   );
@@ -132,10 +133,10 @@ export default function SalesOrdersClientWidget({
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
-                ? range.from.toISOString().split("T")[0]
+                ? format(range.from, "yyyy-MM-dd")
                 : undefined,
               endDate: range.to
-                ? range.to.toISOString().split("T")[0]
+                ? format(range.to, "yyyy-MM-dd")
                 : undefined,
               page: 1,
             }));

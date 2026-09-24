@@ -1,7 +1,7 @@
 import ProductsWidget from "@/components/widgets/ProductsWidget";
 import { PERMISSIONS } from "@/lib/rbac";
 import { requirePermission } from "@/server/auth/guards";
-import { productServerService } from "@/server/services";
+import { categoryServerService } from "@/server/services";
 
 export const metadata = {
   title: "Products | Inventory System",
@@ -11,14 +11,12 @@ export const metadata = {
 export default async function ProductsPage() {
   await requirePermission(PERMISSIONS.VIEW_PRODUCTS);
 
-  let products: any[] = [];
+  let categories: any[] = [];
   try {
-    const records = await productServerService.getAll();
-
-    products = JSON.parse(JSON.stringify(records));
+    categories = await categoryServerService.getAll();
   } catch (err) {
-    console.error("Failed to query Product from PostgreSQL:", err);
+    console.error("Failed to query Category from PostgreSQL:", err);
   }
 
-  return <ProductsWidget initialProducts={products} />;
+  return <ProductsWidget initialCategories={categories} />;
 }

@@ -83,6 +83,10 @@ describe("Inventory Movements & Parity Integration Tests", () => {
     // Assert summary: ADJUSTMENT_OUT must be excluded from totals for warehouse volume parity
     expect(Number(result.summary.totalQuantity.value)).toBe(10);
     expect(Number(result.summary.totalValue.value)).toBe(1000);
+
+    // Assert that updatedAt and cost fields are present for alignment with inventory-react
+    expect(result.data[0].updatedAt).toBeDefined();
+    expect(result.data[0].totalCost).toBeDefined();
   });
 
   it("should accurately paginate and return distinct counts in getMovements", async () => {

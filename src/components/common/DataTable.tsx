@@ -167,14 +167,20 @@ export function DataTable<TData>({
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => {
-                const isDisabled = disabledKey
+                const resolvedVal = disabledKey
                   ? disabledKey
                       .split(".")
                       .reduce(
                         (acc: unknown, key) =>
                           (acc as Record<string, unknown>)?.[key],
                         row.original,
-                      ) === disabledValue
+                      )
+                  : null;
+
+                const isDisabled = disabledKey
+                  ? disabledValue === true
+                    ? Boolean(resolvedVal)
+                    : resolvedVal === disabledValue
                   : null;
 
                 return (

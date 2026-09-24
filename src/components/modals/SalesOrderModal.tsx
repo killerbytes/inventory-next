@@ -3,12 +3,7 @@
 import DraftAutoSaver from "@/components/common/DraftAutoSaver";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
-import {
-  clearDraft,
-  DRAFT_STORAGE_KEYS,
-  loadDraft,
-  saveDraft,
-} from "@/lib/draftStorage";
+import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
 import { formatCurrency } from "@/lib/utils";
 import {
   CustomerData,
@@ -53,14 +48,16 @@ import {
 import { Textarea } from "../ui/textarea";
 
 const SalesOrderItemWithCombination = SalesOrderItemInputSchema.extend({
-  combination: ProductCombinationSchema.nullable(),
+  combination: ProductCombinationSchema.extend({
+    price: z.coerce.number().positive(),
+  }).nullable(),
 });
 
-const SalesOrderFormSchema = SalesOrderInputSchema.extend({
+export const SalesOrderFormSchema = SalesOrderInputSchema.extend({
   salesOrderItems: z.array(SalesOrderItemWithCombination),
 });
-type SalesOrderForm = z.infer<typeof SalesOrderFormSchema>;
-type SalesOrderItemWithCombination = z.infer<
+export type SalesOrderForm = z.infer<typeof SalesOrderFormSchema>;
+export type SalesOrderItemWithCombination = z.infer<
   typeof SalesOrderItemWithCombination
 >;
 
@@ -115,13 +112,22 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     }
   }, [form.reset]);
 
-  const handleSaveDraft = () => {
-    try {
-      saveDraft(DRAFT_STORAGE_KEYS.SALES_ORDER, form.getValues());
-      toast.success("Draft saved successfully!");
-    } catch {
-      toast.error("Failed to save draft.");
-    }
+  const handleSaveDraft = async (values: SalesOrderForm) => {
+    startTransition(async () => {
+      try {
+        const payload: SalesOrderInput = {
+          ...values,
+          status: ORDER_STATUS.DRAFT,
+          salesOrderItems: values.salesOrderItems.map(
+            ({ combination, ...item }) => item,
+          ),
+        };
+        await createSalesOrderAction(payload);
+        toast.success("Draft saved successfully!");
+      } catch (error: any) {
+        toast.error(error.message || "Failed to save draft.");
+      }
+    });
   };
 
   const onSubmit = async (values: SalesOrderForm) => {
@@ -486,7 +492,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             <Button
               type="button"
               variant="outline"
-              onClick={handleSaveDraft}
+              onClick={form.handleSubmit(handleSaveDraft)}
               disabled={isPending}
             >
               Save Draft
