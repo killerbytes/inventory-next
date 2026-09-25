@@ -42,16 +42,11 @@ export interface UpdateSupplierInput {
 
 export const supplierServerService = {
   get: async (id: number) => {
-    return await Supplier.findByPk(id);
+    const supplier = await Supplier.findByPk(id);
+    return supplier?.get({ plain: true });
   },
 
-  getAll: async () => {
-    return await Supplier.findAll({
-      order: [["name", "ASC"]],
-    });
-  },
-
-  getPaginated: async (params: GetSupplierPaginatedInput = {}) => {
+  getAll: async (params: GetSupplierPaginatedInput = {}) => {
     const {
       limit = 50,
       page = 1,
@@ -83,7 +78,7 @@ export const supplierServerService = {
     });
 
     return {
-      data: rows,
+      data: rows.map((s) => s.get({ plain: true })),
       meta: {
         total: count,
         totalPages: Math.ceil(count / limit),

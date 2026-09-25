@@ -4,7 +4,11 @@ import {
   goodReceiptServerService,
   supplierServerService,
 } from "@/server/services";
-import { Meta, PaginatedResponse, PAGINATION } from "@/types/definitions";
+import {
+  GoodReceiptSummary,
+  Pagination,
+  PAGINATION,
+} from "@/types/definitions";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -25,18 +29,19 @@ export default async function GoodReceiptsPage({
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;
 
-  let rows: GoodReceiptData[] = [];
+  let initialRows: GoodReceiptData[] = [];
   let suppliers: SupplierData[] = [];
-  let meta: Meta = {
+  let pagination: Pagination = {
     total: 0,
     totalPages: 0,
     currentPage: 0,
   };
-  let summary = {
+  let summary: GoodReceiptSummary = {
     totalAmount: 0,
-    totalReturnAmount: 0,
     totalPayableAmount: 0,
+    totalReturnAmount: 0,
   };
+
   try {
     const result = await goodReceiptServerService.getAll({
       startDate,
@@ -47,8 +52,8 @@ export default async function GoodReceiptsPage({
       offset,
     });
 
-    rows = JSON.parse(JSON.stringify(result.data));
-    meta = result.meta;
+    initialRows = result.data;
+    pagination = result.pagination;
     if (result.summary) {
       summary = result.summary;
     }
@@ -63,8 +68,8 @@ export default async function GoodReceiptsPage({
 
   return (
     <GoodReceiptsClientWidget
-      initialRows={rows}
-      initialMeta={meta}
+      initialRows={initialRows}
+      initialPagination={pagination}
       initialSummary={summary}
       startDate={startDate}
       endDate={endDate}

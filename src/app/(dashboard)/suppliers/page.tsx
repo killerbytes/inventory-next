@@ -12,8 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function SuppliersPage() {
   let suppliers: SupplierData[] = [];
   try {
-    const records = await supplierServerService.getAll();
-    suppliers = records ? JSON.parse(JSON.stringify(records)) : [];
+    suppliers = await supplierServerService.getAll();
   } catch (err) {
     console.error("Failed to query Supplier from PostgreSQL:", err);
   }

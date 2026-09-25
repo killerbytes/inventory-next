@@ -6,6 +6,7 @@ import GroupedCommandList, {
 } from "@/components/common/GroupedCommandList";
 import ProductComboSearchCommand from "@/components/common/ProductComboSearchCommand";
 import { getMappedSearchProductCombinations } from "@/lib/api-clients/productSearch";
+import { ProductCombinationData } from "@/schemas";
 import { ChevronsUpDown } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -14,7 +15,7 @@ const EMPTY_EXCLUDE: number[] = [];
 export type { BaseProps, ProductComboItem };
 
 export interface ProductLookupInputProps {
-  onChange: (value: ProductComboItem) => void;
+  onChange: (value: ProductCombinationData) => void;
   "aria-invalid"?: React.ComponentProps<"button">["aria-invalid"];
   exclude?: number[];
   disableNoQuantity?: boolean;
@@ -34,7 +35,7 @@ export default function ProductLookupInput({
   labelKey = "name",
   selected,
 }: ProductLookupInputProps) {
-  const [items, setItems] = useState<ProductComboItem[]>([]);
+  const [items, setItems] = useState<ProductCombinationData[]>([]);
 
   const onSearch = useCallback(async (search: string) => {
     const results = await getMappedSearchProductCombinations({

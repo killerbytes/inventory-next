@@ -1,6 +1,6 @@
 import { getAmount, getTotalAmount, normalize } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
-import { GoodReceiptInput } from "@/schemas";
+import { GoodReceiptData, GoodReceiptInput } from "@/schemas";
 import sequelize from "@/server/db/sequelize";
 import {
   Category,
@@ -309,8 +309,10 @@ export const goodReceiptServerService = {
     });
 
     return {
-      data: rows,
-      meta: {
+      data: rows.map(
+        (r) => r.get({ plain: true }) as unknown as GoodReceiptData,
+      ),
+      pagination: {
         total: count,
         totalPages: Math.ceil(count / limit),
         currentPage: Math.floor(offset / limit) + 1,

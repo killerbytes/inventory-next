@@ -238,7 +238,7 @@ export interface Summary {
   value: number;
 }
 
-export type Meta = {
+export type Pagination = {
   total: number;
   totalPages: number;
   currentPage: number;
@@ -246,7 +246,7 @@ export type Meta = {
 
 export type PaginatedResponse<T extends object, S = object> = {
   data: T[];
-  meta: Meta;
+  pagination: Pagination;
   summary?: S;
 };
 
@@ -261,3 +261,9 @@ export interface filterProps {
   startDate?: Date;
   endDate?: Date;
 }
+
+export type GoodReceiptSummary = {
+  totalAmount: number;
+  totalPayableAmount: number;
+  totalReturnAmount: number;
+};

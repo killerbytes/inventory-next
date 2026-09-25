@@ -6,9 +6,10 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { GoodReceiptData, SupplierData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import {
-  Meta,
+  GoodReceiptSummary,
   ORDER_STATUS,
   ORDER_STATUS_OPTIONS,
+  Pagination,
   PAGINATION,
   STATUS_COLOR,
 } from "@/types/definitions";
@@ -37,19 +38,15 @@ const columnHelper = createColumnHelper<GoodReceiptData>();
 
 export default function GoodReceiptsClientWidget({
   initialRows,
-  initialMeta,
+  initialPagination,
   initialSummary,
   startDate,
   endDate,
   suppliers = [],
 }: {
   initialRows?: GoodReceiptData[];
-  initialMeta?: Meta;
-  initialSummary?: {
-    totalAmount: number;
-    totalReturnAmount: number;
-    totalPayableAmount: number;
-  };
+  initialPagination?: Pagination;
+  initialSummary?: GoodReceiptSummary;
   startDate?: string;
   endDate?: string;
   suppliers?: SupplierData[];
@@ -197,7 +194,7 @@ export default function GoodReceiptsClientWidget({
         columns={columns}
         data={initialRows || []}
         paginate={true}
-        paginationMeta={initialMeta}
+        paginationMeta={initialPagination}
         onRowClick={(row) => {
           if (row.status === ORDER_STATUS.DRAFT) {
             setGoodReceiptModalOpen(true, row);

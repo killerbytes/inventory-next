@@ -49,7 +49,7 @@ import { Textarea } from "../ui/textarea";
 
 const SalesOrderItemWithCombination = SalesOrderItemInputSchema.extend({
   combination: ProductCombinationSchema.extend({
-    price: z.coerce.number().positive(),
+    price: z.coerce.number().positive().nullish(),
   }).nullable(),
 });
 
@@ -242,6 +242,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                   noBreakPacks
                   onChange={(value) => {
                     field.onChange(value.id);
+
                     form.setValue(
                       `salesOrderItems.${row.index}.combination`,
                       value,

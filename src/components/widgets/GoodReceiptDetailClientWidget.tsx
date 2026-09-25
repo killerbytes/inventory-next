@@ -110,7 +110,7 @@ export default function GoodReceiptDetailClientWidget({
           <div className="flex gap-2">
             <ColorBadge colorMap={UNIT_COLOR}>{row.original.unit}</ColorBadge>
             <Link
-              href={`/products/${row.original.productId}`}
+              href={`/products/${row.original.combination.productId}`}
               className="text-primary"
             >
               {row.original.nameSnapshot}

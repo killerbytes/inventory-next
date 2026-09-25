@@ -11,8 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage() {
   let customers: any[] = [];
   try {
-    const records = await customerServerService.getAll();
-    customers = records ? JSON.parse(JSON.stringify(records)) : [];
+    customers = await customerServerService.getAll();
   } catch (err) {
     console.error("Failed to query Customer from PostgreSQL:", err);
   }

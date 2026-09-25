@@ -9,8 +9,7 @@ export const metadata = {
 export default async function CategoriesPage() {
   let categories: any[] = [];
   try {
-    const records = await categoryServerService.getAll();
-    categories = JSON.parse(JSON.stringify(records));
+    categories = await categoryServerService.getAll();
   } catch (err) {
     console.error("Failed to query Category from PostgreSQL:", err);
   }

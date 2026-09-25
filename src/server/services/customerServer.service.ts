@@ -18,13 +18,15 @@ export interface GetCustomerPaginatedInput {
 
 export const customerServerService = {
   get: async (id: number) => {
-    return await Customer.findByPk(id);
+    const customer = await Customer.findByPk(id);
+    return customer?.get({ plain: true });
   },
 
   getAll: async () => {
-    return await Customer.findAll({
+    const customers = await Customer.findAll({
       order: [["name", "ASC"]],
     });
+    return customers.map((c) => c.get({ plain: true }));
   },
 
   getPaginated: async (params: GetCustomerPaginatedInput = {}) => {

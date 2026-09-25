@@ -4,9 +4,11 @@ import {
   InferAttributes,
   InferCreationAttributes,
   Model,
+  NonAttribute,
 } from "sequelize";
 import "server-only";
 import sequelize from "../db/sequelize";
+import ProductCombination from "./ProductCombination";
 
 export class GoodReceiptLine extends Model<
   InferAttributes<GoodReceiptLine>,
@@ -25,6 +27,7 @@ export class GoodReceiptLine extends Model<
   declare nameSnapshot: string;
   declare categorySnapshot: any;
   declare variantSnapshot: any;
+  declare combination: NonAttribute<ProductCombination>;
 
   declare readonly createdAt: CreationOptional<Date>;
   declare readonly updatedAt: CreationOptional<Date>;

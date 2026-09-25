@@ -10,15 +10,18 @@ import "server-only";
 
 export const categoryServerService = {
   get: async (id: number) => {
-    return await Category.findByPk(id, {
+    const category = await Category.findByPk(id, {
       include: [{ model: Category, as: "subCategories" }],
     });
+
+    return category?.get({ plain: true });
   },
 
   getAll: async () => {
-    return await Category.findAll({
+    const categories = await Category.findAll({
       order: [["order", "ASC"]],
     });
+    return categories.map((c) => c.get({ plain: true }));
   },
 
   create: async (data: CategoryInput) => {
