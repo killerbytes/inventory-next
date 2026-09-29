@@ -5,9 +5,14 @@ import Pager from "@/components/common/Pager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { formatCurrency } from "@/lib/utils";
+import { UNIT_COLOR } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
-import { ChartCandlestick, Search } from "lucide-react";
+import { cx } from "class-variance-authority";
+import { Search } from "lucide-react";
+import Link from "next/link";
 import { useMemo } from "react";
+import ColorBadge from "../common/ColorBadge";
 import PageHeader from "../layout/PageHeader";
 
 const columnHelper = createColumnHelper<any>();
@@ -35,44 +40,41 @@ export default function PriceHistoryClientWidget({
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor(
-        (row) =>
-          row.combination?.product?.name ||
-          row.combinations?.product?.name ||
-          row.combination?.name ||
-          row.combinations?.name,
-        {
-          id: "combination.product.name",
-          header: "Product Name",
-          cell: ({ row }) => {
-            const name =
-              row.original.combination?.product?.name ||
-              row.original.combinations?.product?.name ||
-              row.original.combination?.name ||
-              row.original.combinations?.name ||
-              `Item #${row.original.productId || row.original.combinationId || row.original.id}`;
-            return (
-              <div className="font-semibold text-foreground flex items-center gap-2">
-                <ChartCandlestick className="h-4 w-4 text-primary" />
-                {name}
-              </div>
-            );
-          },
+      columnHelper.accessor("combination.name", {
+        header: "Product Name",
+        cell: ({ row }) => {
+          const name = row.original.combination?.name;
+          return (
+            <Link
+              href={`/products/${row.original.combination.id}`}
+              className="text-primary flex items-center gap-2 hover:underline"
+            >
+              <ColorBadge colorMap={UNIT_COLOR}>
+                {row.original.combination.unit}
+              </ColorBadge>
+              {name}
+            </Link>
+          );
         },
-      ),
+      }),
       columnHelper.accessor("fromPrice", {
         header: () => <div className="text-right">Previous Price</div>,
         cell: ({ row }) => (
           <div className="text-right font-mono text-muted-foreground line-through">
-            ₱{Number(row.original.fromPrice || 0).toFixed(2)}
+            {formatCurrency(row.original.fromPrice || 0)}
           </div>
         ),
       }),
       columnHelper.accessor("toPrice", {
         header: () => <div className="text-right">New Price</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-bold text-emerald-600">
-            ₱{Number(row.original.toPrice || 0).toFixed(2)}
+          <div
+            className={cx("text-right font-mono font-bold", {
+              "text-emerald-600": row.original.toPrice > row.original.fromPrice,
+              "text-rose-600": row.original.toPrice < row.original.fromPrice,
+            })}
+          >
+            {formatCurrency(row.original.toPrice || 0)}
           </div>
         ),
       }),
@@ -81,7 +83,7 @@ export default function PriceHistoryClientWidget({
         cell: ({ row }) =>
           row.original.changedAt || row.original.createdAt
             ? new Date(
-                row.original.changedAt || row.original.createdAt,
+                row.original.changedAt || row.original.createdAt
               ).toLocaleDateString()
             : "—",
       }),
@@ -92,7 +94,7 @@ export default function PriceHistoryClientWidget({
           row.original.user?.name || `User #${row.original.changedBy || 1}`,
       }),
     ],
-    [],
+    []
   );
 
   const totalPages = meta ? meta.totalPages : 1;
