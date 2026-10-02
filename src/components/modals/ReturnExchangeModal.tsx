@@ -18,19 +18,22 @@ import { useUIStore } from "@/stores/uiStore";
 import { UNIT_COLOR } from "@/types/definitions";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
-import { ArrowRightLeft, Loader2, Undo2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { useCallback, useMemo, useState, useTransition } from "react";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import ColorBadge from "../common/ColorBadge";
 import Modal from "../common/Modal";
 import { Field } from "../ui/field";
+import LineColumn from "../forms/LineColumn";
+import ProductLookupInput from "../forms/ProductLookupInput";
+import FormField from "../forms/FormField";
 
 export interface ExchangeItemLine {
   combinationId: number;
-  name: string;
-  unit: string;
+  name?: string | null;
+  unit?: string | null;
   quantity: number;
   price: number;
 }
@@ -56,17 +59,15 @@ function ReturnExchangeModalContent({
   salesOrder?: boolean;
 }) {
   const router = useRouter();
-  const [returnItems, setReturnItems] = useState(initialReturns);
-  const [exchangeItems, setExchangeItems] = useState<ExchangeItemLine[]>([]);
-  const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
   const { setReturnExchangeModalOpen } = useUIStore();
 
   const form = useForm<ReturnExchangeFormInput>({
     defaultValues: {
-      reason: "xxx",
+      reason: "",
       referenceId,
       returns: initialReturns,
+      exchanges: [],
     },
     resolver: zodResolver(ReturnExchangeFormSchema),
   });
@@ -80,36 +81,68 @@ function ReturnExchangeModalContent({
     keyName: "fieldId",
   });
 
+  const {
+    fields: exchangeFields,
+    append: appendExchange,
+    remove: removeExchange,
+  } = useFieldArray({
+    control: form.control,
+    name: "exchanges",
+    keyName: "fieldId",
+  });
+
+  const watchedReturns = useWatch({
+    control: form.control,
+    name: "returns",
+  });
+
+  const watchedExchanges = useWatch({
+    control: form.control,
+    name: "exchanges",
+  });
+  console.log(form.getValues(), form.formState.errors);
   const totalReturnAmount = useMemo(() => {
-    return returnItems.reduce((sum, item) => {
-      const q = Number(item.quantity || 0);
+    return (watchedReturns || []).reduce((sum, item, idx) => {
+      const q = Number(item?.quantity || 0);
+      const original = fields[idx] || initialReturns[idx];
       const unitCost =
-        Number(item.purchasePrice || 0) -
-        (item.discount && item.quantity ? item.discount / item.quantity : 0);
+        Number(original?.purchasePrice || 0) -
+        (original?.discount && original?.quantity
+          ? original.discount / original.quantity
+          : 0);
       return sum + q * unitCost;
     }, 0);
-  }, [returnItems]);
+  }, [watchedReturns, fields, initialReturns]);
 
   const totalExchangeAmount = useMemo(() => {
-    return exchangeItems.reduce((sum, item) => {
-      return sum + Number(item.quantity || 0) * Number(item.price || 0);
+    return (watchedExchanges || []).reduce((sum, item) => {
+      return sum + Number(item?.quantity || 0) * Number(item?.price || 0);
     }, 0);
-  }, [exchangeItems]);
+  }, [watchedExchanges]);
 
   const paymentDifference = totalExchangeAmount - totalReturnAmount;
 
   const handleAddExchange = (product: any) => {
-    setExchangeItems((prev) => [
-      ...prev,
-      {
-        combinationId: product.id,
-        name: product.name,
-        unit: product.unit || "PCS",
-        quantity: 1,
-        price: Number(product.price || 0),
-      },
-    ]);
+    appendExchange({
+      combinationId: product.id,
+      name: product.name,
+      unit: product.unit || "PCS",
+      quantity: 1,
+      price: Number(product.price || 0),
+    });
   };
+
+  /**
+   * Removes an exchange item line by its index in the exchanges field array.
+   *
+   * @param index - Row index of the exchange item to remove.
+   */
+  const handleRemoveExchange = useCallback(
+    (index: number) => {
+      removeExchange(index);
+    },
+    [removeExchange],
+  );
 
   const onSubmit = async (values: ReturnExchangeFormInput) => {
     startTransition(async () => {
@@ -119,7 +152,7 @@ function ReturnExchangeModalContent({
             combinationId: item.combinationId,
             quantity: Number(item.quantity),
           }));
-          const activeExchanges = exchangeItems.map((item) => ({
+          const activeExchanges = (values.exchanges || []).map((item) => ({
             combinationId: item.combinationId,
             quantity: Number(item.quantity),
           }));
@@ -132,7 +165,7 @@ function ReturnExchangeModalContent({
 
           toast.success(
             result?.message ||
-              "Sales Order Return/Exchange submitted successfully!",
+            "Sales Order Return/Exchange submitted successfully!",
           );
         } else {
           await supplierReturnsAction(values.referenceId, {
@@ -225,16 +258,27 @@ function ReturnExchangeModalContent({
             (item.discount && item.quantity
               ? item.discount / item.quantity
               : 0);
-          const lineAmount = Number(item.quantity || 0) * unitPrice;
           return (
-            <div className="font-semibold text-emerald-600">
-              {formatCurrency(lineAmount)}
-            </div>
+            <LineColumn
+              index={row.index}
+              control={form.control}
+              name="returns"
+            >
+              {(value: any) => {
+                const returnQty = Number(value?.quantity || 0);
+                const lineAmount = returnQty * unitPrice;
+                return (
+                  <div className="font-semibold text-emerald-600">
+                    {formatCurrency(lineAmount)}
+                  </div>
+                );
+              }}
+            </LineColumn>
           );
         },
       }),
     ],
-    [],
+    [form.control, errors.returns],
   );
 
   const exchangeColumns = useMemo(
@@ -267,23 +311,24 @@ function ReturnExchangeModalContent({
         id: "quantity",
         header: () => <div className="text-right">Qty</div>,
         cell: ({ row }) => {
-          const item = row.original;
-          const idx = row.index;
           return (
             <div className="flex justify-end">
-              <Input
-                type="number"
-                min="1"
-                value={item.quantity}
-                onChange={(e) => {
-                  const val = Math.max(1, Number(e.target.value));
-                  setExchangeItems((prev) =>
-                    prev.map((ex, i) =>
-                      i === idx ? { ...ex, quantity: val } : ex,
-                    ),
-                  );
-                }}
-                className="h-8 w-24 text-right font-mono"
+              <Controller
+                control={form.control}
+                name={`exchanges.${row.index}.quantity`}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min="1"
+                    {...field}
+                    value={Number(field.value) || ""}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value));
+                      field.onChange(val);
+                    }}
+                    className="h-8 w-24 text-right font-mono"
+                  />
+                )}
               />
             </div>
           );
@@ -293,13 +338,43 @@ function ReturnExchangeModalContent({
         id: "total",
         header: () => <div className="text-right">Total</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold text-sm">
-            {formatCurrency(row.original.quantity * row.original.price)}
+          <LineColumn
+            index={row.index}
+            control={form.control}
+            name="exchanges"
+          >
+            {(value: any) => {
+              const q = Number(value?.quantity || 0);
+              const p = Number(value?.price ?? row.original.price ?? 0);
+              return (
+                <div className="text-right font-mono font-semibold text-sm">
+                  {formatCurrency(q * p)}
+                </div>
+              );
+            }}
+          </LineColumn>
+        ),
+      }),
+      exchangeColumnHelper.display({
+        id: "actions",
+        header: () => <div className="w-8"></div>,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => handleRemoveExchange(row.index)}
+              aria-label="Remove item"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       }),
     ],
-    [],
+    [form.control, handleRemoveExchange],
   );
 
   return (
@@ -319,7 +394,7 @@ function ReturnExchangeModalContent({
       </div>
 
       {/* Exchanges Table (Sales Order Only) */}
-      {/* {salesOrder && (
+      {salesOrder && (
         <div className="space-y-3">
           <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
             <span>Replacement Items (Exchange)</span>
@@ -336,30 +411,32 @@ function ReturnExchangeModalContent({
             </div>
           </div>
 
-          {exchangeItems.length > 0 && (
+          {exchangeFields.length > 0 && (
             <div className="border rounded-lg overflow-hidden">
               <DataTable
                 columns={exchangeColumns}
-                data={exchangeItems}
+                data={exchangeFields}
                 paginate={false}
               />
             </div>
           )}
         </div>
-      )} */}
+      )}
 
       {/* Balance & Notes Summary */}
       <div className="space-y-4">
         <div>
-          <label className="text-xs font-semibold text-muted-foreground uppercase">
-            Return Reason / Internal Notes
-          </label>
-          <Textarea
-            placeholder="Describe reason for customer return, exchange, or supplier rejection..."
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="mt-1 resize-none"
-            rows={2}
+          <FormField
+            form={form}
+            name="reason"
+            label="Return Reason / Internal Notes"
+            render={({ field }) => (
+              <Textarea
+                {...field}
+                placeholder="Describe reason for customer return, exchange, or supplier rejection..."
+                rows={2}
+              />
+            )}
           />
         </div>
 
@@ -378,13 +455,12 @@ function ReturnExchangeModalContent({
               </div>
             </div>
             <div
-              className={`text-xl font-mono font-bold ${
-                paymentDifference > 0
-                  ? "text-rose-600"
-                  : paymentDifference < 0
-                    ? "text-emerald-600"
-                    : "text-foreground"
-              }`}
+              className={`text-xl font-mono font-bold ${paymentDifference > 0
+                ? "text-rose-600"
+                : paymentDifference < 0
+                  ? "text-emerald-600"
+                  : "text-foreground"
+                }`}
             >
               {paymentDifference > 0
                 ? `Due: +${formatCurrency(paymentDifference)}`
@@ -426,16 +502,14 @@ export default function ReturnExchangeModal({
   referenceId,
   returns,
   salesOrder,
-  isOpen,
   onClose,
 }: ReturnExchangeModalProps) {
   const isSalesOrder = Boolean(salesOrder);
   const { isReturnExchangeModalOpen, setReturnExchangeModalOpen } =
     useUIStore();
 
-  const isModalOpen = isOpen !== undefined ? isOpen : isReturnExchangeModalOpen;
 
-  if (!isModalOpen) return null;
+  if (!isReturnExchangeModalOpen) return null;
 
   return (
     <Modal
@@ -453,8 +527,11 @@ export default function ReturnExchangeModal({
         )
       }
       description="Return items and exchange them for new items."
-      isOpen={isModalOpen}
-      onClose={() => setReturnExchangeModalOpen(false)}
+      isOpen={isReturnExchangeModalOpen}
+      onClose={() => {
+        onClose?.()
+        setReturnExchangeModalOpen(false)
+      }}
       size="lg"
     >
       <ReturnExchangeModalContent

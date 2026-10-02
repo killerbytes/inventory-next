@@ -1,7 +1,7 @@
 import SalesOrdersClientWidget from "@/components/widgets/SalesOrdersClientWidget";
 import { CustomerData, SalesOrderData } from "@/schemas";
 import { customerServerService, salesServerService } from "@/server/services";
-import { Meta, PAGINATION } from "@/types/definitions";
+import { Pagination, PAGINATION, SalesOrderSummary } from "@/types/definitions";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +22,17 @@ export default async function SalesOrdersPage({
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;
 
-  let rows: SalesOrderData[] = [];
-  let meta: Meta = {
+  let initialRows: SalesOrderData[] = [];
+  let initialPagination: Pagination = {
     total: 0,
     totalPages: 0,
     currentPage: 0,
+  };
+  let initialSummary: SalesOrderSummary = {
+    totalAmount: 0,
+    totalProfitAmount: 0,
+    totalReturnAmount: 0,
+    totalExchangeAmount: 0,
   };
 
   try {
@@ -35,27 +41,31 @@ export default async function SalesOrdersPage({
       endDate,
       status: params.status === "ALL" ? undefined : params.status,
       search: params.q,
+      q: params.q,
       limit,
-      offset,
+      page,
+      sort: params.sort,
+      order: params.order as "ASC" | "DESC" | undefined,
     });
 
-    rows = result.rows;
-    meta = result.meta;
+    initialRows = result.rows;
+    initialPagination = result.pagination;
+    initialSummary = result.summary
   } catch (err: any) {
     console.error(
       "Error fetching sales orders on server:",
       err?.message || err,
     );
   }
-
   let customers: CustomerData[] = [];
   try {
     customers = await customerServerService.getAll();
-  } catch (error) {}
+  } catch (error) { }
   return (
     <SalesOrdersClientWidget
-      rows={JSON.parse(JSON.stringify(rows))}
-      meta={meta}
+      initialRows={JSON.parse(JSON.stringify(initialRows))}
+      initialPagination={initialPagination}
+      initialSummary={initialSummary}
       startDate={startDate}
       endDate={endDate}
       customers={JSON.parse(JSON.stringify(customers))}

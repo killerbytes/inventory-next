@@ -30,7 +30,14 @@ export default async function GoodReceiptsPage({
   const endDate = params.endDate || defaultEndDate;
 
   let initialRows: GoodReceiptData[] = [];
-  let suppliers: SupplierData[] = [];
+  let suppliers: { data: SupplierData[], pagination: Pagination } = {
+    data: [],
+    pagination: {
+      total: 0,
+      totalPages: 0,
+      currentPage: 0,
+    },
+  };
   let pagination: Pagination = {
     total: 0,
     totalPages: 0,
@@ -50,6 +57,8 @@ export default async function GoodReceiptsPage({
       search: params.q,
       limit,
       offset,
+      sort: params.sort,
+      order: params.order as "ASC" | "DESC" | undefined,
     });
 
     initialRows = result.data;
@@ -58,10 +67,7 @@ export default async function GoodReceiptsPage({
       summary = result.summary;
     }
 
-    const supplierRecords = await supplierServerService.getAll();
-    suppliers = supplierRecords
-      ? JSON.parse(JSON.stringify(supplierRecords))
-      : [];
+    suppliers = await supplierServerService.getAll();
   } catch (err) {
     console.error("Failed to fetch good receipts on server:", err);
   }
@@ -73,7 +79,7 @@ export default async function GoodReceiptsPage({
       initialSummary={summary}
       startDate={startDate}
       endDate={endDate}
-      suppliers={suppliers}
+      suppliers={suppliers.data}
     />
   );
 }

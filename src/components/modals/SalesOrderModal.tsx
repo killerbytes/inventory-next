@@ -239,7 +239,6 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                       .getValues("salesOrderItems")
                       ?.map((item: any) => item?.combination?.id ?? 0) || []
                   }
-                  noBreakPacks
                   onChange={(value) => {
                     field.onChange(value.id);
 
@@ -422,8 +421,8 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                     {field.value === 0
                       ? "Select Payment Mode"
                       : MODE_OF_PAYMENT_OPTIONS.find(
-                          (s) => s.value === field.value,
-                        )?.label}
+                        (s) => s.value === field.value,
+                      )?.label}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>

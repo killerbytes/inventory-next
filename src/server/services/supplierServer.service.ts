@@ -59,15 +59,15 @@ export const supplierServerService = {
 
     const where = q
       ? {
-          [Op.or]: [
-            { address: { [Op.iLike]: `%${q}%` } },
-            { contact: { [Op.iLike]: `%${q}%` } },
-            { email: { [Op.iLike]: `%${q}%` } },
-            { name: { [Op.iLike]: `%${q}%` } },
-            { phone: { [Op.iLike]: `%${q}%` } },
-            { notes: { [Op.iLike]: `%${q}%` } },
-          ],
-        }
+        [Op.or]: [
+          { address: { [Op.iLike]: `%${q}%` } },
+          { contact: { [Op.iLike]: `%${q}%` } },
+          { email: { [Op.iLike]: `%${q}%` } },
+          { name: { [Op.iLike]: `%${q}%` } },
+          { phone: { [Op.iLike]: `%${q}%` } },
+          { notes: { [Op.iLike]: `%${q}%` } },
+        ],
+      }
       : undefined;
 
     const { count, rows } = await Supplier.findAndCountAll({
@@ -79,7 +79,7 @@ export const supplierServerService = {
 
     return {
       data: rows.map((s) => s.get({ plain: true })),
-      meta: {
+      pagination: {
         total: count,
         totalPages: Math.ceil(count / limit),
         currentPage: Number(page),

@@ -132,7 +132,7 @@ export default function GroupedCommandList({
                   key={item.id}
                   item={item}
                   search={search}
-                  selected={String(selectedId) === String(item.id)}
+                  // selected={String(selectedId) === String(item.id)}
                   onSelect={() => {
                     setOpen(false);
                     onSelect?.(item);

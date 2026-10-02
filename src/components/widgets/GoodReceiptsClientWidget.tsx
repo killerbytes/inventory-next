@@ -2,7 +2,7 @@
 
 import GoodReceiptModal from "@/components/modals/GoodReceiptModal";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime, mappedStatusHistory } from "@/lib/utils";
 import { GoodReceiptData, SupplierData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -18,8 +18,8 @@ import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
 import { DateRange } from "react-day-picker";
+import ColumnSort, { FilterProps } from "@/components/common/ColumnSort";
 import ColorBadge from "../common/ColorBadge";
 import { DataTable } from "../common/DataTable";
 import DateRangePicker from "../common/DateRangePicker";
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import React, { useMemo } from "react";
 
 const columnHelper = createColumnHelper<GoodReceiptData>();
 
@@ -59,8 +60,22 @@ export default function GoodReceiptsClientWidget({
     q: "",
     startDate,
     endDate,
+    sort: "receiptDate",
+    order: "DESC",
   });
   const router = useRouter();
+
+  const handleFilterChange = React.useCallback(
+    (newFilter: FilterProps) => {
+      setFilters((prev) => ({
+        ...prev,
+        ...newFilter,
+        page: 1,
+      }));
+    },
+    [setFilters],
+  );
+
   const dateRange: DateRange = useMemo(
     () => ({
       from: filters.startDate ? parseISO(filters.startDate) : undefined,
@@ -68,21 +83,35 @@ export default function GoodReceiptsClientWidget({
     }),
     [filters.startDate, filters.endDate],
   );
-
   const columns = useMemo(
     () => [
       columnHelper.accessor("id", {
-        header: "ID",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="id"
+          >
+            ID
+          </ColumnSort>
+        ),
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.id}</span>
         ),
       }),
-      columnHelper.accessor("referenceNo", {
-        header: "Reference",
-      }),
       columnHelper.accessor((row) => row.supplier?.name, {
         id: "supplier.name",
-        header: "Supplier",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="supplier.name"
+          >
+            Supplier
+          </ColumnSort>
+        ),
         cell: ({ row }) => (
           <Link
             className="text-primary"
@@ -94,28 +123,77 @@ export default function GoodReceiptsClientWidget({
         ),
       }),
       columnHelper.accessor("status", {
-        header: "Status",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="status"
+          >
+            Status
+          </ColumnSort>
+        ),
         cell: ({ row }) => {
           const status = row.original.status;
           return <ColorBadge colorMap={STATUS_COLOR}>{status}</ColorBadge>;
         },
       }),
+      columnHelper.accessor("goodReceiptStatusHistory", {
+        header: "User",
+        cell: ({ row }) => {
+          const statusHistoryMap = mappedStatusHistory(
+            row.original.goodReceiptStatusHistory ?? [],
+          );
+          return statusHistoryMap[row.original.status]?.user?.username;
+        },
+      }),
       columnHelper.accessor("receiptDate", {
-        header: "Receipt Date",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="receiptDate"
+          >
+            Receipt Date
+          </ColumnSort>
+        ),
         meta: {
           className: "text-muted-foreground text-xs",
         },
         cell: ({ row }) => formatDateTime(row.original.receiptDate),
       }),
+      columnHelper.accessor("referenceNo", {
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="referenceNo"
+          >
+            Reference
+          </ColumnSort>
+        ),
+      }),
       columnHelper.accessor("totalAmount", {
-        header: "Total Amount",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="totalAmount"
+            align="right"
+          >
+            Total Amount
+          </ColumnSort>
+        ),
         meta: {
           align: "right",
         },
         cell: ({ row }) => formatCurrency(row.original.totalAmount || 0),
       }),
     ],
-    [],
+    [filters, handleFilterChange],
   );
 
   return (
@@ -203,7 +281,6 @@ export default function GoodReceiptsClientWidget({
           }
         }}
       />
-
       <GoodReceiptModal suppliers={suppliers} />
     </div>
   );

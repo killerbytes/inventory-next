@@ -113,8 +113,14 @@ export const getDashboardDataAction = createProtectedAction({
     ]);
 
     // Calculate today vs yesterday sales
-    const todayTotal = todaySalesRes.summary?.totalAmount?.value ?? 0;
-    const yesterdayTotal = yesterdaySalesRes.summary?.totalAmount?.value ?? 0;
+    const todayTotal =
+      typeof todaySalesRes.summary?.totalAmount === "object"
+        ? (todaySalesRes.summary?.totalAmount as any)?.value ?? 0
+        : Number(todaySalesRes.summary?.totalAmount ?? 0);
+    const yesterdayTotal =
+      typeof yesterdaySalesRes.summary?.totalAmount === "object"
+        ? (yesterdaySalesRes.summary?.totalAmount as any)?.value ?? 0
+        : Number(yesterdaySalesRes.summary?.totalAmount ?? 0);
     const percentageChange =
       !yesterdayTotal || yesterdayTotal === 0
         ? todayTotal > 0
@@ -130,21 +136,23 @@ export const getDashboardDataAction = createProtectedAction({
 
     // Last month calculated gross profit
     const lastMonthProfit =
-      lastMonthSalesRes.summary?.totalProfitAmount?.value ?? 0;
+      typeof lastMonthSalesRes.summary?.totalProfitAmount === "object"
+        ? (lastMonthSalesRes.summary?.totalProfitAmount as any)?.value ?? 0
+        : Number(lastMonthSalesRes.summary?.totalProfitAmount ?? 0);
 
     // Low stock count & items
-    const lowStockTotal = lowStockRes.meta?.total ?? 0;
-    const lowStockItems = lowStockRes.data || [];
+    const lowStockTotal = (lowStockRes as any).meta?.total ?? (lowStockRes as any).pagination?.total ?? 0;
+    const lowStockItems = (lowStockRes as any).data || (lowStockRes as any).rows || [];
 
     return {
       todaySales: {
         totalAmount: todayTotal,
-        count: todaySalesRes.meta?.total ?? 0,
+        count: (todaySalesRes as any).meta?.total ?? (todaySalesRes as any).pagination?.total ?? 0,
         percentageChange: Math.round(percentageChange * 10) / 10,
       },
       outstandingGoodReceipts: {
         totalAmount: outstandingTotal,
-        count: outstandingReceiptsRes.meta?.total ?? 0,
+        count: (outstandingReceiptsRes as any).meta?.total ?? (outstandingReceiptsRes as any).pagination?.total ?? 0,
       },
       stockAlerts: {
         count: lowStockTotal,

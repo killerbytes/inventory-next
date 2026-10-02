@@ -30,6 +30,7 @@ import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
 import { ReturnExchangeItem } from "./salesServer.service";
+import moment from "moment-timezone";
 
 export interface ListGoodReceiptsParams {
   startDate?: string | null;
@@ -40,6 +41,8 @@ export interface ListGoodReceiptsParams {
   limit?: number;
   offset?: number;
   page?: number;
+  sort?: string;
+  order?: "ASC" | "DESC" | string;
 }
 
 export interface CreateGoodReceiptLineInput {
@@ -265,22 +268,39 @@ export const goodReceiptServerService = {
       supplierId,
       search,
       status,
-      limit = PAGINATION.PAGE_SIZE,
-      offset = 0,
     } = params;
+    const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
+    const page =
+      Number(params.page) ||
+      (params.offset !== undefined
+        ? Math.floor(params.offset / limit) + 1
+        : 1);
+    const offset =
+      params.offset !== undefined
+        ? Number(params.offset)
+        : (page - 1) * limit;
+
+    const sort = params.sort || "receiptDate";
+    const order = params.order || "DESC";
     const where: any = {};
 
     if (startDate || endDate) {
       where.receiptDate = {};
+      const timezone = process.env.TIMEZONE || "Asia/Manila";
+
       if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.receiptDate[Op.gte] = start;
+        where.receiptDate[Op.gte] = moment
+          .tz(startDate, timezone)
+          .startOf("day")
+          .utc()
+          .toDate();
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.receiptDate[Op.lte] = end;
+        where.receiptDate[Op.lte] = moment
+          .tz(endDate, timezone)
+          .endOf("day")
+          .utc()
+          .toDate();
       }
     }
 
@@ -299,24 +319,53 @@ export const goodReceiptServerService = {
       ];
     }
 
+    const sortOrder = order === "ASC" ? "ASC" : "DESC";
+    const allowedSortFields = new Set([
+      "id",
+      "supplierId",
+      "status",
+      "receiptDate",
+      "referenceNo",
+      "totalAmount",
+      "createdAt",
+      "updatedAt",
+      "supplier.name",
+    ]);
+    const validSort = allowedSortFields.has(sort) ? sort : "receiptDate";
+
+    const orderByMap: Record<string, any[]> = {
+      "supplier.name": [{ model: Supplier, as: "supplier" }, "name"],
+    };
+    const primaryOrder = orderByMap[validSort]
+      ? [...orderByMap[validSort], sortOrder]
+      : [validSort, sortOrder];
+
+    const orderClause: any[] = [primaryOrder];
+    if (validSort !== "id") {
+      orderClause.push(["id", "DESC"]);
+    }
+
     const { rows, count } = await GoodReceipt.findAndCountAll({
       where,
       include: [...goodReceiptIncludes],
-      order: [["id", "DESC"]],
+      order: orderClause as any,
       limit,
       offset,
       distinct: true,
     });
 
+    const meta = {
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+    };
+
     return {
       data: rows.map(
         (r) => r.get({ plain: true }) as unknown as GoodReceiptData,
       ),
-      pagination: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
+      pagination: meta,
+      meta,
       summary: await getSummary(where),
     };
   },
@@ -662,9 +711,9 @@ export const goodReceiptServerService = {
         const averagePrice =
           remainingQty > 0
             ? (Number(inventory.averagePrice || 0) *
-                Number(inventory.quantity || 0) -
-                returnCost) /
-              remainingQty
+              Number(inventory.quantity || 0) -
+              returnCost) /
+            remainingQty
             : Number(inventory.averagePrice || 0);
 
         await inventoryServerService.inventoryDecrease(
@@ -815,11 +864,11 @@ export const goodReceiptServerService = {
     const returnTransactions =
       orderIds.length > 0
         ? await ReturnTransaction.findAll({
-            where: {
-              referenceId: { [Op.in]: orderIds },
-              sourceType: ORDER_TYPE.PURCHASE,
-            },
-          })
+          where: {
+            referenceId: { [Op.in]: orderIds },
+            sourceType: ORDER_TYPE.PURCHASE,
+          },
+        })
         : [];
 
     const enrichedRows = rows.map((row: any) => {
@@ -850,21 +899,21 @@ export const goodReceiptServerService = {
     const totalReturnAmount =
       orderIds.length > 0
         ? (await ReturnTransaction.sum("totalReturnAmount", {
-            where: {
-              referenceId: { [Op.in]: orderIds },
-              sourceType: ORDER_TYPE.PURCHASE,
-            },
-          })) || 0
+          where: {
+            referenceId: { [Op.in]: orderIds },
+            sourceType: ORDER_TYPE.PURCHASE,
+          },
+        })) || 0
         : 0;
 
     const totalExchangeAmount =
       orderIds.length > 0
         ? (await ReturnTransaction.sum("totalExchangeAmount", {
-            where: {
-              referenceId: { [Op.in]: orderIds },
-              sourceType: ORDER_TYPE.PURCHASE,
-            },
-          })) || 0
+          where: {
+            referenceId: { [Op.in]: orderIds },
+            sourceType: ORDER_TYPE.PURCHASE,
+          },
+        })) || 0
         : 0;
 
     return {
@@ -935,7 +984,7 @@ const goodReceiptIncludes = [
 const getSummary = async (where: any) => {
   let totalAmount = await GoodReceipt.sum("totalAmount", {
     where: {
-      status: { [Op.ne]: ORDER_STATUS.DRAFT },
+      status: { [Op.notIn]: [ORDER_STATUS.DRAFT, ORDER_STATUS.VOID] },
       ...where,
     },
   });

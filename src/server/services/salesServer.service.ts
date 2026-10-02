@@ -35,6 +35,8 @@ export interface ListSalesOrdersParams {
   status?: string | null;
   customerId?: string | number | null;
   search?: string | null;
+  q?: string | null;
+  page?: number;
   limit?: number;
   offset?: number;
   sort?: string;
@@ -188,9 +190,9 @@ const processReceivedOrder = async (
     isCreate && salesOrder.salesOrderItems?.length
       ? salesOrder.salesOrderItems
       : payload.salesOrderItems ||
-        payload.items ||
-        salesOrder.salesOrderItems ||
-        [];
+      payload.items ||
+      salesOrder.salesOrderItems ||
+      [];
 
   if (!isCreate) {
     await updateOrder(
@@ -274,6 +276,54 @@ const processCompletedOrder = async (
     { transaction },
   );
 };
+
+const salesOrderIncludes = [
+  {
+    model: SalesOrderItem,
+    as: "salesOrderItems",
+    attributes: { exclude: ["createdAt", "updatedAt"] },
+    include: [
+      {
+        model: ProductCombination,
+        as: "combinations",
+      },
+    ],
+  },
+  {
+    model: Customer,
+    as: "customer",
+  },
+  {
+    model: OrderStatusHistory,
+    as: "salesOrderStatusHistory",
+    include: [
+      {
+        model: User,
+        as: "user",
+      },
+    ],
+  },
+  {
+    model: ReturnTransaction,
+    as: "returnTransactions",
+    where: {
+      sourceType: ORDER_TYPE.SALE,
+    },
+    required: false,
+    include: [
+      {
+        model: ReturnItem,
+        as: "returnItems",
+        include: [
+          {
+            model: ProductCombination,
+            as: "combination",
+          },
+        ],
+      },
+    ],
+  },
+];
 
 export const salesServerService = {
   get: async (id: number) => {
@@ -379,10 +429,20 @@ export const salesServerService = {
       endDate,
       status,
       customerId,
-      search,
-      limit = 50,
-      offset = 0,
+      sort = "orderDate",
+      order = "DESC",
     } = params;
+    const limit = Number(params.limit) || 50;
+    const page =
+      Number(params.page) ||
+      (params.offset !== undefined
+        ? Math.floor(params.offset / limit) + 1
+        : 1);
+    const offset =
+      params.offset !== undefined
+        ? Number(params.offset)
+        : (page - 1) * limit;
+    const search = params.q ?? params.search;
     const where: any = {};
 
     if (startDate || endDate) {
@@ -414,58 +474,41 @@ export const salesServerService = {
       ];
     }
 
-    const sort = params.sort || "id";
-    const sortOrder = params.order || "DESC";
-    const orderByMap: Record<string, any> = {
+    const sortOrder = order;
+    const orderByMap: Record<string, any[]> = {
       "customer.name": [{ model: Customer, as: "customer" }, "name"],
     };
-    const orderClause = orderByMap[sort]
+    const primaryOrder = orderByMap[sort]
       ? [...orderByMap[sort], sortOrder]
-      : [[sort, sortOrder]];
+      : [sort, sortOrder];
 
     const { rows, count } = await SalesOrder.findAndCountAll({
-      where,
-      include: [
-        { model: Customer, as: "customer" },
-        { model: SalesOrderItem, as: "salesOrderItems" },
-        {
-          model: OrderStatusHistory,
-          as: "salesOrderStatusHistory",
-          include: [
-            {
-              model: User,
-              as: "user",
-              attributes: ["id", "username", "name", "role"],
-            },
-          ],
-        },
-        {
-          model: ReturnTransaction,
-          as: "returnTransactions",
-          required: false,
-          include: [
-            {
-              model: ReturnItem,
-              as: "returnItems",
-            },
-          ],
-        },
-      ],
-      order: [orderClause as any],
+      where: Object.keys(where).length ? where : undefined,
+      include: [...salesOrderIncludes],
+      order: [primaryOrder as any],
       limit,
       offset,
+      nest: true,
       distinct: true,
     });
 
+    const meta = {
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+    };
+
     return {
+      data: rows as any,
       rows: rows as any,
-      meta: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
+      meta,
+      pagination: meta,
       summary: await getSummary(where),
     };
+  },
+
+  getPaginated: async (params: ListSalesOrdersParams = {}) => {
+    return await salesServerService.getAll(params);
   },
 
   getDailySales: async () => {
@@ -871,73 +914,12 @@ AND (:endDate IS NULL OR so."orderDate" <= :endDate)
   );
 
   return {
-    totalAmount: {
-      label: "Total Amount",
-      value:
-        totalAmount - (totalReturnAmount || 0) + (totalExchangeAmount || 0),
-    },
-    totalProfitAmount: {
-      label: "Calculated Profit",
-      value:
-        Number(
-          totalAmount - (totalReturnAmount || 0) + (totalExchangeAmount || 0),
-        ) + Number(totalCost || 0),
-    },
-    totalReturnAmount: {
-      label: "Total Returns",
-      value: totalReturnAmount,
-    },
-    totalExchangeAmount: {
-      label: "Total Exchange",
-      value: totalExchangeAmount,
-    },
+    totalAmount: totalAmount - (totalReturnAmount || 0) + (totalExchangeAmount || 0),
+    totalProfitAmount: Number(
+      totalAmount - (totalReturnAmount || 0) + (totalExchangeAmount || 0),
+    ) + Number(totalCost || 0),
+    totalReturnAmount: totalReturnAmount,
+    totalExchangeAmount: totalExchangeAmount,
   };
 };
 
-const salesOrderIncludes = [
-  {
-    model: SalesOrderItem,
-    as: "salesOrderItems",
-    attributes: { exclude: ["createdAt", "updatedAt"] },
-    include: [
-      {
-        model: ProductCombination,
-        as: "combinations",
-      },
-    ],
-  },
-  {
-    model: Customer,
-    as: "customer",
-  },
-  {
-    model: OrderStatusHistory,
-    as: "salesOrderStatusHistory",
-    include: [
-      {
-        model: User,
-        as: "user",
-      },
-    ],
-  },
-  {
-    model: ReturnTransaction,
-    as: "returnTransactions",
-    where: {
-      sourceType: ORDER_TYPE.SALE,
-    },
-    required: false,
-    include: [
-      {
-        model: ReturnItem,
-        as: "returnItems",
-        include: [
-          {
-            model: ProductCombination,
-            as: "combination",
-          },
-        ],
-      },
-    ],
-  },
-];

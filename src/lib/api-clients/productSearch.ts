@@ -12,7 +12,7 @@ export const getMappedSearchProductCombinations = async (params: {
   if (!search || search.length < 2) {
     return [];
   }
-
+  console.log(123, params);
   const response = await searchProductCombinationsAction({
     limit: params.limit ?? 20,
     ...params,
@@ -40,9 +40,8 @@ export const getMappedSearchProductCombinations = async (params: {
     });
 
     const filtered = (combinations ?? []).filter((i: any) => {
-      const textToSearch = `${i.name || ""} ${item.name || ""} ${
-        item.description || ""
-      }`
+      const textToSearch = `${i.name || ""} ${item.name || ""} ${item.description || ""
+        }`
         .toLowerCase()
         .replace(/[-_()]/g, " ");
 

@@ -60,8 +60,8 @@ export default function SalesOrderDetailClientWidget({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const { isOrderHistoryModalOpen, setOrderHistoryModalOpen } = useUIStore();
+  const { setReturnExchangeModalOpen, setOrderHistoryModalOpen } = useUIStore();
+  useUIStore();
 
   if (!data) {
     return (
@@ -116,29 +116,29 @@ export default function SalesOrderDetailClientWidget({
     () => [
       ...(returnEnabled
         ? [
-            columnHelper.display({
-              id: "select",
-              header: ({ table }: any) => (
-                <Checkbox
-                  checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                  }
-                  onCheckedChange={(value) =>
-                    table.toggleAllPageRowsSelected(!!value)
-                  }
-                  aria-label="Select all"
-                />
-              ),
-              cell: ({ row }: any) => (
-                <Checkbox
-                  checked={row.getIsSelected()}
-                  onCheckedChange={(value) => row.toggleSelected(!!value)}
-                  aria-label="Select row"
-                />
-              ),
-            }),
-          ]
+          columnHelper.display({
+            id: "select",
+            header: ({ table }: any) => (
+              <Checkbox
+                checked={
+                  table.getIsAllPageRowsSelected() ||
+                  (table.getIsSomePageRowsSelected() && "indeterminate")
+                }
+                onCheckedChange={(value) =>
+                  table.toggleAllPageRowsSelected(!!value)
+                }
+                aria-label="Select all"
+              />
+            ),
+            cell: ({ row }: any) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+              />
+            ),
+          }),
+        ]
         : []),
       columnHelper.display({
         id: "index",
@@ -206,7 +206,6 @@ export default function SalesOrderDetailClientWidget({
     ],
     [returnEnabled],
   );
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -239,22 +238,22 @@ export default function SalesOrderDetailClientWidget({
                 {(data.status === ORDER_STATUS.RECEIVED ||
                   data.status === ORDER_STATUS.COMPLETED ||
                   data.status === "POSTED") && (
-                  <>
-                    <DropdownMenuItem
-                      className="text-rose-600 focus:text-rose-600"
-                      onClick={() => setIsCancelModalOpen(true)}
-                    >
-                      <Ban className="h-4 w-4 mr-2 text-rose-600" />
-                      Cancel Order
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setReturnEnabled(!returnEnabled)}
-                    >
-                      <Undo className="h-4 w-4 mr-2" />
-                      Return/Exchange
-                    </DropdownMenuItem>
-                  </>
-                )}
+                    <>
+                      <DropdownMenuItem
+                        className="text-rose-600 focus:text-rose-600"
+                        onClick={() => setIsCancelModalOpen(true)}
+                      >
+                        <Ban className="h-4 w-4 mr-2 text-rose-600" />
+                        Cancel Order
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setReturnEnabled(!returnEnabled)}
+                      >
+                        <Undo className="h-4 w-4 mr-2" />
+                        Return/Exchange
+                      </DropdownMenuItem>
+                    </>
+                  )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -271,10 +270,10 @@ export default function SalesOrderDetailClientWidget({
               <div className="font-semibold text-sm mt-1">
                 {data.orderDate
                   ? new Date(data.orderDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
                   : "-"}
               </div>
             </div>
@@ -342,7 +341,7 @@ export default function SalesOrderDetailClientWidget({
               type="button"
               disabled={selectedReturns.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              onClick={() => setIsReturnModalOpen(true)}
+              onClick={() => setReturnExchangeModalOpen(true)}
             >
               Returns/Exchange ({selectedReturns.length})
             </Button>
@@ -423,9 +422,7 @@ export default function SalesOrderDetailClientWidget({
       />
 
       <ReturnExchangeModal
-        isOpen={isReturnModalOpen}
         onClose={() => {
-          setIsReturnModalOpen(false);
           setReturnEnabled(false);
           router.refresh();
         }}

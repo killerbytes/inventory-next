@@ -8,12 +8,15 @@ import OCRModal from "@/components/modals/OCRModal";
 import SalesOrderModal from "@/components/modals/SalesOrderModal";
 import { Button } from "@/components/ui/button";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { CustomerData } from "@/schemas";
+import { formatCurrency, formatDateTime, mappedStatusHistory } from "@/lib/utils";
+import { CustomerData, SalesOrderData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import {
+  MODE_OF_PAYMENT_COLOR,
   ORDER_STATUS,
   ORDER_STATUS_OPTIONS,
+  Pagination,
+  SalesOrderSummary,
   STATUS_COLOR,
 } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -30,23 +33,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import SummaryCard from "../common/SummaryCard";
 
-const columnHelper = createColumnHelper<any>();
+import ColumnSort, { FilterProps } from "@/components/common/ColumnSort";
+
+const columnHelper = createColumnHelper<SalesOrderData>();
 
 interface SalesOrdersClientWidgetProps {
-  rows?: any[];
-  meta?: PagerMeta;
+  initialRows?: any[];
+  initialPagination?: Pagination;
   startDate?: string;
   endDate?: string;
   customers: CustomerData[];
+  initialSummary: SalesOrderSummary;
 }
 
 export default function SalesOrdersClientWidget({
-  rows,
-  meta,
+  initialRows,
+  initialPagination,
   startDate,
   endDate,
   customers,
+  initialSummary,
 }: SalesOrdersClientWidgetProps) {
   const { setSalesOrderModalOpen } = useUIStore();
 
@@ -58,8 +66,21 @@ export default function SalesOrdersClientWidget({
     q: "",
     startDate,
     endDate,
+    sort: "orderDate",
+    order: "DESC",
   });
   const router = useRouter();
+
+  const handleFilterChange = React.useCallback(
+    (newFilter: FilterProps) => {
+      setFilters((prev) => ({
+        ...prev,
+        ...newFilter,
+        page: 1,
+      }));
+    },
+    [setFilters],
+  );
 
   const dateRange: DateRange = useMemo(
     () => ({
@@ -72,10 +93,28 @@ export default function SalesOrdersClientWidget({
   const columns = useMemo(
     () => [
       columnHelper.accessor("salesOrderNumber", {
-        header: "Order #",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="salesOrderNumber"
+          >
+            Order #
+          </ColumnSort>
+        ),
       }),
       columnHelper.accessor("orderDate", {
-        header: "Order Date",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="orderDate"
+          >
+            Order Date
+          </ColumnSort>
+        ),
         cell: (info) => (
           <span className="text-muted-foreground text-xs">
             {formatDateTime(info.getValue())}
@@ -83,25 +122,72 @@ export default function SalesOrdersClientWidget({
         ),
       }),
       columnHelper.accessor("customer.name", {
-        header: "Customer",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="customer.name"
+          >
+            Customer
+          </ColumnSort>
+        ),
       }),
       columnHelper.accessor("status", {
-        header: "Status",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="status"
+          >
+            Status
+          </ColumnSort>
+        ),
         cell: (info) => {
           return (
             <ColorBadge colorMap={STATUS_COLOR}>{info.getValue()}</ColorBadge>
           );
         },
       }),
+      columnHelper.accessor("modeOfPayment", {
+        header: "Payment Method",
+        cell: (info) => {
+          return (
+            <ColorBadge colorMap={MODE_OF_PAYMENT_COLOR}>{info.getValue()}</ColorBadge>
+          );
+        },
+      }),
+      columnHelper.display({
+        id: "user",
+        header: "User",
+        cell: ({ row }) => {
+          const statusHistoryMap = mappedStatusHistory(
+            row.original.salesOrderStatusHistory ?? [],
+          );
+          return statusHistoryMap[row.original.status]?.user?.username;
+        },
+      }),
+
       columnHelper.accessor("totalAmount", {
-        header: () => "Total Amount",
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="totalAmount"
+            align="right"
+          >
+            Total Amount
+          </ColumnSort>
+        ),
         meta: {
           align: "right",
         },
         cell: (info) => formatCurrency(info.getValue()),
       }),
     ],
-    [],
+    [filters, handleFilterChange],
   );
 
   return (
@@ -126,6 +212,35 @@ export default function SalesOrdersClientWidget({
           </Button>
         </div>
       </PageHeader>
+
+      {initialSummary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xl">
+          <SummaryCard
+            label="Total Amount"
+            value={formatCurrency(initialSummary.totalAmount)}
+          />
+          <SummaryCard
+            label="Total Profit"
+            value={formatCurrency(initialSummary.totalProfitAmount)}
+          />
+          <SummaryCard
+            label="Total Return"
+            value={
+              <span className="text-yellow-500">
+                {formatCurrency(initialSummary.totalReturnAmount)}
+              </span>
+            }
+          />
+          <SummaryCard
+            label="Total Exchange"
+            value={
+              <span className="text-yellow-500">
+                {formatCurrency(initialSummary.totalExchangeAmount)}
+              </span>
+            }
+          />
+        </div>
+      )}
       <div className="flex gap-4 items-center">
         <DateRangePicker
           value={dateRange}
@@ -163,9 +278,11 @@ export default function SalesOrdersClientWidget({
       </div>
       <DataTable
         columns={columns}
-        data={rows}
+        data={initialRows}
         paginate={true}
-        paginationMeta={meta}
+        paginationMeta={initialPagination}
+        paginationFilter={filters}
+        setPaginationFilter={setFilters}
         onRowClick={(row) => {
           if (row.status === ORDER_STATUS.DRAFT) {
             setSalesOrderModalOpen(true, row);

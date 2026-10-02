@@ -30,24 +30,24 @@ import {
 } from "../widgets/CreateGoodReceiptClientWidget";
 import FormField from "./FormField";
 import FormTableFooter from "./FormTableFooter";
+import { ScrollArea } from "../ui/scroll-area";
 
 const columnHelper = createColumnHelper<GoodReceiptLineWithCombination>();
 
 export default function PendingOrderForm({
   form,
   suppliers = [],
+  fields,
+  remove
 }: {
   form: UseFormReturn<GoodReceiptForm>;
   suppliers: SupplierData[];
+  fields: GoodReceiptLineWithCombination[];
+  remove: (index: number) => void;
 }) {
   const {
     formState: { errors },
   } = form;
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "goodReceiptLines",
-    keyName: "fieldId",
-  });
 
   const columns = React.useMemo(
     () => [
@@ -247,10 +247,7 @@ export default function PendingOrderForm({
     [errors.goodReceiptLines, form, remove],
   );
 
-  const footerValues = useWatch({
-    control: form.control,
-    name: "goodReceiptLines",
-  });
+
 
   return (
     <div className="space-y-4">
@@ -325,13 +322,14 @@ export default function PendingOrderForm({
             <DataTable
               data={fields}
               columns={columns}
-              renderFooter={() => (
-                <FormTableFooter
-                  values={footerValues}
-                  onAdd={() => append(goodReceiptItemDefault)}
-                />
-              )}
+            // renderFooter={() => (
+            //   <FormTableFooter
+            //     values={footerValues}
+            //     onAdd={() => append(goodReceiptItemDefault)}
+            //   />
+            // )}
             />
+
             <FieldError>
               {errors?.goodReceiptLines?.root?.message ||
                 errors?.goodReceiptLines?.message}

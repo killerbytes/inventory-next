@@ -243,6 +243,8 @@ export type Pagination = {
   totalPages: number;
   currentPage: number;
 };
+export type Meta = Pagination;
+
 
 export type PaginatedResponse<T extends object, S = object> = {
   data: T[];
@@ -266,4 +268,11 @@ export type GoodReceiptSummary = {
   totalAmount: number;
   totalPayableAmount: number;
   totalReturnAmount: number;
+};
+
+export type SalesOrderSummary = {
+  totalAmount: number;
+  totalProfitAmount: number;
+  totalReturnAmount: number;
+  totalExchangeAmount: number;
 };

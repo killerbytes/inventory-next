@@ -412,7 +412,41 @@ describe("Sales Order Service (Integration)", () => {
     expect(salesOrders.meta.total).toBe(2);
     expect(salesOrders.meta.totalPages).toBe(1);
     expect(salesOrders.meta.currentPage).toBe(1);
+    expect(salesOrders.pagination.total).toBe(2);
   });
+
+  it("should sort sales orders by id DESC by default and include nested combinations", async () => {
+    await salesServerService.create(
+      { ...getTestData(), salesOrderNumber: "ORDER-1" } as any,
+      user0.id,
+    );
+    await salesServerService.create(
+      { ...getTestData(), salesOrderNumber: "ORDER-2" } as any,
+      user0.id,
+    );
+
+    const result = await salesServerService.getAll({ page: 1, limit: 10 });
+    const items = result.data || result.rows;
+
+    // Latest created order (id 2) should be first
+    expect(items[0].salesOrderNumber).toBe("ORDER-2");
+    expect(items[1].salesOrderNumber).toBe("ORDER-1");
+
+    // SalesOrderItems should include combination
+    expect(items[0].salesOrderItems[0].combinations).toBeDefined();
+  });
+
+  it("should sort sales orders by customer.name without error", async () => {
+    await salesServerService.create(getTestData() as any, user0.id);
+
+    const result = await salesServerService.getAll({
+      sort: "customer.name",
+      order: "ASC",
+    });
+    const items = result.data || result.rows;
+    expect(items.length).toBeGreaterThan(0);
+  });
+
 
   it("should not allow quantity to be negative", async () => {
     await productCombinationServerService.stockAdjustment(
@@ -644,7 +678,6 @@ describe("Sales Order Service (Integration)", () => {
     expect(Number(inventory2[1].averagePrice)).toBe(
       Number(inventory[1].averagePrice),
     );
-    console.log(111, JSON.stringify(returnTransaction, null, 2));
 
     expect(inventoryMovement.length).toBe(6);
     expect(inventoryMovement[4].id).toBe(5);

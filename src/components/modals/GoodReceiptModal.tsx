@@ -18,11 +18,14 @@ import {
 import { useUIStore } from "@/stores/uiStore";
 import { goodReceiptItemDefault, ORDER_STATUS } from "@/types/definitions";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { ScrollArea } from "../ui/scroll-area";
+import FormTableFooter from "../forms/FormTableFooter";
+import { formatCurrency } from "@/lib/utils";
 
 const goodReceiptDefault: GoodReceiptModalForm = {
   referenceNo: "",
@@ -47,6 +50,14 @@ function GoodReceiptModalContent({
     defaultValues: goodReceiptDefault,
   });
 
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "goodReceiptLines",
+    keyName: "fieldId",
+  });
+
+
   useEffect(() => {
     if (editingGoodReceipt) {
       form.reset({
@@ -61,16 +72,16 @@ function GoodReceiptModalContent({
         internalNotes: editingGoodReceipt.internalNotes || "",
         goodReceiptLines:
           editingGoodReceipt.goodReceiptLines &&
-          editingGoodReceipt.goodReceiptLines.length > 0
+            editingGoodReceipt.goodReceiptLines.length > 0
             ? editingGoodReceipt.goodReceiptLines.map((line: any) => ({
-                id: line.id,
-                combinationId: line.combinationId,
-                quantity: Number(line.quantity || 1),
-                purchasePrice: Number(line.purchasePrice || 0),
-                discount: Number(line.discount || 0),
-                discountNote: line.discountNote || "",
-                combination: line.combination || null,
-              }))
+              id: line.id,
+              combinationId: line.combinationId,
+              quantity: Number(line.quantity || 1),
+              purchasePrice: Number(line.purchasePrice || 0),
+              discount: Number(line.discount || 0),
+              discountNote: line.discountNote || "",
+              combination: line.combination || null,
+            }))
             : [goodReceiptItemDefault],
       });
     } else {
@@ -139,6 +150,29 @@ function GoodReceiptModalContent({
     });
   };
 
+
+
+  const footerValues = useWatch({
+    control: form.control,
+    name: "goodReceiptLines",
+  });
+
+
+  const total = footerValues.reduce(
+    (acc, item) => {
+      const price = Number(item.purchasePrice);
+      const discount = Number(item?.discount || 0);
+      const lineTotal = price * (Number(item.quantity) || 0) - discount;
+
+      return {
+        totalAmount: acc.totalAmount + lineTotal,
+        totalPrice: acc.totalPrice + price,
+        totalDiscount: acc.totalDiscount + discount,
+      };
+    },
+    { totalAmount: 0, totalDiscount: 0, totalPrice: 0 },
+  );
+
   return (
     <div className="space-y-4">
       {!isEdit && (
@@ -148,7 +182,25 @@ function GoodReceiptModalContent({
         />
       )}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <PendingOrderForm form={form as any} suppliers={suppliers} />
+        <ScrollArea className="h-[40vh]">
+          <PendingOrderForm form={form as any} suppliers={suppliers} fields={fields} remove={remove} />
+        </ScrollArea>
+
+        <div className="flex justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => append(goodReceiptItemDefault)}
+          >
+            <Plus />
+          </Button>
+
+          <span className="font-semibold text-2xl">
+            {formatCurrency(total?.totalAmount || 0)}
+          </span>
+
+        </div>
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center pt-4 border-t gap-2">
           <Button

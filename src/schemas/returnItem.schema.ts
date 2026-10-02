@@ -36,11 +36,21 @@ export const ReturnTransactionSchema = ReturnTransactionBaseSchema.extend({
   returnItems: z.array(ReturnItemSchema),
 });
 
+export const ExchangeItemLineSchema = z.object({
+  combinationId: z.coerce.number().positive(),
+  name: z.string().optional().nullable(),
+  unit: z.string().optional().nullable(),
+  quantity: z.coerce.number().positive("Quantity must be positive"),
+  price: z.coerce.number().nonnegative(),
+});
+export type ExchangeItemLineData = z.infer<typeof ExchangeItemLineSchema>;
+
 export const ReturnExchangeFormSchema = z.object({
   referenceId: z.coerce.number().positive(),
   returns: z
     .array(z.lazy(() => GoodReceiptLineSchema))
     .min(1, "At least one return item is required"),
+  exchanges: z.array(ExchangeItemLineSchema).optional().nullable(),
   reason: z.string().min(1, "Reason is required"),
 });
 export type ReturnItemData = z.infer<typeof ReturnItemSchema>;
