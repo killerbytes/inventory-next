@@ -77,7 +77,6 @@ function AddInvoicePaymentModalContent({
 
         toast.success(`Payment of ${formatCurrency(amount)} recorded successfully`);
         setAddInvoicePaymentModalOpen(false);
-        if (onSuccess) onSuccess();
         router.refresh();
       } catch (err: any) {
         console.error("Error recording invoice payment:", err);

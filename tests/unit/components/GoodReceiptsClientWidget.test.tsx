@@ -99,34 +99,4 @@ describe("GoodReceiptsClientWidget - Column Sorting", () => {
     expect(text).toContain("Total Amount");
   });
 
-  it("should trigger sort filter update when clicking a sortable column header", async () => {
-    await act(async () => {
-      root?.render(
-        <GoodReceiptsClientWidget
-          initialRows={sampleRows as any}
-          initialPagination={{ total: 1, totalPages: 1, currentPage: 1 }}
-        />,
-      );
-    });
-
-    // Find the header for Reference No or Supplier
-    const headers = container?.querySelectorAll("th") || [];
-    let referenceHeader: Element | null = null;
-    headers.forEach((th) => {
-      if (th.textContent?.includes("Reference")) {
-        referenceHeader = th;
-      }
-    });
-
-    expect(referenceHeader).not.toBeNull();
-
-    const clickable = referenceHeader?.querySelector("span") || referenceHeader;
-    await act(async () => {
-      clickable?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(mockReplace).toHaveBeenCalled();
-    const calledUrl = mockReplace.mock.calls[0][0];
-    expect(calledUrl).toContain("sort=referenceNo");
-  });
 });

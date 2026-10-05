@@ -8,7 +8,7 @@ import ProductLookupInput from "@/components/forms/ProductLookupInput";
 
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
-import { SupplierData } from "@/schemas";
+import { GoodReceiptInputSchema, GoodReceiptLineInputSchema, ProductCombinationSchema, SupplierData } from "@/schemas";
 import { goodReceiptItemDefault, UNIT_COLOR } from "@/types/definitions";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
@@ -24,13 +24,22 @@ import ColorBadge from "../common/ColorBadge";
 import { Button } from "../ui/button";
 import { Field, FieldError } from "../ui/field";
 import { Textarea } from "../ui/textarea";
-import {
-  GoodReceiptForm,
-  GoodReceiptLineWithCombination,
-} from "../widgets/CreateGoodReceiptClientWidget";
 import FormField from "./FormField";
-import FormTableFooter from "./FormTableFooter";
-import { ScrollArea } from "../ui/scroll-area";
+import z from "zod";
+
+
+
+const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
+  combination: ProductCombinationSchema.nullable(),
+});
+
+const GoodReceiptFormSchema = GoodReceiptInputSchema.extend({
+  goodReceiptLines: z.array(GoodReceiptLineWithCombination),
+});
+export type GoodReceiptForm = z.infer<typeof GoodReceiptFormSchema>;
+export type GoodReceiptLineWithCombination = z.infer<
+  typeof GoodReceiptLineWithCombination
+>;
 
 const columnHelper = createColumnHelper<GoodReceiptLineWithCombination>();
 

@@ -309,7 +309,7 @@ export default function InvoiceDetailClientWidget({
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Payment Applications History</CardTitle>
               {!isDraft && !isFullyPaid && (
-                <Button size="sm" onClick={() => setPaymentModalOpen(true)}>
+                <Button size="sm" onClick={() => setAddInvoicePaymentModalOpen(true)}>
                   <Plus className="h-4 w-4 mr-1" /> Add Payment
                 </Button>
               )}
@@ -350,7 +350,6 @@ export default function InvoiceDetailClientWidget({
       <AddInvoicePaymentModal
         invoice={invoice}
         remainingBalance={remainingBalance}
-        onSuccess={() => router.refresh()}
       />
     </div>
   );

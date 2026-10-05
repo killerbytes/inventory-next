@@ -24,7 +24,6 @@ import { useEffect, useTransition } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { ScrollArea } from "../ui/scroll-area";
-import FormTableFooter from "../forms/FormTableFooter";
 import { formatCurrency } from "@/lib/utils";
 
 const goodReceiptDefault: GoodReceiptModalForm = {

@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/utils";
 import {
-  GoodReceiptLineData,
-  GoodReceiptLineInput,
   ReturnExchangeFormInput,
   ReturnExchangeFormSchema,
 } from "@/schemas";
@@ -38,6 +36,20 @@ export interface ExchangeItemLine {
   price: number;
 }
 
+export interface ReturnTableItem {
+  combinationId: number;
+  quantity: number;
+  purchasePrice?: number;
+  originalPrice?: number;
+  unit?: string;
+  nameSnapshot?: string | null;
+  skuSnapshot?: string | null;
+  discount?: number | null;
+  discountNote?: string | null;
+  fieldId?: string;
+  [key: string]: any;
+}
+
 export interface ReturnExchangeModalProps {
   referenceId: number;
   returns?: any[];
@@ -46,7 +58,7 @@ export interface ReturnExchangeModalProps {
   onClose?: () => void;
 }
 
-const returnColumnHelper = createColumnHelper<GoodReceiptLineData>();
+const returnColumnHelper = createColumnHelper<ReturnTableItem>();
 const exchangeColumnHelper = createColumnHelper<ExchangeItemLine>();
 
 function ReturnExchangeModalContent({
@@ -55,18 +67,27 @@ function ReturnExchangeModalContent({
   salesOrder,
 }: {
   referenceId: number;
-  returns?: GoodReceiptLineInput[];
+  returns?: any[];
   salesOrder?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { setReturnExchangeModalOpen } = useUIStore();
 
+  const normalizedReturns = useMemo(() => {
+    return (initialReturns || [])
+      .filter(Boolean)
+      .map((item: any) => ({
+        ...item,
+        purchasePrice: Number(item?.purchasePrice ?? item?.originalPrice ?? 0),
+      }));
+  }, [initialReturns]);
+
   const form = useForm<ReturnExchangeFormInput>({
     defaultValues: {
       reason: "",
       referenceId,
-      returns: initialReturns,
+      returns: normalizedReturns,
       exchanges: [],
     },
     resolver: zodResolver(ReturnExchangeFormSchema),
@@ -100,19 +121,24 @@ function ReturnExchangeModalContent({
     control: form.control,
     name: "exchanges",
   });
-  console.log(form.getValues(), form.formState.errors);
+
   const totalReturnAmount = useMemo(() => {
     return (watchedReturns || []).reduce((sum, item, idx) => {
       const q = Number(item?.quantity || 0);
-      const original = fields[idx] || initialReturns[idx];
+      const original = (fields[idx] || normalizedReturns[idx]) as
+        | ReturnTableItem
+        | undefined;
+      const basePrice = Number(
+        original?.purchasePrice ?? original?.originalPrice ?? 0,
+      );
       const unitCost =
-        Number(original?.purchasePrice || 0) -
+        basePrice -
         (original?.discount && original?.quantity
           ? original.discount / original.quantity
           : 0);
       return sum + q * unitCost;
     }, 0);
-  }, [watchedReturns, fields, initialReturns]);
+  }, [watchedReturns, fields, normalizedReturns]);
 
   const totalExchangeAmount = useMemo(() => {
     return (watchedExchanges || []).reduce((sum, item) => {
@@ -191,7 +217,9 @@ function ReturnExchangeModalContent({
         header: "Product",
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <ColorBadge colorMap={UNIT_COLOR}>{row.original.unit}</ColorBadge>
+            <ColorBadge colorMap={UNIT_COLOR}>
+              {row.original.unit || ""}
+            </ColorBadge>
             {row.original.nameSnapshot}
           </div>
         ),
@@ -205,14 +233,18 @@ function ReturnExchangeModalContent({
       }),
       returnColumnHelper.display({
         id: "purchasePrice",
-        header: "Unit Cost",
+        header: salesOrder ? "Unit Price" : "Unit Cost",
         meta: {
           align: "right",
         },
         cell: ({ row }) => {
+          const item = row.original;
+          const basePrice = Number(
+            item.purchasePrice ?? item.originalPrice ?? 0,
+          );
           const price =
-            Number(row.original.purchasePrice) -
-            (row.original.discount || 0) / row.original.quantity;
+            basePrice -
+            (item.discount || 0) / (item.quantity || 1);
           return formatCurrency(price);
         },
       }),
@@ -253,8 +285,11 @@ function ReturnExchangeModalContent({
         },
         cell: ({ row }) => {
           const item = row.original;
+          const basePrice = Number(
+            item.purchasePrice ?? item.originalPrice ?? 0,
+          );
           const unitPrice =
-            Number(item.purchasePrice || 0) -
+            basePrice -
             (item.discount && item.quantity
               ? item.discount / item.quantity
               : 0);
@@ -278,7 +313,7 @@ function ReturnExchangeModalContent({
         },
       }),
     ],
-    [form.control, errors.returns],
+    [form.control, errors.returns, salesOrder],
   );
 
   const exchangeColumns = useMemo(
@@ -293,8 +328,8 @@ function ReturnExchangeModalContent({
         header: () => <div className="text-center">Unit</div>,
         cell: ({ row }) => (
           <div className="flex justify-center">
-            <ColorBadge colorMap={UNIT_COLOR} className="text-xs">
-              {row.original.unit}
+            <ColorBadge colorMap={UNIT_COLOR}>
+              {row.original.unit || ""}
             </ColorBadge>
           </div>
         ),
@@ -389,7 +424,11 @@ function ReturnExchangeModalContent({
         </h4>
 
         <div className="border rounded-lg overflow-hidden">
-          <DataTable columns={returnColumns} data={fields} paginate={false} />
+          <DataTable
+            columns={returnColumns}
+            data={fields as unknown as ReturnTableItem[]}
+            paginate={false}
+          />
         </div>
       </div>
 

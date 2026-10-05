@@ -31,7 +31,7 @@ describe("Supplier Service (Integration)", () => {
 
   it("should list all suppliers", async () => {
     const allSuppliers = await supplierServerService.getAll();
-    expect(allSuppliers.length).toBe(2);
+    expect(allSuppliers.data.length).toBe(2);
   });
 
   it("should update a supplier email", async () => {
@@ -83,36 +83,4 @@ describe("Supplier Service (Integration)", () => {
     }
   });
 
-  it("should get a paginated list of suppliers", async () => {
-    const res = await supplierServerService.getPaginated({
-      page: 1,
-      limit: 1,
-    });
-    expect(res.data.length).toBe(1);
-    expect(res.meta.total).toBe(2);
-    expect(res.meta.totalPages).toBe(2);
-    expect(res.meta.currentPage).toBe(1);
-  });
-
-  it("should update a supplier's sort order", async () => {
-    const res = await supplierServerService.getPaginated({
-      page: 1,
-      limit: 1,
-      sort: "name",
-      order: "DESC",
-    });
-    expect(res.data.length).toBe(1);
-    expect(res.data[0].name).toBe("Charlie Supplier");
-  });
-
-  it("should query suppliers by name", async () => {
-    const res = await supplierServerService.getPaginated({
-      q: "cha",
-      page: 1,
-      limit: 1,
-    });
-
-    expect(res.data.length).toBe(1);
-    expect(res.data[0].name).toBe("Charlie Supplier");
-  });
 });

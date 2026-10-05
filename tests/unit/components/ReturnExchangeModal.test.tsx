@@ -221,4 +221,48 @@ describe("ReturnExchangeModal Component", () => {
     // Assert: Total Debit should reflect 3 * ₱150 = ₱450.00
     expect(document.body.textContent).toContain("Total Debit: ₱450.00");
   });
+
+  it("should calculate credit amount and unit cost correctly for Sales Order items using originalPrice", async () => {
+    // Arrange: Sales Order item has originalPrice instead of purchasePrice and no goodReceiptId
+    const mockSalesOrderReturns = [
+      {
+        id: 99,
+        combinationId: 202,
+        quantity: 2,
+        originalPrice: 250,
+        discount: 0,
+        unit: "SET",
+        nameSnapshot: "Hammer Drill",
+        skuSnapshot: "HDR-01",
+        totalAmount: 500,
+      },
+    ];
+
+    act(() => {
+      useUIStore.getState().setReturnExchangeModalOpen(true);
+    });
+
+    // Act
+    await act(async () => {
+      root?.render(
+        <ReturnExchangeModal
+          referenceId={888}
+          salesOrder={true}
+          returns={mockSalesOrderReturns as any}
+        />,
+      );
+    });
+
+    // Assert: Should display name and unit
+    expect(document.body.textContent).toContain("Hammer Drill");
+    expect(document.body.textContent).toContain("SET");
+
+    // Assert: Unit Cost should display ₱250.00 (not NaN or 0)
+    expect(document.body.textContent).toContain("₱250.00");
+
+    // Assert: Credit amount should reflect 2 * ₱250 = ₱500.00
+    expect(document.body.textContent).toContain("₱500.00");
+    expect(document.body.textContent).toContain("Total Credit: ₱500.00");
+  });
 });
+
