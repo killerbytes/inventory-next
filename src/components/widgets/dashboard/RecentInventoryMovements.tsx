@@ -50,7 +50,7 @@ export default function RecentInventoryMovements({
                 : null;
 
           return (
-            <div className="text-foreground flex items-center gap-1.5 text-xs font-mono">
+            <div className="text-foreground flex items-center gap-1.5 text-xs ">
               <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
               {route ? (
                 <Link href={route} className="text-primary hover:underline">
@@ -71,11 +71,10 @@ export default function RecentInventoryMovements({
             type.includes("IN") || type === "PURCHASE" || type === "RECEIPT";
           return (
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                isIn
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${isIn
                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                   : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-              }`}
+                }`}
             >
               {isIn ? (
                 <ArrowDownLeft className="h-3 w-3" />
@@ -92,7 +91,7 @@ export default function RecentInventoryMovements({
         cell: ({ row }) => {
           const qty = Number(row.original.quantity || 0);
           return (
-            <div className="text-right font-mono font-semibold text-xs">
+            <div className="text-right  font-semibold text-xs">
               {qty > 0 ? `+${qty}` : qty}
             </div>
           );
@@ -101,7 +100,7 @@ export default function RecentInventoryMovements({
       columnHelper.accessor("costPerUnit", {
         header: () => <div className="text-right">Cost / Unit</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-xs text-muted-foreground">
+          <div className="text-right  text-xs text-muted-foreground">
             {formatCurrency(Number(row.original.costPerUnit || 0))}
           </div>
         ),
@@ -109,7 +108,7 @@ export default function RecentInventoryMovements({
       columnHelper.accessor("totalCost", {
         header: () => <div className="text-right">Total Cost</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-xs font-medium">
+          <div className="text-right  text-xs font-medium">
             {formatCurrency(Number(row.original.totalCost || 0))}
           </div>
         ),

@@ -45,7 +45,7 @@ export default function UsersClientWidget({
       columnHelper.accessor("email", {
         header: "Email",
         cell: (info) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className=" text-xs text-muted-foreground">
             {info.getValue() || "—"}
           </span>
         ),
@@ -55,7 +55,7 @@ export default function UsersClientWidget({
         cell: (info) => (
           <Badge
             variant="outline"
-            className="gap-1 uppercase font-mono text-xs"
+            className="gap-1 uppercase  text-xs"
           >
             <Shield className="h-3 w-3 text-emerald-600" />
             {info.getValue()}

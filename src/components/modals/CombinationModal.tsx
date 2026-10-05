@@ -302,7 +302,7 @@ function CombinationModalContent({ product }: { product: ProductData }) {
         accessorKey: "inventory.averagePrice",
         header: () => <div className="text-right">Avg Cost</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-xs text-muted-foreground">
+          <div className="text-right  text-xs text-muted-foreground">
             {formatCurrency(row.original.inventory?.averagePrice || 0)}
           </div>
         ),
@@ -314,7 +314,9 @@ function CombinationModalContent({ product }: { product: ProductData }) {
           align: "right",
         },
         cell: ({ row }) => (
-          <Badge>{Number(row.original.inventory?.quantity || 0)}</Badge>
+          <div className="font-semibold">
+            {Number(row.original.inventory?.quantity || 0)}
+          </div>
         ),
       },
       {
@@ -495,7 +497,7 @@ export default function CombinationModal({
         <div>
           Product: <span className="text-primary">{product?.name}</span>{" "}
           <Badge variant="outline">
-            {product?.category?.name || "Uncategorized"}
+            {product?.category?.name}
           </Badge>
         </div>
       }

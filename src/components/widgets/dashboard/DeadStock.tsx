@@ -94,7 +94,7 @@ export default function DeadStock({ items = [] }: DeadStockProps) {
           </div>
         ),
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold text-xs text-muted-foreground">
+          <div className="text-right  font-semibold text-xs text-muted-foreground">
             {Number(
               row.original.inventory?.quantity ?? row.original.quantity ?? 0,
             )}

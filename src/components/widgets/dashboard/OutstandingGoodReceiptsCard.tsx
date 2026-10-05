@@ -21,7 +21,7 @@ export default function OutstandingGoodReceiptsCard({ data }: OutstandingGoodRec
       label="Total Outstanding Good Receipts"
       value={
         <div className="flex flex-col gap-1">
-          <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+          <span className="text-xl font-bold  text-amber-600 dark:text-amber-400">
             {formatCurrency(totalAmount)}
           </span>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">

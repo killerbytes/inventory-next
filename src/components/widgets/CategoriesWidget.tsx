@@ -58,7 +58,7 @@ export default function CategoriesWidget({
       columnHelper.accessor("id", {
         header: "ID",
         cell: (info) => (
-          <span className="font-mono text-xs">{info.getValue()}</span>
+          <span className=" text-xs">{info.getValue()}</span>
         ),
         meta: { className: "w-16" },
       }),

@@ -14,23 +14,21 @@ import { createInvoicePaymentAction } from "@/server/actions/payment.actions";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useUIStore } from "@/stores/uiStore";
 
 export interface AddInvoicePaymentModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   invoice: any;
   remainingBalance: number;
   onSuccess?: () => void;
 }
 
-export default function AddInvoicePaymentModal({
-  isOpen,
-  onClose,
+function AddInvoicePaymentModalContent({
   invoice,
   remainingBalance,
   onSuccess,
 }: AddInvoicePaymentModalProps) {
   const router = useRouter();
+  const { setAddInvoicePaymentModalOpen } = useUIStore();
   const [paymentDate, setPaymentDate] = useState<string>(
     format(new Date(), "yyyy-MM-dd")
   );
@@ -78,7 +76,7 @@ export default function AddInvoicePaymentModal({
         });
 
         toast.success(`Payment of ${formatCurrency(amount)} recorded successfully`);
-        onClose();
+        setAddInvoicePaymentModalOpen(false);
         if (onSuccess) onSuccess();
         router.refresh();
       } catch (err: any) {
@@ -90,8 +88,8 @@ export default function AddInvoicePaymentModal({
 
   return (
     <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+      isOpen
+      onClose={() => setAddInvoicePaymentModalOpen(false)}
       title={`Add Payment: #${invoice?.invoiceNumber || invoice?.id}`}
       description={`Record a supplier payment against this invoice. Outstanding balance: ${formatCurrency(
         remainingBalance
@@ -172,7 +170,7 @@ export default function AddInvoicePaymentModal({
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
-          <Button variant="outline" type="button" onClick={onClose} disabled={isPending}>
+          <Button variant="outline" type="button" onClick={() => setAddInvoicePaymentModalOpen(false)} disabled={isPending}>
             Cancel
           </Button>
           <Button type="submit" disabled={isPending || amount <= 0}>
@@ -180,6 +178,35 @@ export default function AddInvoicePaymentModal({
           </Button>
         </DialogFooter>
       </form>
+    </Modal>
+  );
+}
+
+
+export default function AddInvoicePaymentModal({
+  remainingBalance,
+  invoice
+}: {
+  remainingBalance: number;
+  invoice: any;
+}) {
+  const { isAddInvoicePaymentModalOpen, setAddInvoicePaymentModalOpen } = useUIStore();
+
+  if (!isAddInvoicePaymentModalOpen) return null;
+
+  return (
+    <Modal
+      title="Add Payment"
+      description={`Record a supplier payment against this invoice. Outstanding balance: ${formatCurrency(
+        remainingBalance
+      )}.`}
+      isOpen={isAddInvoicePaymentModalOpen}
+      onClose={() => setAddInvoicePaymentModalOpen(false)}
+    >
+      <AddInvoicePaymentModalContent
+        remainingBalance={remainingBalance}
+        invoice={invoice}
+      />
     </Modal>
   );
 }

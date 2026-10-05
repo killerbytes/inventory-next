@@ -14,6 +14,10 @@ import {
 import { PAGINATION } from "@/types/definitions";
 import { Op } from "sequelize";
 import "server-only";
+import {
+  GetReordersLevelsInput,
+  inventoryServerService,
+} from "./inventoryServer.service";
 
 export const reportsServerService = {
   getPriceHistory: async () => {
@@ -124,10 +128,10 @@ export const reportsServerService = {
         },
         {
           model: ProductCombination,
-          as: "combinations",
+          as: "combination",
         },
       ],
-      group: ["combinationId", "combinations.id"],
+      group: ["combinationId", "combination.id"],
       order: [orderBy],
       limit,
       offset,
@@ -146,7 +150,7 @@ export const reportsServerService = {
     });
 
     return {
-      data: rows,
+      data: rows.map(i => i.get({ plain: true })),
       meta: {
         total: count,
         totalPages: Math.ceil(count / limit),
@@ -225,8 +229,33 @@ export const reportsServerService = {
       page = PAGINATION.PAGE,
       sort = "quantity",
       order = "DESC",
+      q,
+      startDate = null,
+      endDate = null,
+      status,
     } = params;
     const offset = (page - 1) * limit;
+
+    const where: any = { "$salesOrderItems.id$": null };
+
+    if (q) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${q}%` } },
+        { sku: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+    if (status) {
+      where.status = status;
+    }
+    if (startDate && endDate) {
+      where.createdAt = { [Op.between]: [startDate, endDate] };
+    }
+
+    const orderByMap: Record<string, any> = {
+      quantity: [sequelize.literal('"inventory.quantity"'), order],
+    };
+
+    const orderBy = orderByMap[sort] || [sort, order];
 
     const { rows, count } = await ProductCombination.findAndCountAll({
       include: [
@@ -241,14 +270,22 @@ export const reportsServerService = {
           model: SalesOrderItem,
           as: "salesOrderItems",
           required: false,
+          attributes: [],
+          include: [
+            {
+              model: SalesOrder,
+              as: "salesOrder",
+              required: true,
+              attributes: [],
+              where: {
+                status: "RECEIVED",
+              },
+            },
+          ],
         },
       ],
-      where: { "$salesOrderItems.id$": null },
-      order: [
-        sort === "quantity"
-          ? [{ model: Inventory, as: "inventory" }, "quantity", order]
-          : ["id", order],
-      ],
+      where,
+      order: [orderBy],
       limit,
       offset,
       distinct: true,
@@ -256,7 +293,7 @@ export const reportsServerService = {
     });
 
     return {
-      data: rows,
+      data: rows.map(i => (i.get ? i.get({ plain: true }) : i)),
       meta: {
         total: count,
         totalPages: Math.ceil(count / limit),
@@ -293,23 +330,26 @@ export const reportsServerService = {
     };
   },
 
-  getReorderLevels: async () => {
-    return await Product.findAll({
-      include: [
-        {
-          model: ProductCombination,
-          as: "combinations",
-          include: [{ model: Inventory, as: "inventory" }],
-        },
-      ],
-    });
+  /**
+   * Retrieves products and combinations below their reorder level threshold that have sales history.
+   * Aligns with inventory-api `inventoryService.getReordersLevels`.
+   *
+   * @param params Pagination and sorting parameters (limit, page, sort, order)
+   * @returns Paginated list of low-stock inventory records with combination details and transaction stats
+   */
+  getReorderLevels: async (params: GetReordersLevelsInput = {}) => {
+    return await inventoryServerService.getReordersLevels(params);
   },
 
-  getNoSales: async () => {
-    return await Product.findAll({
-      include: [{ model: ProductCombination, as: "combinations" }],
-      limit: 50,
-    });
+  /**
+   * Retrieves product combinations with inventory stock (> 0) that have no sales history in completed (RECEIVED) sales orders.
+   * Aligns with inventory-api `reportsService.noSaleProducts`.
+   *
+   * @param params Pagination, filtering, and sorting parameters (limit, page, sort, order, q, startDate, endDate)
+   * @returns Paginated list of no-sale product combinations with inventory details
+   */
+  getNoSales: async (params: any = {}) => {
+    return await reportsServerService.noSaleProducts(params);
   },
 
   getProfitSummary: async () => {

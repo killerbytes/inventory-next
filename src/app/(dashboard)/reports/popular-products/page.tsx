@@ -13,6 +13,5 @@ export default async function PopularProductsPage() {
     console.error("Error fetching popular products:", err);
     products = [];
   }
-
-  return <PopularProductsClientWidget initialProducts={JSON.parse(JSON.stringify(products))} />;
+  return <PopularProductsClientWidget initialProducts={products} />;
 }

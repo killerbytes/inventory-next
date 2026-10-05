@@ -161,7 +161,9 @@ export const invoiceServerService = {
       });
 
       return {
-        data: rows,
+        data: rows.map((row) => row.get({
+          plain: true
+        })),
         meta: {
           total: count,
           totalPages: Math.ceil(count / limit),

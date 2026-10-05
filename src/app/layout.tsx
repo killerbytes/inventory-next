@@ -2,10 +2,10 @@ import { AppProvider } from "@/components/providers/AppProvider";
 import { UserData } from "@/schemas";
 import { getSession } from "@/server/auth/session";
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const sansFont = Plus_Jakarta_Sans({
+const sansFont = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
 });

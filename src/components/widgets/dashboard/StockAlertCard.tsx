@@ -19,7 +19,7 @@ export default function StockAlertCard({ data }: StockAlertCardProps) {
       label="Low Stock"
       value={
         <div className="flex flex-col gap-1">
-          <span className="text-xl font-bold font-mono text-rose-600 flex items-center gap-1.5">
+          <span className="text-xl font-bold  text-rose-600 flex items-center gap-1.5">
             <TriangleAlert className="h-5 w-5 text-rose-600" />
             {count}
           </span>

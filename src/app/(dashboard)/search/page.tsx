@@ -1,11 +1,13 @@
 "use client";
 
+import ColorBadge from "@/components/common/ColorBadge";
 import { DataTable } from "@/components/common/DataTable";
 import PageHeader from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { searchProductCombinationsAction } from "@/server/actions/product.actions";
+import { UNIT_COLOR } from "@/types/definitions";
 import { ColumnDef } from "@tanstack/react-table";
 import { Loader2, Search } from "lucide-react";
 import Link from "next/link";
@@ -38,9 +40,9 @@ export default function GlobalSearchPage() {
       accessorKey: "unit",
       header: "Unit",
       cell: ({ row }) => (
-        <Badge variant="outline" className="uppercase font-mono text-xs">
-          {row.original.unit || "PCS"}
-        </Badge>
+        <ColorBadge colorMap={UNIT_COLOR}>
+          {row.original.unit}
+        </ColorBadge>
       ),
     },
     {
@@ -71,7 +73,7 @@ export default function GlobalSearchPage() {
         const isLoss = price > 0 && avgCost >= price;
         return (
           <div
-            className={`text-right font-mono font-bold ${isLoss ? "text-rose-600" : "text-foreground"}`}
+            className={`text-right  font-bold ${isLoss ? "text-rose-600" : "text-foreground"}`}
           >
             ₱{price.toFixed(2)}
           </div>
@@ -82,7 +84,7 @@ export default function GlobalSearchPage() {
       accessorKey: "inventory.averagePrice",
       header: () => <div className="text-right">Average Cost</div>,
       cell: ({ row }) => (
-        <div className="text-right font-mono text-xs text-muted-foreground">
+        <div className="text-right  text-xs text-muted-foreground">
           ₱{Number(row.original.inventory?.averagePrice || 0).toFixed(2)}
         </div>
       ),
@@ -94,7 +96,7 @@ export default function GlobalSearchPage() {
         const qty = Number(row.original.inventory?.quantity || 0);
         return (
           <div
-            className={`text-right font-mono font-bold ${qty === 0 ? "text-rose-600" : "text-emerald-600"}`}
+            className={`text-right  font-bold ${qty === 0 ? "text-rose-600" : "text-emerald-600"}`}
           >
             {qty}
           </div>

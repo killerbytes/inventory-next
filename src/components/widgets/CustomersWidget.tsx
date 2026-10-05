@@ -26,7 +26,7 @@ export default function CustomersWidget({
       columnHelper.accessor("id", {
         header: "ID",
         cell: (info) => (
-          <span className="font-mono text-xs">{info.getValue()}</span>
+          <span className=" text-xs">{info.getValue()}</span>
         ),
       }),
       columnHelper.accessor("name", {

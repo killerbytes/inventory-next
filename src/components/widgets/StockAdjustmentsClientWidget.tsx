@@ -54,7 +54,7 @@ export default function StockAdjustmentsClientWidget({
         header: () => <div className="text-right">Original Quantity</div>,
         cell: ({ row }) => {
           return (
-            <div className="text-right font-mono font-bold">
+            <div className="text-right  font-bold">
               {Number(row.original.systemQuantity)}
             </div>
           );
@@ -64,7 +64,7 @@ export default function StockAdjustmentsClientWidget({
         header: () => <div className="text-right">New Quantity</div>,
         cell: ({ row }) => {
           return (
-            <div className="text-right font-mono font-bold">
+            <div className="text-right  font-bold">
               {Number(row.original.newQuantity)}
             </div>
           );

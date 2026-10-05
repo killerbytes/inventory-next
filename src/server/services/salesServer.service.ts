@@ -23,6 +23,7 @@ import {
   INVENTORY_MOVEMENT_TYPE,
   ORDER_STATUS,
   ORDER_TYPE,
+  RETURN_TYPE,
 } from "@/types/definitions";
 import { Op, QueryTypes } from "sequelize";
 import "server-only";
@@ -285,7 +286,7 @@ const salesOrderIncludes = [
     include: [
       {
         model: ProductCombination,
-        as: "combinations",
+        as: "combination",
       },
     ],
   },
@@ -777,7 +778,7 @@ export const salesServerService = {
             quantity: ret.quantity,
             unitPrice,
             totalAmount,
-            type: "RETURN",
+            type: RETURN_TYPE.RETURN_IN,
             reason,
           },
           { transaction },
@@ -819,7 +820,7 @@ export const salesServerService = {
             quantity: ex.quantity,
             unitPrice: price,
             totalAmount: price * ex.quantity,
-            type: "EXCHANGE",
+            type: RETURN_TYPE.EXCHANGE_IN,
             reason: `Exchange for returned goods: ${reason}`,
           },
           { transaction },
@@ -830,9 +831,9 @@ export const salesServerService = {
             combinationId: ex.combinationId,
             quantity: ex.quantity,
           },
-          "EXCHANGE_OUT",
+          INVENTORY_MOVEMENT_TYPE.EXCHANGE_OUT,
           returnTx.id,
-          "RETURN_TRANSACTION",
+          INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
           transaction,
         );
       }

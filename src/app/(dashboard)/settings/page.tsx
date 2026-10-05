@@ -73,14 +73,14 @@ export default function SettingsPage() {
                 </label>
                 <Input
                   defaultValue="009-123-456-000"
-                  className="mt-1.5 font-mono"
+                  className="mt-1.5 "
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">
                   Default VAT Rate (%)
                 </label>
-                <Input defaultValue="12" className="mt-1.5 font-mono" />
+                <Input defaultValue="12" className="mt-1.5 " />
               </div>
             </div>
           </CardContent>

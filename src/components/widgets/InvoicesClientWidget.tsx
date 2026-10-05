@@ -34,6 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import DateRangePicker from "../common/DateRangePicker";
+import { DateRange } from "react-day-picker";
+import { format, parseISO } from "date-fns";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -65,6 +68,15 @@ export default function InvoicesClientWidget({
   });
 
   const invoices = initialInvoices || [];
+
+  const dateRange: DateRange = useMemo(
+    () => ({
+      from: filters.startDate ? parseISO(filters.startDate) : undefined,
+      to: filters.endDate ? parseISO(filters.endDate) : undefined,
+    }),
+    [filters.startDate, filters.endDate],
+  );
+
 
   const columns = useMemo(
     () => [
@@ -153,6 +165,22 @@ export default function InvoicesClientWidget({
       </PageHeader>
 
       <div className="flex items-center gap-2 max-w-md">
+
+        <DateRangePicker
+          value={dateRange}
+          onChange={(range) => {
+            setFilters((prev) => ({
+              ...prev,
+              startDate: range.from
+                ? format(range.from, "yyyy-MM-dd")
+                : undefined,
+              endDate: range.to ? format(range.to, "yyyy-MM-dd") : undefined,
+              page: 1,
+            }));
+          }}
+        />
+
+
         <InputGroup>
           <InputGroupInput
             placeholder="Search..."
@@ -196,7 +224,7 @@ export default function InvoicesClientWidget({
             <td colSpan={5} className="p-3 text-right">
               Total Visible:
             </td>
-            <td className="p-3 text-right font-mono font-bold text-base text-primary">
+            <td className="p-3 text-right  font-bold text-base text-primary">
               {formatCurrency(
                 rows.reduce(
                   (acc, curr) => acc + Number(curr.totalAmount || 0),

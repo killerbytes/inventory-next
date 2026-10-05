@@ -6,6 +6,9 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { Award } from "lucide-react";
 import { useMemo } from "react";
 import PageHeader from "../layout/PageHeader";
+import Link from "next/link";
+import ColorBadge from "../common/ColorBadge";
+import { UNIT_COLOR } from "@/types/definitions";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -32,20 +35,20 @@ export default function PopularProductsClientWidget({
       columnHelper.accessor("name", {
         header: "Product Name",
         cell: ({ row }) => (
-          <span className="font-semibold">{row.original.name}</span>
+          <div className="flex items-center gap-2">
+            <ColorBadge colorMap={UNIT_COLOR}>{row.original.combination.unit}</ColorBadge>
+            <Link className="text-primary hover:underline" href={`/products/${row.original.combination.productId}`}>{row.original.combination.name}</Link>
+          </div>
         ),
       }),
-      columnHelper.accessor("sku", {
-        header: "SKU",
+      columnHelper.accessor("transactionCount", {
+        header: "Transactions",
+        meta: {
+          align: 'right'
+        },
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.sku || "N/A"}</span>
-        ),
-      }),
-      columnHelper.accessor("baseUnit", {
-        header: "Base Unit",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs uppercase">
-            {row.original.baseUnit || "PCS"}
+          <span className=" text-xs uppercase">
+            {row.original.transactionCount}
           </span>
         ),
       }),

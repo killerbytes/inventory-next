@@ -39,7 +39,7 @@ export default function SupplierDetailClientWidget({
         cell: ({ row }) => (
           <Link
             href={`/good-receipts/${row.original.id}`}
-            className="font-mono font-semibold text-primary hover:underline"
+            className=" font-semibold text-primary hover:underline"
           >
             {row.original.referenceNo || `GR-${row.original.id}`}
           </Link>
@@ -72,7 +72,7 @@ export default function SupplierDetailClientWidget({
         id: "itemsCount",
         header: "Item Count",
         cell: ({ row }) => (
-          <span className="font-mono text-xs">
+          <span className=" text-xs">
             {(row.original.goodReceiptLines || row.original.lines || []).length}{" "}
             items
           </span>
@@ -81,7 +81,7 @@ export default function SupplierDetailClientWidget({
       columnHelper.accessor("totalAmount", {
         header: () => <div className="text-right">Total Amount</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold">
+          <div className="text-right  font-semibold">
             {formatCurrency(Number(row.original.totalAmount || 0))}
           </div>
         ),
@@ -122,7 +122,7 @@ export default function SupplierDetailClientWidget({
             <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
             <div>
               <span className="text-xs text-muted-foreground block">Phone</span>
-              <p className="font-medium font-mono">
+              <p className="font-medium ">
                 {supplier.phone || "Not specified"}
               </p>
             </div>
@@ -157,7 +157,7 @@ export default function SupplierDetailClientWidget({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">
+            <div className="text-2xl font-bold ">
               {receipts.length} Shipments
             </div>
           </CardContent>
@@ -170,7 +170,7 @@ export default function SupplierDetailClientWidget({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-emerald-600">
+            <div className="text-2xl font-bold  text-emerald-600">
               {/* {formatCurrency(totalDeliveredValue)} */}
             </div>
           </CardContent>

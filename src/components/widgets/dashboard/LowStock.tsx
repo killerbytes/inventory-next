@@ -44,15 +44,14 @@ export default function LowStock({ items = [] }: LowStockProps) {
         cell: ({ row }) => {
           const qty = Number(
             row.original.quantity ??
-              row.original.inventory?.quantity ??
-              row.original.combinations?.inventory?.quantity ??
-              0,
+            row.original.inventory?.quantity ??
+            row.original.combinations?.inventory?.quantity ??
+            0,
           );
           return (
             <div
-              className={`text-right font-mono text-xs ${
-                qty <= 0 ? "font-bold text-rose-600" : "font-semibold"
-              }`}
+              className={`text-right  text-xs ${qty <= 0 ? "font-bold text-rose-600" : "font-semibold"
+                }`}
             >
               {qty}
             </div>

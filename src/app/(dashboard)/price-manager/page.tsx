@@ -1,5 +1,6 @@
 "use client";
 
+import ColorBadge from "@/components/common/ColorBadge";
 import { DataTable } from "@/components/common/DataTable";
 import PageHeader from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
   getCombinationsByIdsAction,
   updatePricesAction,
 } from "@/server/actions/product.actions";
+import { UNIT_COLOR } from "@/types/definitions";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   AlertCircle,
@@ -88,9 +90,9 @@ export default function PriceManagerPage() {
               );
               const rawNewPrice = String(
                 matchingRow["NEW PRICE"] ||
-                  matchingRow["newPrice"] ||
-                  matchingRow["New Price"] ||
-                  "0",
+                matchingRow["newPrice"] ||
+                matchingRow["New Price"] ||
+                "0",
               );
               const cleanNewPrice = parseFloat(
                 rawNewPrice.replace(/[^0-9.-]+/g, ""),
@@ -188,7 +190,7 @@ export default function PriceManagerPage() {
         accessorKey: "id",
         header: "ID",
         cell: ({ row }) => (
-          <span className="font-mono text-xs font-semibold">
+          <span className=" text-xs font-semibold">
             #{row.original.id}
           </span>
         ),
@@ -200,7 +202,7 @@ export default function PriceManagerPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-semibold text-sm">{row.original.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="text-xs text-muted-foreground ">
               SKU: {row.original.sku || "N/A"}
             </div>
           </div>
@@ -210,9 +212,9 @@ export default function PriceManagerPage() {
         accessorKey: "unit",
         header: "Unit",
         cell: ({ row }) => (
-          <Badge variant="outline" className="uppercase font-mono text-xs">
+          <ColorBadge colorMap={UNIT_COLOR}>
             {row.original.unit}
-          </Badge>
+          </ColorBadge>
         ),
         meta: { className: "w-20 text-center" },
       },
@@ -220,7 +222,7 @@ export default function PriceManagerPage() {
         accessorKey: "averagePrice",
         header: "Avg Cost",
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className=" text-xs text-muted-foreground">
             {formatCurrency(row.original.averagePrice ?? 0)}
           </span>
         ),
@@ -242,7 +244,7 @@ export default function PriceManagerPage() {
         accessorKey: "price",
         header: "Current Price",
         cell: ({ row }) => (
-          <span className="font-mono text-sm">
+          <span className=" text-sm">
             {formatCurrency(row.original.price ?? 0)}
           </span>
         ),
@@ -258,7 +260,7 @@ export default function PriceManagerPage() {
           return (
             <div className="flex flex-col items-end">
               <span
-                className={`font-mono font-bold text-sm ${isHigher ? "text-emerald-600" : isLower ? "text-rose-600" : ""}`}
+                className={` font-bold text-sm ${isHigher ? "text-emerald-600" : isLower ? "text-rose-600" : ""}`}
               >
                 {formatCurrency(row.original.newPrice)}
               </span>

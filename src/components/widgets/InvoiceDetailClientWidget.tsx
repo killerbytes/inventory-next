@@ -13,6 +13,7 @@ import AddInvoicePaymentModal from "@/components/modals/AddInvoicePaymentModal";
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { INVOICE_STATUS, STATUS_COLOR } from "@/types/definitions";
+import { useUIStore } from "@/stores/uiStore";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -24,7 +25,7 @@ export default function InvoiceDetailClientWidget({
   invoice,
 }: InvoiceDetailClientWidgetProps) {
   const router = useRouter();
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const { setAddInvoicePaymentModalOpen } = useUIStore();
 
   if (!invoice) {
     return (
@@ -57,11 +58,11 @@ export default function InvoiceDetailClientWidget({
         header: "Good Receipt Reference",
         cell: ({ row }) => {
           const gr = row.original.goodReceipt;
-          if (!gr) return <span className="font-mono text-muted-foreground">—</span>;
+          if (!gr) return <span className=" text-muted-foreground">—</span>;
           return (
             <Link
               href={`/good-receipts/${gr.id}`}
-              className="font-mono font-semibold text-primary hover:underline"
+              className=" font-semibold text-primary hover:underline"
             >
               {gr.referenceNo || `GR-${gr.id}`}
             </Link>
@@ -87,7 +88,7 @@ export default function InvoiceDetailClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold">
+          <div className="text-right  font-semibold">
             {formatCurrency(Number(row.original.amount || 0))}
           </div>
         ),
@@ -102,7 +103,7 @@ export default function InvoiceDetailClientWidget({
         id: "paymentRef",
         header: "Payment Ref",
         cell: ({ row }) => (
-          <span className="font-mono text-xs font-semibold">
+          <span className=" text-xs font-semibold">
             {row.original.payment?.referenceNo || `PAY-${row.original.paymentId}`}
           </span>
         ),
@@ -136,7 +137,7 @@ export default function InvoiceDetailClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold text-emerald-600">
+          <div className="text-right  font-semibold text-emerald-600">
             {formatCurrency(Number(row.original.amountApplied || 0))}
           </div>
         ),
@@ -148,7 +149,7 @@ export default function InvoiceDetailClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <div className="text-right font-mono font-medium text-muted-foreground">
+          <div className="text-right  font-medium text-muted-foreground">
             {formatCurrency(Number(row.original.amountRemaining || 0))}
           </div>
         ),
@@ -158,7 +159,7 @@ export default function InvoiceDetailClientWidget({
   );
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -201,7 +202,7 @@ export default function InvoiceDetailClientWidget({
         </div>
 
         {!isDraft && !isFullyPaid && (
-          <Button onClick={() => setPaymentModalOpen(true)}>
+          <Button onClick={() => setAddInvoicePaymentModalOpen(true)}>
             <Plus className="h-4 w-4 mr-1" /> Add Payment
           </Button>
         )}
@@ -216,7 +217,7 @@ export default function InvoiceDetailClientWidget({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">
+            <div className="text-2xl font-bold ">
               {formatCurrency(totalAmount)}
             </div>
           </CardContent>
@@ -229,7 +230,7 @@ export default function InvoiceDetailClientWidget({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-emerald-600">
+            <div className="text-2xl font-bold  text-emerald-600">
               {formatCurrency(totalPaid)}
             </div>
           </CardContent>
@@ -243,9 +244,8 @@ export default function InvoiceDetailClientWidget({
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold font-mono ${
-                remainingBalance > 0 ? "text-rose-600" : "text-emerald-600"
-              }`}
+              className={`text-2xl font-bold  ${remainingBalance > 0 ? "text-rose-600" : "text-emerald-600"
+                }`}
             >
               {formatCurrency(remainingBalance)}
             </div>
@@ -292,7 +292,7 @@ export default function InvoiceDetailClientWidget({
                     <td colSpan={2} className="p-3 text-right">
                       Total Amount:
                     </td>
-                    <td className="p-3 text-right font-mono font-bold text-base text-primary">
+                    <td className="p-3 text-right  font-bold text-base text-primary">
                       {formatCurrency(
                         rows.reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
                       )}
@@ -329,7 +329,7 @@ export default function InvoiceDetailClientWidget({
                       <td colSpan={3} className="p-3 text-right">
                         Total Applied:
                       </td>
-                      <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                      <td className="p-3 text-right  font-bold text-emerald-600">
                         {formatCurrency(
                           rows.reduce(
                             (acc, curr) => acc + Number(curr.amountApplied || 0),
@@ -347,15 +347,11 @@ export default function InvoiceDetailClientWidget({
         </TabsContent>
       </Tabs>
 
-      {paymentModalOpen && (
-        <AddInvoicePaymentModal
-          isOpen={paymentModalOpen}
-          onClose={() => setPaymentModalOpen(false)}
-          invoice={invoice}
-          remainingBalance={remainingBalance}
-          onSuccess={() => router.refresh()}
-        />
-      )}
+      <AddInvoicePaymentModal
+        invoice={invoice}
+        remainingBalance={remainingBalance}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

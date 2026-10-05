@@ -173,7 +173,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
         header: "Quantity",
         meta: {
           headerClassName: "text-right",
-          className: "text-right w-20",
+          className: "text-right w-30",
         },
         cell: ({ row }) => (
           <Controller
@@ -526,7 +526,7 @@ export default function SalesOrderModal({
       description="Create a new sales order."
       isOpen={isSalesOrderModalOpen}
       onClose={() => setSalesOrderModalOpen(false)}
-      size="lg"
+      size="xl"
     >
       <SalesOrderModalContent customers={customers} />
     </Modal>

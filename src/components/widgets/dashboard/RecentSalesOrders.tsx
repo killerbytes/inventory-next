@@ -37,7 +37,7 @@ export default function RecentSalesOrders({
         cell: ({ row }) => (
           <Link
             href={`/sales-orders/${row.original.id}`}
-            className="font-mono text-xs font-semibold text-primary hover:underline"
+            className=" text-xs font-semibold text-primary hover:underline"
           >
             {row.original.salesOrderNumber}
           </Link>
@@ -96,7 +96,7 @@ export default function RecentSalesOrders({
         id: "totalAmount",
         header: () => <div className="text-right">Total Amount</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-semibold">
+          <div className="text-right  font-semibold">
             {formatCurrency(row.original.totalAmount)}
           </div>
         ),

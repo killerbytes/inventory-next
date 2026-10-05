@@ -10,6 +10,7 @@ import Pager from "@/components/common/Pager";
 import PageHeader from "@/components/layout/PageHeader";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { createColumnHelper } from "@tanstack/react-table";
+import { formatCurrency } from "@/lib/utils";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -63,8 +64,8 @@ export default function PaymentsClientWidget({
       columnHelper.accessor("paymentMethod", {
         header: "Method",
         cell: ({ row }) => (
-          <Badge variant="outline" className="uppercase font-mono text-xs">
-            {row.original.paymentMethod || "CASH"}
+          <Badge variant="outline" className="uppercase  text-xs">
+            {row.original.paymentMethod}
           </Badge>
         ),
       }),
@@ -78,8 +79,8 @@ export default function PaymentsClientWidget({
       columnHelper.accessor("amount", {
         header: () => <div className="text-right">Amount Paid</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-bold text-emerald-600">
-            ₱{Number(row.original.amount || 0).toFixed(2)}
+          <div className="text-right  font-bold text-emerald-600">
+            {formatCurrency(Number(row.original.amount || 0))}
           </div>
         ),
       }),

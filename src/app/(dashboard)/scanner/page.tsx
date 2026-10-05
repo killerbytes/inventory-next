@@ -111,7 +111,7 @@ export default function BarcodeScannerPage() {
                 onChange={(e) => setBarcode(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Scan barcode (e.g. 123456789)..."
-                className="pl-9 h-11 text-base font-mono"
+                className="pl-9 h-11 text-base "
                 disabled={isLoading}
               />
             </div>
@@ -135,7 +135,7 @@ export default function BarcodeScannerPage() {
                 <CardTitle className="text-2xl font-bold">
                   {product.name || product.product?.name}
                 </CardTitle>
-                <CardDescription className="font-mono">
+                <CardDescription className="">
                   SKU: {product.sku} | Barcode: {product.barcode || "N/A"}
                 </CardDescription>
               </div>
@@ -162,7 +162,7 @@ export default function BarcodeScannerPage() {
               <span className="text-xs text-muted-foreground uppercase font-semibold">
                 Current Price
               </span>
-              <p className="font-mono font-bold text-xl text-emerald-600 mt-1">
+              <p className=" font-bold text-xl text-emerald-600 mt-1">
                 ₱{Number(product.price || 0).toFixed(2)}
               </p>
             </div>
@@ -170,7 +170,7 @@ export default function BarcodeScannerPage() {
               <span className="text-xs text-muted-foreground uppercase font-semibold">
                 Stock on Hand
               </span>
-              <p className="font-mono font-bold text-xl text-primary mt-1">
+              <p className=" font-bold text-xl text-primary mt-1">
                 {product.inventory?.quantity ?? 0} {product.unit || "units"}
               </p>
             </div>

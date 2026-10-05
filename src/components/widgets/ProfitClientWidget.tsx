@@ -34,7 +34,7 @@ export default function ProfitClientWidget({
             <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-emerald-600">
+            <div className="text-2xl font-bold  text-emerald-600">
               ₱{Number(summary.totalSales || 0).toLocaleString()}
             </div>
           </CardContent>
@@ -48,7 +48,7 @@ export default function ProfitClientWidget({
             <BadgeDollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-muted-foreground">
+            <div className="text-2xl font-bold  text-muted-foreground">
               ₱{Number(summary.estimatedCost || 0).toLocaleString()}
             </div>
           </CardContent>
@@ -62,7 +62,7 @@ export default function ProfitClientWidget({
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-primary">
+            <div className="text-2xl font-bold  text-primary">
               ₱{Number(summary.netProfit || 0).toLocaleString()}
             </div>
           </CardContent>
@@ -76,7 +76,7 @@ export default function ProfitClientWidget({
             <Percent className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono text-emerald-600">
+            <div className="text-2xl font-bold  text-emerald-600">
               {summary.marginPercentage}%
             </div>
           </CardContent>

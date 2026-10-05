@@ -97,7 +97,7 @@ export default function GoodReceiptsClientWidget({
           </ColumnSort>
         ),
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.id}</span>
+          <span className=" text-xs">{row.original.id}</span>
         ),
       }),
       columnHelper.accessor((row) => row.supplier?.name, {

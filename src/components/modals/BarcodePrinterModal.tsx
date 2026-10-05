@@ -9,6 +9,9 @@ import { Printer } from "lucide-react";
 import { useRef, useState } from "react";
 import Barcode from "react-barcode";
 import Modal from "../common/Modal";
+import { formatCurrency } from "@/lib/utils";
+import ColorBadge from "../common/ColorBadge";
+import { UNIT_COLOR } from "@/types/definitions";
 
 function BarcodePrinterModalContent({
   combinations,
@@ -80,15 +83,15 @@ function BarcodePrinterModalContent({
                   />
                   <div>
                     <div className="font-semibold">{item.name}</div>
-                    <div className="text-xs text-muted-foreground font-mono">
+                    <div className="text-xs text-muted-foreground ">
                       SKU: {item.sku || "N/A"} | Code: {barcodeValue}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{item.unit || "PCS"}</Badge>
-                  <span className="font-mono font-bold">
-                    ₱{Number(item.price || 0).toFixed(2)}
+                  <ColorBadge colorMap={UNIT_COLOR}>{item.unit}</ColorBadge>
+                  <span className=" font-bold">
+                    {formatCurrency(Number(item.price || 0))}
                   </span>
                 </div>
               </div>

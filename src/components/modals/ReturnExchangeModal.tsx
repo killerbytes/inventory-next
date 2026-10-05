@@ -302,7 +302,7 @@ function ReturnExchangeModalContent({
       exchangeColumnHelper.accessor("price", {
         header: () => <div className="text-right">Price</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-sm">
+          <div className="text-right  text-sm">
             {formatCurrency(row.original.price)}
           </div>
         ),
@@ -326,7 +326,7 @@ function ReturnExchangeModalContent({
                       const val = Math.max(1, Number(e.target.value));
                       field.onChange(val);
                     }}
-                    className="h-8 w-24 text-right font-mono"
+                    className="h-8 w-24 text-right "
                   />
                 )}
               />
@@ -347,7 +347,7 @@ function ReturnExchangeModalContent({
               const q = Number(value?.quantity || 0);
               const p = Number(value?.price ?? row.original.price ?? 0);
               return (
-                <div className="text-right font-mono font-semibold text-sm">
+                <div className="text-right  font-semibold text-sm">
                   {formatCurrency(q * p)}
                 </div>
               );
@@ -383,7 +383,7 @@ function ReturnExchangeModalContent({
       <div className="space-y-2">
         <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
           <span>Items to Return</span>
-          <span className="text-xs font-mono font-normal text-muted-foreground">
+          <span className="text-xs  font-normal text-muted-foreground">
             Total Credit: {formatCurrency(totalReturnAmount)}
           </span>
         </h4>
@@ -398,7 +398,7 @@ function ReturnExchangeModalContent({
         <div className="space-y-3">
           <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
             <span>Replacement Items (Exchange)</span>
-            <span className="text-xs font-mono font-normal text-muted-foreground">
+            <span className="text-xs  font-normal text-muted-foreground">
               Total Debit: {formatCurrency(totalExchangeAmount)}
             </span>
           </h4>
@@ -455,7 +455,7 @@ function ReturnExchangeModalContent({
               </div>
             </div>
             <div
-              className={`text-xl font-mono font-bold ${paymentDifference > 0
+              className={`text-xl  font-bold ${paymentDifference > 0
                 ? "text-rose-600"
                 : paymentDifference < 0
                   ? "text-emerald-600"

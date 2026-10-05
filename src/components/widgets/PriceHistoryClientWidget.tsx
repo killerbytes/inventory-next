@@ -46,7 +46,7 @@ export default function PriceHistoryClientWidget({
           const name = row.original.combination?.name;
           return (
             <Link
-              href={`/products/${row.original.combination.id}`}
+              href={`/products/${row.original.combination.productId}`}
               className="text-primary flex items-center gap-2 hover:underline"
             >
               <ColorBadge colorMap={UNIT_COLOR}>
@@ -60,7 +60,7 @@ export default function PriceHistoryClientWidget({
       columnHelper.accessor("fromPrice", {
         header: () => <div className="text-right">Previous Price</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-muted-foreground line-through">
+          <div className="text-right  text-muted-foreground line-through">
             {formatCurrency(row.original.fromPrice || 0)}
           </div>
         ),
@@ -69,12 +69,12 @@ export default function PriceHistoryClientWidget({
         header: () => <div className="text-right">New Price</div>,
         cell: ({ row }) => (
           <div
-            className={cx("text-right font-mono font-bold", {
-              "text-emerald-600": row.original.toPrice > row.original.fromPrice,
-              "text-rose-600": row.original.toPrice < row.original.fromPrice,
+            className={cx("text-right  font-bold", {
+              "text-emerald-600": Number(row.original.toPrice || 0) > Number(row.original.fromPrice || 0),
+              "text-rose-600": Number(row.original.toPrice || 0) < Number(row.original.fromPrice || 0),
             })}
           >
-            {formatCurrency(row.original.toPrice || 0)}
+            {formatCurrency(Number(row.original.toPrice || 0))}
           </div>
         ),
       }),
@@ -83,15 +83,13 @@ export default function PriceHistoryClientWidget({
         cell: ({ row }) =>
           row.original.changedAt || row.original.createdAt
             ? new Date(
-                row.original.changedAt || row.original.createdAt
-              ).toLocaleDateString()
+              row.original.changedAt || row.original.createdAt
+            ).toLocaleDateString()
             : "—",
       }),
-      columnHelper.accessor((row) => row.user?.name, {
-        id: "user.name",
+      columnHelper.accessor("user.username", {
+        id: "user.username",
         header: "Modified By",
-        cell: ({ row }) =>
-          row.original.user?.name || `User #${row.original.changedBy || 1}`,
       }),
     ],
     []

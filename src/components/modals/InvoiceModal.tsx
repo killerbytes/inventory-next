@@ -32,14 +32,8 @@ import { toast } from "sonner";
 import z from "zod";
 import DatePicker from "../common/DatePicker";
 import FormField from "../forms/FormField";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import GoodReceiptPickerModal from "./GoodReceiptPickerModal";
+import { Autocomplete, AutocompleteValue } from "../common/Autocomplete";
 
 export interface InvoiceModalProps {
   suppliers: SupplierData[];
@@ -62,7 +56,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
   const [suppliers, setSuppliers] = useState<SupplierData[]>(
     propSuppliers || [],
   );
-  const [confirmPostOpen, setConfirmPostOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { setGoodReceiptPickerModalOpen, setInvoiceModalOpen, editingInvoice } =
     useUIStore();
@@ -81,7 +74,6 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
         totalAmount: Number(line.amount || 0),
         totalReturnAmount: 0,
       }));
-
       return {
         supplierId: Number(editingInvoice.supplierId || 0),
         invoiceNumber: editingInvoice.invoiceNumber || "",
@@ -98,8 +90,8 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
     }
 
     return {
-      supplierId: 1,
-      invoiceNumber: "x",
+      supplierId: 0,
+      invoiceNumber: "",
       invoiceDate: format(new Date(), "yyyy-MM-dd"),
       dueDate: format(addWeeks(new Date(), 2), "yyyy-MM-dd"),
       status: INVOICE_STATUS.DRAFT,
@@ -251,7 +243,7 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
           const net = Math.max(
             0,
             Number(row.original.totalAmount || 0) -
-              Number(row.original.totalReturnAmount || 0),
+            Number(row.original.totalReturnAmount || 0),
           );
           return formatCurrency(net);
         },
@@ -268,33 +260,25 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
             form={form}
             name="supplierId"
             label="Supplier *"
-            render={({ field }) => (
-              <Select
-                {...field}
-                onValueChange={(value) => {
-                  const val = Number(value);
-                  field.onChange(val);
-                  if (val !== selectedSupplierId) {
-                    form.setValue("gr", []);
-                  }
+            render={({ field, fieldState }) => (
+              <Autocomplete
+                options={suppliers || []}
+                placeholder="Supplier"
+                aria-invalid={fieldState.invalid}
+                onChange={(value) => {
+                  form.setValue("supplierId", Number(value.id), {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Supplier">
-                    {field.value
-                      ? suppliers.find((s) => s.id === field.value)?.name
-                      : "Select Supplier"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Select Supplier</SelectItem>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id.toString()}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <AutocompleteValue
+                  value={
+                    suppliers?.find((supplier) => supplier.id === field.value)
+                      ?.name
+                  }
+                />
+              </Autocomplete>
             )}
           />
 
@@ -438,7 +422,7 @@ export default function InvoiceModal({
           : "Create Supplier Invoice"
       }
       description="Issue or record an invoice billed against received supplier shipments."
-      isOpen={isInvoiceModalOpen}
+      isOpen
       onClose={() => setInvoiceModalOpen(false)}
       size="lg"
     >

@@ -1,5 +1,5 @@
 import React from "react";
-import { INVENTORY_MOVEMENT_MAP } from "@/types/definitions";
+import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
 import { cx } from "class-variance-authority";
 import { Badge } from "@/components/ui/badge";
 
@@ -15,7 +15,7 @@ export default function ColorBadge({
   [key: string]: any;
 }) {
   const unit = (children?.toUpperCase() || "") as keyof typeof colorMap;
-  const value = (INVENTORY_MOVEMENT_MAP as Record<string, string>)[unit];
+  const value = (INVENTORY_MOVEMENT_TYPE as Record<string, string>)[unit];
   return (
     <Badge
       className={cx(

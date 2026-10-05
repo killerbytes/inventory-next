@@ -44,7 +44,7 @@ export default async function InvoicesPage({
     invoices = invResult.data || [];
     meta = invResult.meta;
 
-    suppliers = suppResult || [];
+    suppliers = suppResult.data || [];
   } catch (err) {
     console.error("Error fetching invoices on server:", err);
     invoices = [];
@@ -53,8 +53,8 @@ export default async function InvoicesPage({
 
   return (
     <InvoicesClientWidget
-      initialInvoices={JSON.parse(JSON.stringify(invoices))}
-      initialSuppliers={JSON.parse(JSON.stringify(suppliers))}
+      initialInvoices={invoices}
+      initialSuppliers={suppliers}
       initialMeta={meta}
       startDate={startDate}
       endDate={endDate}

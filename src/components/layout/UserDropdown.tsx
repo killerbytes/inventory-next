@@ -54,7 +54,7 @@ export default function UserDropdown() {
               <div className="text-sm font-semibold truncate">
                 {displayName}
               </div>
-              <div className="text-xs text-sidebar-foreground/70 uppercase tracking-wide font-mono">
+              <div className="text-xs text-sidebar-foreground/70 uppercase tracking-wide ">
                 {userRole}
               </div>
             </div>

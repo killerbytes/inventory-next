@@ -125,7 +125,7 @@ SalesOrderItem.belongsTo(SalesOrder, {
 });
 SalesOrderItem.belongsTo(ProductCombination, {
   foreignKey: "combinationId",
-  as: "combinations",
+  as: "combination",
 });
 ProductCombination.hasMany(SalesOrderItem, {
   foreignKey: "combinationId",

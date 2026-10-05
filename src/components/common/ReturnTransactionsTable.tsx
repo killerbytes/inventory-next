@@ -46,7 +46,7 @@ export default function ReturnTransactionsTable({
       columnHelper.accessor("quantity", {
         header: "Qty",
         cell: ({ row }) => (
-          <span className="font-mono">{Number(row.original.quantity)}</span>
+          <span className="">{Number(row.original.quantity)}</span>
         ),
       }),
       columnHelper.accessor("reason", {
@@ -78,7 +78,7 @@ export default function ReturnTransactionsTable({
       {data?.map((item) => {
         const returns =
           item.returnItems?.filter(
-            (i) => i.type === INVENTORY_MOVEMENT_TYPE.SUPPLIER_RETURN_OUT,
+            (i) => i.type === INVENTORY_MOVEMENT_TYPE.SUPPLIER_RETURN_OUT || i.type === INVENTORY_MOVEMENT_TYPE.RETURN_IN,
           ) || [];
         const exchanges =
           item.returnItems?.filter(

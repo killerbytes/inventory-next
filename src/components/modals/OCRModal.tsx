@@ -165,7 +165,7 @@ export default function OCRModal({ isOpen, onClose, onApplyItems }: OCRModalProp
                   Parsed Line Items ({articles.length})
                 </h4>
                 {receiptNo && (
-                  <Badge variant="outline" className="font-mono">
+                  <Badge variant="outline" className="">
                     Ref: {receiptNo}
                   </Badge>
                 )}
@@ -187,7 +187,7 @@ export default function OCRModal({ isOpen, onClose, onApplyItems }: OCRModalProp
                       <tr key={idx}>
                         <td className="px-3 py-2 font-medium">
                           {art.article}
-                          <div className="text-xs text-muted-foreground font-mono">
+                          <div className="text-xs text-muted-foreground ">
                             Unit: {art.unit}
                           </div>
                         </td>
@@ -216,7 +216,7 @@ export default function OCRModal({ isOpen, onClose, onApplyItems }: OCRModalProp
                                 articles.map((a, i) => (i === idx ? { ...a, price: val } : a))
                               );
                             }}
-                            className="h-8 w-24 font-mono"
+                            className="h-8 w-24 "
                           />
                         </td>
                         <td className="px-3 py-2">

@@ -69,6 +69,8 @@ interface UIState {
   setChangePasswordModalOpen: (open: boolean) => void;
   isAdminPanelModalOpen: boolean;
   setAdminPanelModalOpen: (open: boolean) => void;
+  isAddInvoicePaymentModalOpen: boolean;
+  setAddInvoicePaymentModalOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -129,4 +131,6 @@ export const useUIStore = create<UIState>((set) => ({
     set({ isChangePasswordModalOpen: open }),
   isAdminPanelModalOpen: false,
   setAdminPanelModalOpen: (open) => set({ isAdminPanelModalOpen: open }),
+  isAddInvoicePaymentModalOpen: false,
+  setAddInvoicePaymentModalOpen: (open) => set({ isAddInvoicePaymentModalOpen: open }),
 }));

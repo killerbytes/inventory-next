@@ -1,6 +1,6 @@
 import { ORDER_TYPE, RETURN_TYPE } from "@/types/definitions";
 import z from "zod";
-import { GoodReceiptLineSchema } from "./goodReceipt.schema";
+import { GoodReceiptLineBaseSchema, GoodReceiptLineSchema } from "./goodReceipt.schema";
 import { ProductCombinationSchema } from "./productCombination.schema";
 
 export const ReturnItemBaseSchema = z.object({
@@ -48,7 +48,7 @@ export type ExchangeItemLineData = z.infer<typeof ExchangeItemLineSchema>;
 export const ReturnExchangeFormSchema = z.object({
   referenceId: z.coerce.number().positive(),
   returns: z
-    .array(z.lazy(() => GoodReceiptLineSchema))
+    .array(z.lazy(() => GoodReceiptLineBaseSchema))
     .min(1, "At least one return item is required"),
   exchanges: z.array(ExchangeItemLineSchema).optional().nullable(),
   reason: z.string().min(1, "Reason is required"),

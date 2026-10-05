@@ -129,7 +129,7 @@ export default function InventoryMovementsClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <span className="font-mono">{Number(row.original.quantity)}</span>
+          <span className="">{Number(row.original.quantity)}</span>
         ),
       }),
       columnHelper.accessor("costPerUnit", {
@@ -140,7 +140,7 @@ export default function InventoryMovementsClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <span className="font-mono">
+          <span className="">
             {formatCurrency(Number(row.original.costPerUnit || 0))}
           </span>
         ),
@@ -153,7 +153,7 @@ export default function InventoryMovementsClientWidget({
           className: "text-right",
         },
         cell: ({ row }) => (
-          <span className="font-mono">
+          <span className="">
             {formatCurrency(Number(row.original.totalCost || 0))}
           </span>
         ),

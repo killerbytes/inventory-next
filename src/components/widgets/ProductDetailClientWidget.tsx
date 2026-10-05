@@ -47,6 +47,7 @@ import ColorBadge from "../common/ColorBadge";
 import { PermissionGuard } from "../common/PermissionGuard";
 import ShowMore from "../common/ShowMore";
 import ProductModal from "../modals/ProductModal";
+import { cx } from "class-variance-authority";
 
 interface ProductDetailClientWidgetProps {
   product: ProductData;
@@ -160,7 +161,7 @@ export default function ProductDetailClientWidget({
         header: "SRP Price",
         meta: {
           align: "right",
-          className: "font-mono font-semibold",
+          className: " font-semibold",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -169,7 +170,7 @@ export default function ProductDetailClientWidget({
         header: "Average Price",
         meta: {
           align: "right",
-          className: "font-mono",
+          className: "",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -179,7 +180,15 @@ export default function ProductDetailClientWidget({
         meta: {
           align: "right",
         },
-        cell: (info) => <Badge>{Number(info.getValue() || 0)}</Badge>,
+        cell: (info) => (
+          <div
+            className={cx("font-semibold", (
+              Number(info.getValue() || 0) <= 0 && "text-red-500"
+            ))}
+          >
+            {Number(info.getValue() || 0)}
+          </div>
+        ),
       }),
       columnHelper.accessor("conversionFactor", {
         header: "Conversion Factor",
@@ -251,14 +260,14 @@ export default function ProductDetailClientWidget({
       columnHelper.accessor("fromPrice", {
         header: "From",
         meta: {
-          className: "font-mono",
+          className: "",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("toPrice", {
         header: "To",
         meta: {
-          className: "font-mono font-semibold",
+          className: " font-semibold",
         },
         cell: (info) => {
           const from = Number(info.row.original.fromPrice || 0);
@@ -302,12 +311,12 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: (info) => <Badge>{Number(info.getValue() || 0)}</Badge>,
+        cell: (info) => { Number(info.getValue()) },
       }),
       columnHelper.accessor("purchasePrice", {
         header: "Purchase Price",
         meta: {
-          className: "font-mono",
+          className: "",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -334,7 +343,7 @@ export default function ProductDetailClientWidget({
           return grId ? (
             <Link
               href={`/good-receipts/${grId}`}
-              className="text-primary hover:underline font-mono font-medium"
+              className="text-primary hover:underline  font-medium"
             >
               GR-{grId}
             </Link>
@@ -374,25 +383,25 @@ export default function ProductDetailClientWidget({
         header: "Type",
         cell: (info) => (
           <ColorBadge colorMap={INVENTORY_MOVEMENT_TYPE_COLOR}>
-            {info.getValue() || "ADJUSTMENT"}
+            {info.getValue()}
           </ColorBadge>
         ),
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: (info) => <Badge>{Number(info.getValue() || 0)}</Badge>,
+        cell: (info) => Number(info.getValue() || 0),
       }),
       columnHelper.accessor("costPerUnit", {
         header: "Cost Per Unit",
         meta: {
-          className: "font-mono",
+          className: "",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
       columnHelper.accessor("totalCost", {
         header: "Total Cost",
         meta: {
-          className: "font-mono",
+          className: "",
         },
         cell: (info) => formatCurrency(info.getValue() || 0),
       }),
@@ -409,7 +418,7 @@ export default function ProductDetailClientWidget({
           return (
             <Link
               href={`${route}/${refId}`}
-              className="text-primary hover:underline font-mono text-xs"
+              className="text-primary hover:underline  text-xs"
             >
               {type || "REF"}:{refId}
             </Link>

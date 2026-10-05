@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo } from "react";
+import ColorBadge from "../common/ColorBadge";
+import { UNIT_COLOR } from "@/types/definitions";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -28,15 +30,14 @@ export default function BreakPacksWidget({
           const from = row.original.fromCombination;
           return (
             <div className="flex items-center gap-2 font-semibold">
-              <Badge variant="outline" className="uppercase font-mono text-xs">
-                {from?.unit || "PACK"}
-              </Badge>
+              <ColorBadge colorMap={UNIT_COLOR}>
+                {from?.unit}
+              </ColorBadge>
               <Link
-                href={`/products/${from?.productId || 1}`}
+                href={`/products/${from?.productId}`}
                 className="text-primary hover:underline"
               >
-                {from?.product?.name ||
-                  `Combination #${from?.id || row.original.fromCombinationId}`}
+                {from?.product?.name}
               </Link>
             </div>
           );
@@ -49,15 +50,11 @@ export default function BreakPacksWidget({
           const to = row.original.toCombination;
           return (
             <div className="flex items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="uppercase font-mono text-xs"
-              >
-                {to?.unit || "PCS"}
-              </Badge>
+              <ColorBadge colorMap={UNIT_COLOR}>
+                {to?.unit}
+              </ColorBadge>
               <span>
-                {to?.product?.name ||
-                  `Combination #${to?.id || row.original.toCombinationId}`}
+                {to?.product?.name}
               </span>
             </div>
           );
@@ -66,16 +63,16 @@ export default function BreakPacksWidget({
       columnHelper.accessor("quantity", {
         header: () => <div className="text-right">Quantity</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-bold">
-            {row.original.quantity || 1}
+          <div className="text-right  font-bold">
+            {Number(row.original.quantity)}
           </div>
         ),
       }),
       columnHelper.accessor("conversionFactor", {
         header: () => <div className="text-right">Conversion Factor</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono text-xs text-muted-foreground">
-            {row.original.conversionFactor || 1}
+          <div className="text-right  text-xs text-muted-foreground">
+            {Number(row.original.conversionFactor)}
           </div>
         ),
       }),
@@ -83,10 +80,10 @@ export default function BreakPacksWidget({
         id: "total",
         header: () => <div className="text-right">Total Converted</div>,
         cell: ({ row }) => {
-          const qty = Number(row.original.quantity || 1);
-          const factor = Number(row.original.conversionFactor || 1);
+          const qty = Number(row.original.quantity);
+          const factor = Number(row.original.conversionFactor);
           return (
-            <div className="text-right font-mono font-bold text-emerald-600">
+            <div className="text-right  font-bold text-emerald-600">
               {qty * factor}
             </div>
           );
@@ -94,17 +91,22 @@ export default function BreakPacksWidget({
       }),
       columnHelper.accessor("createdAt", {
         header: "Date Created",
-        cell: ({ row }) =>
-          row.original.createdAt
-            ? new Date(row.original.createdAt).toLocaleString()
-            : "—",
+        cell: ({ row }) => {
+          console.log(row.original);
+          if (!row.original.createdAt) {
+            return ""
+          }
+
+          return new Date(row.original.createdAt).toLocaleString()
+        }
+
       }),
       columnHelper.accessor((row) => row.user?.username, {
         id: "user.username",
         header: "User",
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.user?.username || "Admin"}
+          <span className=" text-xs text-muted-foreground">
+            {row.original.user?.username}
           </span>
         ),
       }),

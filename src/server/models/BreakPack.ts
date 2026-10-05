@@ -72,7 +72,7 @@ BreakPack.init(
     tableName: "BreakPacks",
     timestamps: true,
     defaultScope: {
-      attributes: { exclude: ["createdAt", "updatedAt"] },
+      attributes: { exclude: ["updatedAt"] },
     },
   },
 );

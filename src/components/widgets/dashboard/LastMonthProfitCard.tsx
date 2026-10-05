@@ -19,7 +19,7 @@ export default function LastMonthProfitCard({ data }: LastMonthProfitCardProps) 
       label="Last Month's Profit"
       value={
         <div className="flex flex-col gap-1">
-          <span className="text-xl font-bold font-mono text-emerald-600">
+          <span className="text-xl font-bold  text-emerald-600">
             {formatCurrency(totalProfit)}
           </span>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
