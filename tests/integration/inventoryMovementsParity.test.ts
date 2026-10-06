@@ -9,6 +9,7 @@ import {
 } from "@/server/models";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
+import sequelize from "@/server/db/sequelize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -130,5 +131,48 @@ describe("Inventory Movements & Parity Integration Tests", () => {
     expect(result.meta.totalPages).toBe(2);
     expect(result.meta.currentPage).toBe(1);
     expect((result.data[0] as any).combination?.name).toBe(combination.name);
+  });
+
+  it("should filter movements by date range with timezone boundary safety", async () => {
+    // Arrange: Movement in July
+    const mJuly = await InventoryMovement.create({
+      combinationId: combination.id,
+      userId: user.id,
+      type: INVENTORY_MOVEMENT_TYPE.IN,
+      quantity: 5,
+      totalCost: 500,
+      referenceType: "GOOD_RECEIPT",
+      referenceId: 301,
+    });
+    await sequelize.query(
+      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-07-31 10:00:00+08' WHERE id = :id`,
+      { replacements: { id: mJuly.id } },
+    );
+
+    // Movement in August
+    const mAugust = await InventoryMovement.create({
+      combinationId: combination.id,
+      userId: user.id,
+      type: INVENTORY_MOVEMENT_TYPE.IN,
+      quantity: 10,
+      totalCost: 1000,
+      referenceType: "GOOD_RECEIPT",
+      referenceId: 302,
+    });
+    await sequelize.query(
+      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-08-01 00:00:00+08' WHERE id = :id`,
+      { replacements: { id: mAugust.id } },
+    );
+
+    // Act
+    const result = await inventoryServerService.getMovements({
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+
+    // Assert
+    const ids = result.data.map((m: any) => m.id);
+    expect(ids).toContain(mJuly.id);
+    expect(ids).not.toContain(mAugust.id);
   });
 });

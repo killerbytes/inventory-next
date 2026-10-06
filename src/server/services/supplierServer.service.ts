@@ -88,7 +88,7 @@ export const supplierServerService = {
   },
 
   getByProductId: async (productId: number | string) => {
-    return await GoodReceiptLine.findAll({
+    const result = await GoodReceiptLine.findAll({
       attributes: [
         "id",
         "quantity",
@@ -135,6 +135,7 @@ export const supplierServerService = {
       ],
       order: [["createdAt", "DESC"]],
     });
+    return result.map(item => item.get({ plain: true }))
   },
 
   create: async (data: SupplierInput) => {

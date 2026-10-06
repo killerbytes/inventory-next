@@ -19,8 +19,6 @@ export default async function InvoiceDetailPage({
   }
 
   return (
-    <InvoiceDetailClientWidget
-      invoice={invoice ? JSON.parse(JSON.stringify(invoice)) : null}
-    />
+    <InvoiceDetailClientWidget invoice={invoice} />
   );
 }

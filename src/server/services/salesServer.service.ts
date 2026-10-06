@@ -29,7 +29,7 @@ import { Op, QueryTypes } from "sequelize";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
-import moment from "moment";
+import { buildDateFilter } from "./dateFilter";
 
 export interface ListSalesOrdersParams {
   startDate?: string | null;
@@ -447,23 +447,9 @@ export const salesServerService = {
     const search = params.q ?? params.search;
     const where: any = {};
 
-    if (startDate || endDate) {
-      where.orderDate = {};
-      const timezone = "Asia/Manila";
-      if (startDate) {
-        where.orderDate[Op.gte] = moment
-          .tz(startDate, timezone)
-          .startOf("day")
-          .utc()
-          .toDate();
-      }
-      if (endDate) {
-        where.orderDate[Op.lte] = moment
-          .tz(endDate, timezone)
-          .endOf("day")
-          .utc()
-          .toDate();
-      }
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      where.orderDate = dateFilter;
     }
 
     if (status) {

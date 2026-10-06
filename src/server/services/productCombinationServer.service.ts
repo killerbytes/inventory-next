@@ -713,7 +713,6 @@ SELECT
   p.name,
   p.description,
   p."categoryId",
-  pc."unit",
   
   COALESCE(
     json_agg(
@@ -759,7 +758,7 @@ WHERE
     ${wordClause}
   )
 
-GROUP BY p.id, p.name, pc."unit"
+GROUP BY p.id, p.name
 ORDER BY p.name
 LIMIT :limit;
 `,

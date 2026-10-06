@@ -11,6 +11,7 @@ import { INVOICE_STATUS, PAGINATION } from "@/types/definitions";
 import { Op } from "sequelize";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
+import { buildDateFilter } from "./dateFilter";
 
 export interface PaymentApplicationInput {
   invoiceId: number;
@@ -72,18 +73,9 @@ export const paymentServerService = {
       if (status) {
         where.status = status;
       }
-      if (startDate || endDate) {
-        where.updatedAt = {};
-        if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          where.updatedAt[Op.gte] = start;
-        }
-        if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          where.updatedAt[Op.lte] = end;
-        }
+      const dateFilter = buildDateFilter(startDate, endDate);
+      if (dateFilter) {
+        where.updatedAt = dateFilter;
       }
 
       const offset = (page - 1) * limit;

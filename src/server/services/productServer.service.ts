@@ -84,7 +84,7 @@ function getDefaultOrder(): any[] {
 
 export const productServerService = {
   get: async (id: number) => {
-    return await Product.findByPk(id, {
+    const result = await Product.findByPk(id, {
       include: [
         { model: Category, as: "category" },
         {
@@ -108,6 +108,7 @@ export const productServerService = {
         },
       ],
     });
+    return result?.get({ plain: true });
   },
 
   getAll: async () => {

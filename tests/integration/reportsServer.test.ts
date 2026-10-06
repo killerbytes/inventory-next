@@ -499,6 +499,67 @@ describe("Reports Service (No Sales)", () => {
     expect(record.id).toBe(draftCombo.id);
     expect(Number(record.inventory.quantity)).toBe(8);
   });
+
+  it("should filter popular products by sales order date range", async () => {
+    const user = await createUser(0);
+    await createCategory(0);
+    const product = await createProduct(0);
+    await createCombination(
+      [
+        {
+          name: "Pop Item 1",
+          price: 100,
+          unit: "BOX",
+          reorderLevel: 1,
+          conversionFactor: 1,
+          values: [],
+        },
+      ],
+      product.id,
+    );
+    const customer = await createCustomer(0);
+    const combos = await productCombinationServerService.getByProductId(product.id);
+    const combo = combos.combinations[0];
+
+    // Add stock before creating RECEIVED order
+    await productCombinationServerService.stockAdjustment(
+      {
+        combinationId: combo.id,
+        newQuantity: 20,
+        reason: "FOUND",
+        notes: "Initial stock",
+      } as any,
+      user.id,
+    );
+
+    // Order in July
+    await salesServerService.create(
+      {
+        customerId: customer.id,
+        status: "RECEIVED",
+        orderDate: new Date("2026-07-15T10:00:00"),
+        salesOrderItems: [
+          { combinationId: combo.id, quantity: 5, originalPrice: 100, purchasePrice: 100 },
+        ],
+        modeOfPayment: "CASH",
+      } as any,
+      user.id,
+    );
+
+    // Query for July
+    const julyRes = await reportsServerService.getPopularProducts({
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+    expect(julyRes.data.some((p: any) => p.combinationId === combo.id)).toBe(true);
+
+    // Query for August
+    const augRes = await reportsServerService.getPopularProducts({
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+    });
+    expect(augRes.data.some((p: any) => p.combinationId === combo.id)).toBe(false);
+  });
 });
 
 

@@ -2,6 +2,11 @@ import { formatLabel, titleCase } from "@/lib/string";
 
 export { ROUTES } from "@/lib/routes";
 
+export const GLOBAL_COLOR = {
+  PRODUCT: "font-semibold text-primary hover:underline",
+  CATEGORY: "text-muted-foreground",
+};
+
 export const MAX_START_DATE = "2025-08-12";
 
 export const UserRole = {

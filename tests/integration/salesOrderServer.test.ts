@@ -789,4 +789,37 @@ describe("Sales Order Service (Integration)", () => {
       salesServerService.returnExchange(1, returns as any, undefined, "reason"),
     ).rejects.toThrow("SalesOrder is not in a valid state");
   });
+
+  it("should filter by orderDate with timezone and end-of-day boundary safety", async () => {
+    // Arrange: Order on July 31st (inside July)
+    const orderJuly = await salesServerService.create(
+      {
+        ...getTestData(),
+        salesOrderNumber: "SO-JULY-31",
+        orderDate: new Date("2026-07-31T10:00:00"),
+      } as any,
+      user0.id,
+    );
+
+    // Order on August 1st midnight local
+    const orderAugust = await salesServerService.create(
+      {
+        ...getTestData(),
+        salesOrderNumber: "SO-AUG-01",
+        orderDate: new Date("2026-08-01T00:00:00"),
+      } as any,
+      user0.id,
+    );
+
+    // Act: Query for July 2026 (2026-07-01 to 2026-07-31)
+    const result = await salesServerService.getAll({
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+
+    // Assert: Only July order should be returned; August 1st must be strictly excluded
+    const returnedIds = (result.data || result.rows).map((r: any) => r.id);
+    expect(returnedIds).toContain(orderJuly?.id);
+    expect(returnedIds).not.toContain(orderAugust?.id);
+  });
 });

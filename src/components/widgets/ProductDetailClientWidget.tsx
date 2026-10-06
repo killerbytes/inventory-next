@@ -48,6 +48,7 @@ import { PermissionGuard } from "../common/PermissionGuard";
 import ShowMore from "../common/ShowMore";
 import ProductModal from "../modals/ProductModal";
 import { cx } from "class-variance-authority";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 interface ProductDetailClientWidgetProps {
   product: ProductData;
@@ -108,14 +109,21 @@ export default function ProductDetailClientWidget({
   const [filterCombinationId, setFilterCombinationId] = useState<string>("ALL");
 
   const combinations = React.useMemo(() => {
-    return groupSubItems(product.combinations);
+    const grouped = groupSubItems(product.combinations).map((c: any) => {
+      return {
+        ...c,
+        label: c.name,
+        value: c.id
+      }
+    });
+    return [{ value: "ALL", label: "All Combinations" }, ...grouped]
   }, [product.combinations]);
 
   const filteredPriceHistory = useMemo(() => {
     if (filterCombinationId === "ALL") return priceHistory;
     return priceHistory.filter(
       (item: any) =>
-        String(item.combinations?.id) === String(filterCombinationId),
+        String(item.combination.id) === String(filterCombinationId),
     );
   }, [priceHistory, filterCombinationId]);
 
@@ -123,7 +131,7 @@ export default function ProductDetailClientWidget({
     if (filterCombinationId === "ALL") return supplierHistory;
     return supplierHistory.filter(
       (item: any) =>
-        String(item.combinations?.id) === String(filterCombinationId),
+        String(item.combination.id) === String(filterCombinationId),
     );
   }, [supplierHistory, filterCombinationId]);
 
@@ -131,7 +139,7 @@ export default function ProductDetailClientWidget({
     if (filterCombinationId === "ALL") return movements;
     return movements.filter(
       (item: any) =>
-        String(item.combinationId || item.combination?.id) ===
+        String(item.combination.id) ===
         String(filterCombinationId),
     );
   }, [movements, filterCombinationId]);
@@ -444,6 +452,50 @@ export default function ProductDetailClientWidget({
     [product.name],
   );
 
+  const VariantSelect = useMemo(() => {
+    return combinations.length > 1 && (
+      <Select
+        value={filterCombinationId}
+        onValueChange={(e) => setFilterCombinationId(e || "")}
+        items={combinations}
+      >
+        <SelectTrigger>
+          <SelectValue>
+            {(value) => {
+              if (!value || value === "ALL") return "All Combinations";
+              const selected = combinations.find(
+                (c: any) => String(c.id) === String(value),
+              );
+              return selected ? (
+                <span className="flex items-center gap-1.5">
+                  <ColorBadge colorMap={UNIT_COLOR}>
+                    {selected.unit}
+                  </ColorBadge>
+                  <span>{selected.name}</span>
+                </span>
+              ) : (
+                value
+              );
+            }}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {combinations.map((c: any) => (
+            <SelectItem key={c.id} value={String(c.value)}>
+              <span className="flex items-center gap-1.5">
+                {c.unit &&
+                  <ColorBadge colorMap={UNIT_COLOR}>{c.unit}</ColorBadge>
+                }
+                {c.label}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+
+  }, [combinations, filterCombinationId]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -465,7 +517,7 @@ export default function ProductDetailClientWidget({
         <Button
           variant="outline"
           size="icon"
-          onClick={() => setProductModalOpen(true)}
+          onClick={() => setProductModalOpen(true, product)}
         >
           <Pencil />
         </Button>
@@ -576,20 +628,9 @@ export default function ProductDetailClientWidget({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Price Change History Log</CardTitle>
-              {combinations.length > 1 && (
-                <select
-                  value={filterCombinationId}
-                  onChange={(e) => setFilterCombinationId(e.target.value)}
-                  className="rounded-md border border-input bg-background px-3 py-1.5 text-xs"
-                >
-                  <option value="ALL">All Combinations</option>
-                  {combinations.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.unit} - {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <CardAction>
+                {VariantSelect}
+              </CardAction>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -605,20 +646,9 @@ export default function ProductDetailClientWidget({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Supplier Goods Receipt Log</CardTitle>
-              {combinations.length > 1 && (
-                <select
-                  value={filterCombinationId}
-                  onChange={(e) => setFilterCombinationId(e.target.value)}
-                  className="rounded-md border border-input bg-background px-3 py-1.5 text-xs"
-                >
-                  <option value="ALL">All Combinations</option>
-                  {combinations.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.unit} - {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <CardAction>
+                {VariantSelect}
+              </CardAction>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -634,20 +664,10 @@ export default function ProductDetailClientWidget({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Inventory Movement & Audit Ledger</CardTitle>
-              {combinations.length > 1 && (
-                <select
-                  value={filterCombinationId}
-                  onChange={(e) => setFilterCombinationId(e.target.value)}
-                  className="rounded-md border border-input bg-background px-3 py-1.5 text-xs"
-                >
-                  <option value="ALL">All Combinations</option>
-                  {combinations.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.unit} - {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <CardAction>
+                {VariantSelect}
+              </CardAction>
+
             </CardHeader>
             <CardContent className="space-y-4">
               <DataTable

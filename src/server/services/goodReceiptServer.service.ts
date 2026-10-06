@@ -30,7 +30,7 @@ import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
 import { ReturnExchangeItem } from "./salesServer.service";
-import moment from "moment-timezone";
+import { buildDateFilter } from "./dateFilter";
 
 export interface ListGoodReceiptsParams {
   startDate?: string | null;
@@ -284,24 +284,9 @@ export const goodReceiptServerService = {
     const order = params.order || "DESC";
     const where: any = {};
 
-    if (startDate || endDate) {
-      where.receiptDate = {};
-      const timezone = process.env.TIMEZONE || "Asia/Manila";
-
-      if (startDate) {
-        where.receiptDate[Op.gte] = moment
-          .tz(startDate, timezone)
-          .startOf("day")
-          .utc()
-          .toDate();
-      }
-      if (endDate) {
-        where.receiptDate[Op.lte] = moment
-          .tz(endDate, timezone)
-          .endOf("day")
-          .utc()
-          .toDate();
-      }
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      where.receiptDate = dateFilter;
     }
 
     if (supplierId) {
@@ -828,19 +813,9 @@ export const goodReceiptServerService = {
       where.status = status;
     }
 
-    if (startDate || endDate) {
-      where.createdAt = {};
-
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.createdAt[Op.gte] = start;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.createdAt[Op.lte] = end;
-      }
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      where.createdAt = dateFilter;
     }
     const offset = (page - 1) * limit;
 

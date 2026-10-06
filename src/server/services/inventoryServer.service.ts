@@ -16,17 +16,18 @@ import {
 import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
 import { col, fn, Op } from "sequelize";
 import "server-only";
+import { buildDateFilter } from "./dateFilter";
 
 export interface GetReordersLevelsInput {
   limit?: number;
   page?: number;
   sort?:
-    | "lastSoldAt"
-    | "quantity"
-    | "reorderLevel"
-    | "name"
-    | "transactionCount"
-    | string;
+  | "lastSoldAt"
+  | "quantity"
+  | "reorderLevel"
+  | "name"
+  | "transactionCount"
+  | string;
   order?: "ASC" | "DESC";
 }
 
@@ -92,7 +93,7 @@ export const inventoryServerService = {
     });
 
     return {
-      data: rows,
+      data: rows.map((row) => row.get({ plain: true })),
       meta: {
         total: count,
         totalPages: Math.ceil(count / limit),
@@ -120,18 +121,9 @@ export const inventoryServerService = {
       where.type = type;
     }
 
-    if (startDate || endDate) {
-      where.updatedAt = {};
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.updatedAt[Op.gte] = start;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.updatedAt[Op.lte] = end;
-      }
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      where.updatedAt = dateFilter;
     }
 
     const combinationWhere: any = {};
@@ -210,14 +202,14 @@ export const inventoryServerService = {
     try {
       const sumInclude = Object.keys(combinationWhere).length
         ? [
-            {
-              model: ProductCombination,
-              as: "combination",
-              where: combinationWhere,
-              attributes: [],
-              required: true,
-            },
-          ]
+          {
+            model: ProductCombination,
+            as: "combination",
+            where: combinationWhere,
+            attributes: [],
+            required: true,
+          },
+        ]
         : undefined;
 
       const sumWhere = {

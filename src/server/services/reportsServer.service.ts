@@ -18,6 +18,7 @@ import {
   GetReordersLevelsInput,
   inventoryServerService,
 } from "./inventoryServer.service";
+import { buildDateFilter } from "./dateFilter";
 
 export const reportsServerService = {
   getPriceHistory: async () => {
@@ -94,8 +95,9 @@ export const reportsServerService = {
     const salesOrderWhere: any = {
       status: "RECEIVED",
     };
-    if (startDate && endDate) {
-      salesOrderWhere.orderDate = { [Op.between]: [startDate, endDate] };
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      salesOrderWhere.orderDate = dateFilter;
     }
 
     const orderByMap: Record<string, any> = {
@@ -247,8 +249,9 @@ export const reportsServerService = {
     if (status) {
       where.status = status;
     }
-    if (startDate && endDate) {
-      where.createdAt = { [Op.between]: [startDate, endDate] };
+    const dateFilter = buildDateFilter(startDate, endDate);
+    if (dateFilter) {
+      where.createdAt = dateFilter;
     }
 
     const orderByMap: Record<string, any> = {

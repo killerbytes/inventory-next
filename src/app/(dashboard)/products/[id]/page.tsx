@@ -56,10 +56,10 @@ export default async function ProductDetailsPage({
 
   return (
     <ProductDetailClientWidget
-      product={product ? JSON.parse(JSON.stringify(product)) : null}
-      priceHistory={JSON.parse(JSON.stringify(priceHistory))}
-      supplierHistory={JSON.parse(JSON.stringify(supplierHistory))}
-      movements={JSON.parse(JSON.stringify(movements))}
+      product={product}
+      priceHistory={priceHistory}
+      supplierHistory={supplierHistory}
+      movements={movements}
     />
   );
 }

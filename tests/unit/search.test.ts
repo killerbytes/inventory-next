@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildTsQuery } from "@/server/services/productCombinationServer.service";
 
 describe("buildTsQuery (Unit)", () => {
@@ -47,3 +47,27 @@ describe("buildTsQuery (Unit)", () => {
     expect(buildTsQuery("neltex pipe s1000")).toBe("neltex:* & pipe:* & s1000:*");
   });
 });
+
+describe("productCombinationServerService.search SQL Parity (Unit)", () => {
+  it("should not group by pc.unit or select pc.unit at product level", async () => {
+    const { sequelize } = await import("@/server/models");
+    const { productCombinationServerService } = await import(
+      "@/server/services/productCombinationServer.service"
+    );
+
+    const querySpy = vi.spyOn(sequelize, "query").mockResolvedValue([] as any);
+
+    await productCombinationServerService.search({ search: "pipe" });
+
+    expect(querySpy).toHaveBeenCalled();
+    const sqlExecuted = querySpy.mock.calls[0][0] as string;
+
+    // Verify it groups strictly by product to avoid splitting combinations
+    expect(sqlExecuted).not.toContain('pc."unit",');
+    expect(sqlExecuted).not.toContain('GROUP BY p.id, p.name, pc."unit"');
+    expect(sqlExecuted).toContain("GROUP BY p.id, p.name");
+
+    querySpy.mockRestore();
+  });
+});
+
