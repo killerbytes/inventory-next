@@ -29,6 +29,7 @@ import { Op, QueryTypes } from "sequelize";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
+import moment from "moment";
 
 export interface ListSalesOrdersParams {
   startDate?: string | null;
@@ -448,15 +449,20 @@ export const salesServerService = {
 
     if (startDate || endDate) {
       where.orderDate = {};
+      const timezone = "Asia/Manila";
       if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        where.orderDate[Op.gte] = start;
+        where.orderDate[Op.gte] = moment
+          .tz(startDate, timezone)
+          .startOf("day")
+          .utc()
+          .toDate();
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        where.orderDate[Op.lte] = end;
+        where.orderDate[Op.lte] = moment
+          .tz(endDate, timezone)
+          .endOf("day")
+          .utc()
+          .toDate();
       }
     }
 
