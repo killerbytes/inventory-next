@@ -1,6 +1,8 @@
+import bcrypt from "bcrypt";
 import { describe, expect, it, beforeAll, beforeEach } from "vitest";
 import { setupDatabase, resetDatabase } from "../setup";
-import { User } from "@/server/models";
+import { db } from "@/server/db/drizzle";
+import { userServerService } from "@/server/services/userServer.service";
 import { setTestSession } from "@/server/auth/session";
 import { createUserAction, changePasswordAction } from "@/server/actions/user.actions";
 import { triggerBackupAction } from "@/server/actions/backup.actions";
@@ -88,13 +90,14 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
 
     it("should FORBID non-admin user from changing another user's password", async () => {
       // Arrange: User 2 is logged in
-      const victim = await User.create({
+      const victim = await userServerService.create({
         name: "Victim User",
         username: "victim",
         email: "victim@test.com",
-        password: User.generateHash("VictimPass123!"),
+        password: "VictimPass123!",
+        confirmPassword: "VictimPass123!",
         isActive: true,
-        role: "User",
+        role: "USER",
       });
 
       setTestSession({
@@ -115,20 +118,21 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
 
     it("should require oldPassword and reject incorrect current password when changing own password", async () => {
       // Arrange
-      const user = await User.create({
+      const user = await userServerService.create({
         name: "Self User",
         username: "selfuser",
         email: "self@test.com",
-        password: User.generateHash("OriginalPassword123!"),
+        password: "OriginalPassword123!",
+        confirmPassword: "OriginalPassword123!",
         isActive: true,
-        role: "User",
+        role: "USER",
       });
 
       setTestSession({
         id: user.id,
         username: user.username,
         name: user.name,
-        role: user.role,
+        role: user.role || "USER",
       });
 
       // Act & Assert: Wrong old password
@@ -151,13 +155,14 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
 
     it("should ALLOW admin with MANAGE_USERS to reset another user's password without oldPassword", async () => {
       // Arrange: Target user
-      const targetUser = await User.create({
+      const targetUser = await userServerService.create({
         name: "Target Staff",
         username: "targetstaff",
         email: "target@test.com",
-        password: User.generateHash("OldStaffPassword123!"),
+        password: "OldStaffPassword123!",
+        confirmPassword: "OldStaffPassword123!",
         isActive: true,
-        role: "User",
+        role: "USER",
       });
 
       // Admin session (distinct from targetUser)
@@ -176,8 +181,11 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
 
       // Assert
       expect(result.success).toBe(true);
-      const reloaded = await User.scope("withPassword").findByPk(targetUser.id);
-      expect(User.validatePassword("ResetByAdmin123!", reloaded!.password)).toBe(true);
+      const reloaded = await db.query.users.findFirst({
+        where: (tbl, { eq }) => eq(tbl.id, targetUser.id),
+      });
+      expect(bcrypt.compareSync("ResetByAdmin123!", reloaded!.password)).toBe(true);
     });
   });
 });
+

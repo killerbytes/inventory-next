@@ -8,7 +8,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo } from "react";
 import ColorBadge from "../common/ColorBadge";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 
 const columnHelper = createColumnHelper<any>();
 

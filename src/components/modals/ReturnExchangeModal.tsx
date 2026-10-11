@@ -13,7 +13,7 @@ import {
 import { supplierReturnsAction } from "@/server/actions/goodReceipt.actions";
 import { returnExchangeAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
 import { ArrowRightLeft, Loader2, Trash2, Undo2 } from "lucide-react";

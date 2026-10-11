@@ -1,7 +1,9 @@
+import bcrypt from "bcrypt";
 import { loginAction } from "@/server/actions/auth.actions";
 import { changePasswordAction } from "@/server/actions/user.actions";
 import { setTestSession } from "@/server/auth/session";
-import { User } from "@/server/models";
+import { db } from "@/server/db/drizzle";
+import { userServerService } from "@/server/services/userServer.service";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase, setupDatabase } from "../setup";
 
@@ -18,13 +20,14 @@ describe("Auth & Password Actions (Integration)", () => {
   it("should block inactive users from logging in even with correct credentials", async () => {
     // Arrange
     const password = "SecretPassword123!";
-    const inactiveUser = await User.create({
+    const inactiveUser = await userServerService.create({
       name: "Deactivated User",
       username: "deactivated",
       email: "deactivated@example.com",
-      password: User.generateHash(password),
+      password,
+      confirmPassword: password,
       isActive: false,
-      role: "User",
+      role: "USER",
     });
 
     // Act & Assert
@@ -39,13 +42,14 @@ describe("Auth & Password Actions (Integration)", () => {
   it("should successfully log in active users with valid credentials", async () => {
     // Arrange
     const password = "ValidPassword123!";
-    const activeUser = await User.create({
+    const activeUser = await userServerService.create({
       name: "Active Staff",
       username: "activestaff",
       email: "active@example.com",
-      password: User.generateHash(password),
+      password,
+      confirmPassword: password,
       isActive: true,
-      role: "User",
+      role: "USER",
     });
 
     // Act
@@ -64,20 +68,21 @@ describe("Auth & Password Actions (Integration)", () => {
     // Arrange
     const oldPassword = "OldPassword123!";
     const newPassword = "BrandNewPassword456!";
-    const user = await User.create({
+    const user = await userServerService.create({
       name: "Password Changer",
       username: "changer",
       email: "changer@example.com",
-      password: User.generateHash(oldPassword),
+      password: oldPassword,
+      confirmPassword: oldPassword,
       isActive: true,
-      role: "User",
+      role: "USER",
     });
 
     setTestSession({
       id: user.id,
       username: user.username,
       name: user.name,
-      role: user.role,
+      role: user.role || "USER",
     });
 
     // Act: change password for user
@@ -89,10 +94,12 @@ describe("Auth & Password Actions (Integration)", () => {
     // Assert
     expect(result.success).toBe(true);
 
-    const reloaded = await User.scope("withPassword").findByPk(user.id);
+    const reloaded = await db.query.users.findFirst({
+      where: (tbl, { eq }) => eq(tbl.id, user.id),
+    });
     expect(reloaded).not.toBeNull();
-    expect(User.validatePassword(newPassword, reloaded!.password)).toBe(true);
-    expect(User.validatePassword(oldPassword, reloaded!.password)).toBe(false);
+    expect(bcrypt.compareSync(newPassword, reloaded!.password)).toBe(true);
+    expect(bcrypt.compareSync(oldPassword, reloaded!.password)).toBe(false);
   });
 
   it("should reject changePasswordAction when old password is incorrect", async () => {
@@ -100,20 +107,21 @@ describe("Auth & Password Actions (Integration)", () => {
     const oldPassword = "CorrectPassword123!";
     const wrongOldPassword = "WrongPassword999!";
     const newPassword = "BrandNewPassword456!";
-    const user = await User.create({
+    const user = await userServerService.create({
       name: "Password Verifier",
       username: "verifier",
       email: "verifier@example.com",
-      password: User.generateHash(oldPassword),
+      password: oldPassword,
+      confirmPassword: oldPassword,
       isActive: true,
-      role: "User",
+      role: "USER",
     });
 
     setTestSession({
       id: user.id,
       username: user.username,
       name: user.name,
-      role: user.role,
+      role: user.role || "USER",
     });
 
     // Act & Assert
@@ -125,3 +133,4 @@ describe("Auth & Password Actions (Integration)", () => {
     ).rejects.toThrow(/Incorrect current password|Invalid/i);
   });
 });
+

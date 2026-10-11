@@ -1,7 +1,7 @@
 import React from "react";
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import NoSalesClientWidget from "@/components/widgets/NoSalesClientWidget";
-import { PAGINATION } from "@/types/definitions";
+import { PAGINATION } from "@/constants";
 
 export const dynamic = "force-dynamic";
 

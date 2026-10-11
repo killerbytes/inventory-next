@@ -11,7 +11,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { InvoiceGoodReceipt } from "@/schemas/goodReceipt.schema";
 import { getGoodReceiptsBySupplierAction } from "@/server/actions/invoice.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS, STATUS_COLOR } from "@/types/definitions";
+import { ORDER_STATUS, STATUS_COLOR } from "@/constants";
 import { ColumnDef } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 

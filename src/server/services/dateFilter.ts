@@ -1,14 +1,8 @@
 import moment from "moment-timezone";
-import { Op } from "sequelize";
-
-export type DateFilter = {
-  [Op.gte]?: Date;
-  [Op.lte]?: Date;
-};
 
 /**
- * Generates a Sequelize date filter condition with start-of-day and end-of-day UTC boundaries
- * aligned to the configured business timezone (default: Asia/Manila).
+ * Generates timezone-aligned start-of-day and end-of-day UTC boundary Date objects
+ * for Drizzle ORM queries (default: Asia/Manila).
  *
  * Why: Timestamps are stored in UTC across the database, but user filter requests specify
  * local calendar days. Converting to UTC start-of-day and end-of-day in the business timezone
@@ -17,34 +11,23 @@ export type DateFilter = {
  * @param startDate - Earliest boundary date string or Date instance
  * @param endDate - Latest boundary date string or Date instance
  * @param timezone - IANA timezone identifier (defaults to process.env.TIMEZONE || "Asia/Manila")
- * @returns Sequelize query condition object with Op.gte and/or Op.lte, or undefined if neither boundary is provided
+ * @returns Object with startBound and endBound Date objects
  */
-export function buildDateFilter(
+export function getDateBounds(
   startDate?: string | Date | null,
   endDate?: string | Date | null,
   timezone: string = process.env.TIMEZONE || "Asia/Manila",
-): DateFilter | undefined {
-  if (!startDate && !endDate) {
-    return undefined;
-  }
-
-  const filter: DateFilter = {};
+): { startBound?: Date; endBound?: Date } {
+  let startBound: Date | undefined;
+  let endBound: Date | undefined;
 
   if (startDate) {
-    filter[Op.gte] = moment
-      .tz(startDate, timezone)
-      .startOf("day")
-      .utc()
-      .toDate();
+    startBound = moment.tz(startDate, timezone).startOf("day").utc().toDate();
   }
-
   if (endDate) {
-    filter[Op.lte] = moment
-      .tz(endDate, timezone)
-      .endOf("day")
-      .utc()
-      .toDate();
+    endBound = moment.tz(endDate, timezone).endOf("day").utc().toDate();
   }
 
-  return filter;
+  return { startBound, endBound };
 }
+

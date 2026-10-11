@@ -1,19 +1,16 @@
 import { InvoiceInput } from "@/schemas";
-import sequelize from "@/server/db/sequelize";
-import {
-  GoodReceipt,
-  Invoice,
-  InvoiceLine,
-  Payment,
-  PaymentApplication,
-  Supplier,
-  User,
-} from "@/server/models";
-import { INVOICE_STATUS, ORDER_STATUS, PAGINATION } from "@/types/definitions";
-import { Op } from "sequelize";
+import { INVOICE_STATUS, ORDER_STATUS, PAGINATION } from "@/constants";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
-import { buildDateFilter } from "./dateFilter";
+import { getDateBounds } from "./dateFilter";
+import db from "@/server/db/drizzle";
+import {
+  goodReceipts,
+  invoiceLines,
+  invoices,
+  suppliers,
+} from "@/server/db/schema";
+import { and, asc, desc, eq, gte, ilike, isNull, lte, sql } from "drizzle-orm";
 
 export interface ListInvoicesParams {
   q?: string | null;
@@ -27,76 +24,45 @@ export interface ListInvoicesParams {
 }
 
 const updateGoodReceiptStatus = async (
-  lines: any[],
+  lines: { goodReceiptId: number | null }[],
   status: string,
-  transaction: any,
+  tx: any,
 ) => {
   for (const line of lines) {
-    await GoodReceipt.update(
-      { status },
-      { where: { id: line.goodReceiptId }, transaction },
-    );
-  }
-};
-
-const updateInvoice = async (
-  invoice: any,
-  payload: any,
-  updateLines: boolean = false,
-  transaction: any,
-) => {
-  const updateData: any = {
-    ...payload,
-  };
-  if (payload.invoiceLines && Array.isArray(payload.invoiceLines)) {
-    updateData.totalAmount = payload.invoiceLines.reduce(
-      (acc: number, item: any) => acc + Number(item.amount || 0),
-      0,
-    );
-  }
-  delete updateData.invoiceLines;
-
-  await invoice.update(updateData, { transaction });
-
-  if (updateLines && Array.isArray(payload.invoiceLines)) {
-    const lines = payload.invoiceLines.map((line: any) => ({
-      goodReceiptId: Number(line.goodReceiptId),
-      amount: Number(line.amount || 0),
-      invoiceId: invoice.id,
-    }));
-
-    await InvoiceLine.destroy({
-      where: { invoiceId: invoice.id },
-      transaction,
-    });
-    await InvoiceLine.bulkCreate(lines, { transaction });
+    if (line.goodReceiptId) {
+      await tx
+        .update(goodReceipts)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(goodReceipts.id, line.goodReceiptId));
+    }
   }
 };
 
 export const invoiceServerService = {
   get: async (id: number) => {
-    const result = await Invoice.findByPk(id, {
-      include: [
-        { model: Supplier, as: "supplier" },
-        {
-          model: InvoiceLine,
-          as: "invoiceLines",
-          include: [{ model: GoodReceipt, as: "goodReceipt" }],
+    const result = await db.query.invoices.findFirst({
+      where: and(eq(invoices.id, id), isNull(invoices.deletedAt)),
+      with: {
+        supplier: true,
+        invoiceLines: {
+          where: (lines, { isNull }) => isNull(lines.deletedAt),
+          with: {
+            goodReceipt: true,
+          },
         },
-        {
-          model: PaymentApplication,
-          as: "applications",
-          include: [
-            {
-              model: Payment,
-              as: "payment",
-              include: [{ model: User, as: "user" }],
+        applications: {
+          where: (apps, { isNull }) => isNull(apps.deletedAt),
+          with: {
+            payment: {
+              with: {
+                user: true,
+              },
             },
-          ],
+          },
         },
-      ],
+      },
     });
-    return result?.get({ plain: true });
+    return result ?? null;
   },
 
   getAll: async (params: ListInvoicesParams = {}) => {
@@ -112,51 +78,50 @@ export const invoiceServerService = {
     } = params;
 
     try {
-      const where: any = {};
+      const conditions: any[] = [isNull(invoices.deletedAt)];
       if (q) {
-        where.invoiceNumber = { [Op.iLike]: `%${q}%` };
+        conditions.push(ilike(invoices.invoiceNumber, `%${q}%`));
       }
       if (status) {
-        where.status = status;
+        conditions.push(eq(invoices.status, status));
       }
-      const dateFilter = buildDateFilter(startDate, endDate);
-      if (dateFilter) {
-        where.updatedAt = dateFilter;
+      const { startBound, endBound } = getDateBounds(startDate, endDate);
+      if (startBound) {
+        conditions.push(gte(invoices.updatedAt, startBound));
+      }
+      if (endBound) {
+        conditions.push(lte(invoices.updatedAt, endBound));
       }
 
+      const whereClause = and(...conditions);
       const offset = (page - 1) * limit;
 
-      const orderByMap: Record<string, any> = {
-        "supplier.name": [{ model: Supplier, as: "supplier" }, "name"],
-      };
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(invoices)
+        .where(whereClause);
 
-      const orderBy = orderByMap[sort]
-        ? [...orderByMap[sort], sortOrder]
-        : [sort, sortOrder];
+      const count = Number(countResult?.count || 0);
 
-      const { count, rows } = await Invoice.findAndCountAll({
+      const rows = await db.query.invoices.findMany({
+        where: whereClause,
         limit,
         offset,
-        order: [orderBy as any],
-        where: Object.keys(where).length ? where : undefined,
-        distinct: true,
-        include: [
-          {
-            model: InvoiceLine,
-            as: "invoiceLines",
-            include: [{ model: GoodReceipt, as: "goodReceipt" }],
+        orderBy:
+          sortOrder === "DESC" ? [desc(invoices.id)] : [asc(invoices.id)],
+        with: {
+          supplier: true,
+          invoiceLines: {
+            where: (lines, { isNull }) => isNull(lines.deletedAt),
+            with: {
+              goodReceipt: true,
+            },
           },
-          {
-            model: Supplier,
-            as: "supplier",
-          },
-        ],
+        },
       });
 
       return {
-        data: rows.map((row) => row.get({
-          plain: true
-        })),
+        data: rows,
         meta: {
           total: count,
           totalPages: Math.ceil(count / limit),
@@ -174,7 +139,7 @@ export const invoiceServerService = {
 
   create: async (data: InvoiceInput, userId?: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
+      return await db.transaction(async (tx) => {
         const lines = data.invoiceLines || [];
         const totalAmount = lines.reduce(
           (acc, item) => acc + Number(item.amount || 0),
@@ -182,8 +147,11 @@ export const invoiceServerService = {
         );
 
         for (const line of lines) {
-          const gr = await GoodReceipt.findByPk(line.goodReceiptId, {
-            transaction,
+          const gr = await tx.query.goodReceipts.findFirst({
+            where: and(
+              eq(goodReceipts.id, line.goodReceiptId),
+              isNull(goodReceipts.deletedAt),
+            ),
           });
           if (!gr) {
             throw new Error(
@@ -202,39 +170,41 @@ export const invoiceServerService = {
           }
         }
 
-        const invoice = await Invoice.create(
-          {
+        const [invoice] = await tx
+          .insert(invoices)
+          .values({
             supplierId: Number(data.supplierId),
             invoiceNumber: data.invoiceNumber || `INV-${Date.now()}`,
             invoiceDate: data.invoiceDate
               ? new Date(data.invoiceDate)
               : new Date(),
-            totalAmount,
+            totalAmount: totalAmount.toString(),
             dueDate: data.dueDate ? new Date(data.dueDate) : null,
             status: data.status || INVOICE_STATUS.DRAFT,
             notes: data.notes || null,
             changedBy: userId ?? 1,
-            invoiceLines: lines.map((l) => ({
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        if (lines.length > 0) {
+          await tx.insert(invoiceLines).values(
+            lines.map((l) => ({
+              invoiceId: invoice.id,
               goodReceiptId: Number(l.goodReceiptId),
-              amount: Number(l.amount || 0),
+              amount: Number(l.amount || 0).toString(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
             })),
-          } as any,
-          {
-            include: [
-              {
-                model: InvoiceLine,
-                as: "invoiceLines",
-              },
-            ],
-            transaction,
-          },
-        );
+          );
+        }
 
         if (data.status === INVOICE_STATUS.POSTED) {
           await updateGoodReceiptStatus(
             lines,
             ORDER_STATUS.COMPLETED,
-            transaction,
+            tx,
           );
         }
 
@@ -247,10 +217,33 @@ export const invoiceServerService = {
 
   update: async (id: number, data: InvoiceInput) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const invoice = await Invoice.findByPk(id, { transaction });
+      return await db.transaction(async (tx) => {
+        const invoice = await tx.query.invoices.findFirst({
+          where: and(eq(invoices.id, id), isNull(invoices.deletedAt)),
+          with: {
+            invoiceLines: {
+              where: (lines, { isNull }) => isNull(lines.deletedAt),
+            },
+          },
+        });
         if (!invoice) {
           throw new Error("Invoice not found");
+        }
+
+        const updateData: any = {
+          updatedAt: new Date(),
+        };
+
+        if (data.notes !== undefined) updateData.notes = data.notes;
+        if (data.status !== undefined) updateData.status = data.status;
+
+        const updateLines = Array.isArray(data.invoiceLines);
+        if (updateLines && data.invoiceLines) {
+          const totalAmount = data.invoiceLines.reduce(
+            (acc: number, item: any) => acc + Number(item.amount || 0),
+            0,
+          );
+          updateData.totalAmount = totalAmount.toString();
         }
 
         switch (true) {
@@ -258,16 +251,46 @@ export const invoiceServerService = {
             (data.status === INVOICE_STATUS.DRAFT || !data.status):
           case invoice.status === INVOICE_STATUS.DRAFT &&
             data.status === INVOICE_STATUS.POSTED:
-            await updateInvoice(invoice, data, true, transaction);
+            if (updateLines && data.invoiceLines) {
+              await tx
+                .update(invoiceLines)
+                .set({ deletedAt: new Date(), updatedAt: new Date() })
+                .where(
+                  and(
+                    eq(invoiceLines.invoiceId, invoice.id),
+                    isNull(invoiceLines.deletedAt),
+                  ),
+                );
+
+              const linesToInsert = data.invoiceLines.map((line: any) => ({
+                goodReceiptId: Number(line.goodReceiptId),
+                amount: Number(line.amount || 0).toString(),
+                invoiceId: invoice.id,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }));
+
+              if (linesToInsert.length > 0) {
+                await tx.insert(invoiceLines).values(linesToInsert);
+              }
+            }
+
+            await tx
+              .update(invoices)
+              .set(updateData)
+              .where(eq(invoices.id, invoice.id));
+
             if (data.status === INVOICE_STATUS.POSTED) {
-              const lines = await InvoiceLine.findAll({
-                where: { invoiceId: invoice.id },
-                transaction,
+              const currentLines = await tx.query.invoiceLines.findMany({
+                where: and(
+                  eq(invoiceLines.invoiceId, invoice.id),
+                  isNull(invoiceLines.deletedAt),
+                ),
               });
               await updateGoodReceiptStatus(
-                lines,
+                currentLines,
                 ORDER_STATUS.COMPLETED,
-                transaction,
+                tx,
               );
             }
             break;
@@ -275,7 +298,10 @@ export const invoiceServerService = {
             data.status === INVOICE_STATUS.PARTIALLY_PAID:
           case invoice.status === INVOICE_STATUS.PARTIALLY_PAID &&
             data.status === INVOICE_STATUS.PAID:
-            await invoice.update({ status: data.status }, { transaction });
+            await tx
+              .update(invoices)
+              .set({ status: data.status, updatedAt: new Date() })
+              .where(eq(invoices.id, invoice.id));
             break;
           default:
             throw new Error(
@@ -292,8 +318,10 @@ export const invoiceServerService = {
 
   delete: async (id: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const invoice = await Invoice.findByPk(id, { transaction });
+      return await db.transaction(async (tx) => {
+        const invoice = await tx.query.invoices.findFirst({
+          where: and(eq(invoices.id, id), isNull(invoices.deletedAt)),
+        });
         if (!invoice) {
           throw new Error("Invoice not found");
         }
@@ -302,8 +330,22 @@ export const invoiceServerService = {
           throw new Error("Invoice is not in a valid state");
         }
 
-        await InvoiceLine.destroy({ where: { invoiceId: id }, transaction });
-        await invoice.destroy({ transaction });
+        const now = new Date();
+        await tx
+          .update(invoiceLines)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(
+            and(
+              eq(invoiceLines.invoiceId, id),
+              isNull(invoiceLines.deletedAt),
+            ),
+          );
+
+        await tx
+          .update(invoices)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(eq(invoices.id, id));
+
         return { success: true, message: `Invoice ${id} deleted successfully` };
       });
     } catch (error) {
@@ -311,3 +353,4 @@ export const invoiceServerService = {
     }
   },
 };
+export default invoiceServerService;

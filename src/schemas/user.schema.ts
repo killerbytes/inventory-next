@@ -1,25 +1,29 @@
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { users } from "@/server/db/schema/users";
 import z from "zod";
 
-export const UserBaseSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters."),
-  username: z.string().min(2, "Username must be at least 2 characters."),
-  email: z.string().email("Please enter a valid email address.").nullish(),
-  password: z.string().min(1, "Password is required."),
-  isActive: z.boolean(),
-  role: z.string(),
+export const UserBaseSchema = createInsertSchema(users, {
+  name: (schema) => schema.min(2, "Name must be at least 2 characters."),
+  username: (schema) => schema.min(2, "Username must be at least 2 characters."),
+  email: (schema) => schema.email("Please enter a valid email address.").nullish(),
+  password: (schema) => schema.min(1, "Password is required."),
+  isActive: () => z.boolean(),
+  role: () => z.string(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
 });
 
 export const UserInputSchema = UserBaseSchema.extend({
   confirmPassword: z.string().min(1, "Confirm Password is required."),
-})
-  .omit({
-    isActive: true,
-    role: true,
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+  isActive: z.boolean().optional(),
+  role: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
 export const LoginInputSchema = UserBaseSchema.omit({
   name: true,
@@ -43,11 +47,9 @@ export const ChangePasswordInputSchema = z
 
 export const UserUpdateSchema = UserBaseSchema.partial().strict();
 
-export const UserSchema = UserBaseSchema.extend({
-  id: z.coerce.number(),
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
-  deletedAt: z.coerce.date().optional().nullable(),
+export const UserSelectSchema = createSelectSchema(users);
+export const UserSchema = UserSelectSchema.extend({
+  role: z.string().default("USER"),
 });
 
 export const SessionUserSchema = UserSchema.omit({
@@ -65,3 +67,4 @@ export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
 export type UserData = z.infer<typeof UserSchema>;
 export type LoginInput = z.infer<typeof LoginInputSchema>;
 export type ChangePasswordInput = z.infer<typeof ChangePasswordInputSchema>;
+

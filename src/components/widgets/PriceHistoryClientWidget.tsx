@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatCurrency } from "@/lib/utils";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { cx } from "class-variance-authority";
 import { Search } from "lucide-react";

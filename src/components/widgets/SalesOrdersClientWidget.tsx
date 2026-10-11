@@ -18,7 +18,7 @@ import {
   Pagination,
   SalesOrderSummary,
   STATUS_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";

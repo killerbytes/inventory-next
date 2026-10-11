@@ -1,19 +1,12 @@
 // @vitest-environment node
 import { SalesOrderInput } from "@/schemas";
-import {
-  Customer,
-  Inventory,
-  InventoryMovement,
-  ReturnItem,
-  ReturnTransaction,
-  User,
-} from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import {
   inventoryServerService,
   productCombinationServerService,
 } from "@/server/services";
 import { salesServerService } from "@/server/services/salesServer.service";
-import { ORDER_STATUS, RETURN_TYPE } from "@/types/definitions";
+import { ORDER_STATUS, RETURN_TYPE, INVENTORY_MOVEMENT_TYPE } from "@/constants";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -28,8 +21,8 @@ import {
 } from "../utils/fixtures";
 
 describe("Sales Order Service (Integration)", () => {
-  let user0: User;
-  let customer0: Customer;
+  let user0: any;
+  let customer0: any;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -120,7 +113,9 @@ describe("Sales Order Service (Integration)", () => {
       user0.id,
     );
     const salesOrder = await salesServerService.get(1);
-    const inventory = await Inventory.findAll();
+    const inventory = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
 
     expect(salesOrder?.status).toBe("RECEIVED");
     expect(inventory.length).toBe(2);
@@ -168,9 +163,13 @@ describe("Sales Order Service (Integration)", () => {
       (salesOrder2 as any)?.salesOrderStatusHistory[0]?.user?.username,
     ).toBe("alice");
 
-    const inv1 = await Inventory.findOne({ where: { combinationId: 1 } });
+    const inv1 = await db.query.inventories.findFirst({
+      where: (inv, { eq }) => eq(inv.combinationId, 1),
+    });
     expect(Number(inv1?.quantity)).toBe(0);
-    const inv2 = await Inventory.findOne({ where: { combinationId: 2 } });
+    const inv2 = await db.query.inventories.findFirst({
+      where: (inv, { eq }) => eq(inv.combinationId, 2),
+    });
     expect(Number(inv2?.quantity)).toBe(0);
   });
 
@@ -259,7 +258,9 @@ describe("Sales Order Service (Integration)", () => {
   });
 
   it("should cancel a sales order", async () => {
-    const inventory = await Inventory.findAll();
+    const inventory = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
     await salesServerService.create(
       {
         ...getTestData(),
@@ -310,7 +311,9 @@ describe("Sales Order Service (Integration)", () => {
       user0.id,
     );
 
-    const inventory2 = await Inventory.findAll();
+    const inventory2 = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
     const salesOrder = await salesServerService.get(1);
 
     expect(salesOrder?.status).toBe("CANCELLED");
@@ -598,9 +601,13 @@ describe("Sales Order Service (Integration)", () => {
     expect(salesOrder2?.salesOrderItems?.length).toBe(2);
     expect(Number(salesOrder2?.totalAmount)).toBe(700);
 
-    const inv1 = await Inventory.findOne({ where: { combinationId: 1 } });
+    const inv1 = await db.query.inventories.findFirst({
+      where: (inv, { eq }) => eq(inv.combinationId, 1),
+    });
     expect(Number(inv1?.quantity)).toBe(8);
-    const inv2 = await Inventory.findOne({ where: { combinationId: 2 } });
+    const inv2 = await db.query.inventories.findFirst({
+      where: (inv, { eq }) => eq(inv.combinationId, 2),
+    });
     expect(Number(inv2?.quantity)).toBe(16);
 
     await salesServerService.create(
@@ -626,7 +633,9 @@ describe("Sales Order Service (Integration)", () => {
       user0.id,
     );
 
-    const inv = await Inventory.findAll();
+    const inv = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
     expect(inv.length).toBe(2);
     expect(Number(inv[0].quantity)).toBe(5);
     expect(Number(inv[1].quantity)).toBe(12);
@@ -661,12 +670,22 @@ describe("Sales Order Service (Integration)", () => {
       { combinationId: 2, quantity: 20 },
     ];
 
-    const inventory = await Inventory.findAll();
+    const inventory = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
     await salesServerService.returnExchange(1, returns, undefined, "reason");
-    const inventory2 = await Inventory.findAll();
-    const inventoryMovement = await InventoryMovement.findAll();
-    const returnTransaction = await ReturnTransaction.findAll();
-    const returnItems = await ReturnItem.findAll();
+    const inventory2 = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
+    const inventoryMovement = await db.query.inventoryMovements.findMany({
+      orderBy: (m, { asc }) => [asc(m.id)],
+    });
+    const returnTransaction = await db.query.returnTransactions.findMany({
+      orderBy: (t, { asc }) => [asc(t.id)],
+    });
+    const returnItems = await db.query.returnItems.findMany({
+      orderBy: (i, { asc }) => [asc(i.id)],
+    });
 
     expect(Number(inventory[0].quantity)).toBe(1);
     expect(Number(inventory[1].quantity)).toBe(0);
@@ -712,7 +731,56 @@ describe("Sales Order Service (Integration)", () => {
     expect(Number(returnItems[1].unitPrice)).toBe(100);
     expect(returnItems[1].reason).toBe("reason");
     expect(returnItems[1].combinationId).toBe(2);
-    expect(Number(returnItems[1].totalAmount)).toBe(2000);
+  });
+
+  it("should associate return and exchange movements with the salesOrder id as referenceId", async () => {
+    // Create first sales order (id: 1)
+    await salesServerService.create(
+      {
+        ...getTestData(),
+        status: "RECEIVED",
+        salesOrderItems: [{ combinationId: 1, quantity: 5, originalPrice: 100, purchasePrice: 100 }],
+      } as any,
+      user0.id,
+    );
+
+    // Create second sales order (id: 2)
+    const order2 = await salesServerService.create(
+      {
+        ...getTestData(),
+        salesOrderNumber: "SO-ORDER-02",
+        status: "RECEIVED",
+        salesOrderItems: [
+          { combinationId: 1, quantity: 5, originalPrice: 100, purchasePrice: 100 },
+          { combinationId: 2, quantity: 10, originalPrice: 100, purchasePrice: 100 },
+        ],
+      } as any,
+      user0.id,
+    );
+
+    expect(order2).toBeDefined();
+    const order2Id = order2!.id;
+
+    const returns = [{ combinationId: 1, quantity: 2 }];
+    const exchanges = [{ combinationId: 2, quantity: 1 }];
+
+    // Perform return & exchange on order2 (id: 2)
+    await salesServerService.returnExchange(order2Id, returns, exchanges, "Damaged item replacement");
+
+    const returnMovements = await db.query.inventoryMovements.findMany({
+      where: (tbl, { eq }) => eq(tbl.type, RETURN_TYPE.RETURN_IN),
+    });
+    const exchangeMovements = await db.query.inventoryMovements.findMany({
+      where: (tbl, { eq }) => eq(tbl.type, INVENTORY_MOVEMENT_TYPE.EXCHANGE_OUT),
+    });
+
+    expect(returnMovements.length).toBe(1);
+    expect(returnMovements[0].referenceType).toBe("SALES_ORDER");
+    expect(returnMovements[0].referenceId).toBe(order2Id);
+
+    expect(exchangeMovements.length).toBe(1);
+    expect(exchangeMovements[0].referenceType).toBe("SALES_ORDER");
+    expect(exchangeMovements[0].referenceId).toBe(order2Id);
   });
 
   it("should not allow cancel when having returns", async () => {

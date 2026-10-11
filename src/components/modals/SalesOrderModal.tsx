@@ -7,10 +7,10 @@ import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
 import { formatCurrency } from "@/lib/utils";
 import {
   CustomerData,
-  ProductCombinationSchema,
+  SalesOrderForm,
+  SalesOrderFormSchema,
   SalesOrderInput,
-  SalesOrderInputSchema,
-  SalesOrderItemInputSchema,
+  SalesOrderItemWithCombination,
 } from "@/schemas";
 import { createSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
@@ -19,7 +19,7 @@ import {
   MODE_OF_PAYMENT_OPTIONS,
   ORDER_STATUS,
   UNIT_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
@@ -47,19 +47,13 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 
-const SalesOrderItemWithCombination = SalesOrderItemInputSchema.extend({
-  combination: ProductCombinationSchema.extend({
-    price: z.coerce.number().positive().nullish(),
-  }).nullable(),
-});
+export {
+  SalesOrderFormSchema,
+  type SalesOrderForm,
+  type SalesOrderItemWithCombination,
+};
 
-export const SalesOrderFormSchema = SalesOrderInputSchema.extend({
-  salesOrderItems: z.array(SalesOrderItemWithCombination),
-});
-export type SalesOrderForm = z.infer<typeof SalesOrderFormSchema>;
-export type SalesOrderItemWithCombination = z.infer<
-  typeof SalesOrderItemWithCombination
->;
+// TODO: retreive the latest price when loading from drafts
 
 const columnHelper = createColumnHelper<SalesOrderItemWithCombination>();
 
@@ -112,9 +106,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     }
   }, [form.reset]);
 
-  const handleSaveDraft = async (values: SalesOrderForm) => {
+  const handleSaveDraft = async () => {
     startTransition(async () => {
       try {
+        const values = form.getValues();
         const payload: SalesOrderInput = {
           ...values,
           status: ORDER_STATUS.DRAFT,
@@ -135,6 +130,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
       try {
         const payload: SalesOrderInput = {
           ...values,
+          status: ORDER_STATUS.RECEIVED,
           salesOrderItems: values.salesOrderItems.map(
             ({ combination, ...item }) => item,
           ),
@@ -173,23 +169,54 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
         header: "Quantity",
         meta: {
           headerClassName: "text-right",
-          className: "text-right w-30",
+          className: "text-right w-36",
         },
-        cell: ({ row }) => (
-          <Controller
-            control={form.control}
-            name={`salesOrderItems.${row.index}.quantity`}
-            render={({ field }) => (
-              <Input
-                type="number"
-                {...field}
-                aria-invalid={
-                  !!errors.salesOrderItems?.[row.index]?.quantity?.message
-                }
+        cell: ({ row }) => {
+          const combination = form.watch(
+            `salesOrderItems.${row.index}.combination`,
+          );
+          const availableStock =
+            combination?.inventory?.quantity !== undefined &&
+              combination?.inventory?.quantity !== null
+              ? Number(combination.inventory.quantity)
+              : undefined;
+          const quantityError =
+            errors.salesOrderItems?.[row.index]?.quantity?.message;
+
+          return (
+            <div className="flex flex-col items-end gap-0.5">
+              <Controller
+                control={form.control}
+                name={`salesOrderItems.${row.index}.quantity`}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    {...field}
+                    aria-invalid={!!quantityError}
+                    className={
+                      quantityError
+                        ? "border-rose-500 focus-visible:ring-rose-500 text-right"
+                        : "text-right"
+                    }
+                  />
+                )}
               />
-            )}
-          />
-        ),
+              <div className="flex flex-col items-end text-[11px] leading-tight">
+                {availableStock !== undefined && (
+                  <span className="text-muted-foreground whitespace-nowrap">
+                    Avail: {availableStock}
+                  </span>
+                )}
+                {quantityError && (
+                  <span className="text-rose-600 font-medium whitespace-nowrap text-right">
+                    {quantityError}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("combination.unit", {
         header: "Unit",
@@ -244,9 +271,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
 
                     form.setValue(
                       `salesOrderItems.${row.index}.combination`,
-                      value,
+                      value as any,
                       { shouldValidate: true },
                     );
+                    form.trigger(`salesOrderItems.${row.index}.quantity`);
                   }}
                 />
               )}
@@ -444,7 +472,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             <Textarea {...field} aria-invalid={fieldState.invalid} />
           )}
         />
-
+        {/* TODO: make this scrollable */}
         <Controller
           control={form.control}
           name="salesOrderItems"
@@ -492,7 +520,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             <Button
               type="button"
               variant="outline"
-              onClick={form.handleSubmit(handleSaveDraft)}
+              onClick={() => {
+                form.setValue("status", ORDER_STATUS.DRAFT);
+                form.handleSubmit(handleSaveDraft)();
+              }}
               disabled={isPending}
             >
               Save Draft
@@ -500,6 +531,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             <Button
               type="submit"
               disabled={isPending}
+              onClick={() => form.setValue("status", ORDER_STATUS.RECEIVED)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {isPending ? "Creating..." : "Create Sales Order"}

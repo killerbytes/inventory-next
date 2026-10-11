@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CommandGroup, CommandItem } from "@/components/ui/command";
 import { formatCurrency, getScore } from "@/lib/utils";
 import { ProductCombinationData } from "@/schemas";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import React, { memo, useEffect, useMemo, useRef } from "react";
 import ColorBadge from "./ColorBadge";
 import HighlightMatch from "./HighlightMatch";

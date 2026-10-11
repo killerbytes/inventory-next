@@ -26,7 +26,7 @@ import {
 } from "@/lib/utils";
 import { ProductData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
-import { INVENTORY_MOVEMENT_TYPE_COLOR, UNIT_COLOR } from "@/types/definitions";
+import { INVENTORY_MOVEMENT_TYPE_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
   Activity,
@@ -116,7 +116,7 @@ export default function ProductDetailClientWidget({
         value: c.id
       }
     });
-    return [{ value: "ALL", label: "All Combinations" }, ...grouped]
+    return grouped
   }, [product.combinations]);
 
   const filteredPriceHistory = useMemo(() => {
@@ -319,7 +319,7 @@ export default function ProductDetailClientWidget({
       }),
       columnHelper.accessor("quantity", {
         header: "Quantity",
-        cell: (info) => { Number(info.getValue()) },
+        cell: (info) => Number(info.getValue()),
       }),
       columnHelper.accessor("purchasePrice", {
         header: "Purchase Price",
@@ -480,6 +480,12 @@ export default function ProductDetailClientWidget({
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value={"ALL"}>
+            <span className="flex items-center gap-1.5">
+              All Combinations
+            </span>
+          </SelectItem>
+
           {combinations.map((c: any) => (
             <SelectItem key={c.id} value={String(c.value)}>
               <span className="flex items-center gap-1.5">
@@ -595,7 +601,6 @@ export default function ProductDetailClientWidget({
             <Activity /> Movements
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="combinations">
           <Card>
             <CardHeader>

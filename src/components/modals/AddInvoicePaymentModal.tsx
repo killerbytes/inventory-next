@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import NumberInput from "@/components/common/NumberInput";
-import { MODE_OF_PAYMENT } from "@/types/definitions";
+import { MODE_OF_PAYMENT } from "@/constants";
 import { formatCurrency } from "@/lib/utils";
 import { createInvoicePaymentAction } from "@/server/actions/payment.actions";
 import { format } from "date-fns";

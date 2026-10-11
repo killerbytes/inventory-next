@@ -8,7 +8,7 @@ import {
   GoodReceiptSummary,
   Pagination,
   PAGINATION,
-} from "@/types/definitions";
+} from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";

@@ -14,7 +14,7 @@ import useDebounce from "@/hooks/useDebounce";
 import { getMappedSearchProductCombinations } from "@/lib/api-clients/productSearch";
 import { formatCurrency } from "@/lib/utils";
 import { getCategoriesAction } from "@/server/actions/category.actions";
-import { GLOBAL_COLOR, ROUTES, UNIT_COLOR } from "@/types/definitions";
+import { GLOBAL_COLOR, ROUTES, UNIT_COLOR } from "@/constants";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { cx } from "class-variance-authority";
 import { Search, X } from "lucide-react";

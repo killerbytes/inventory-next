@@ -16,7 +16,7 @@ import {
   updateGoodReceiptAction,
 } from "@/server/actions/goodReceipt.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { goodReceiptItemDefault, ORDER_STATUS } from "@/types/definitions";
+import { goodReceiptItemDefault, ORDER_STATUS } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Save } from "lucide-react";
 import { useRouter } from "next/navigation";

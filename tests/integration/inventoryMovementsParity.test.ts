@@ -1,15 +1,9 @@
 // @vitest-environment node
-import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
-import {
-  InventoryMovement,
-  PriceHistory,
-  Product,
-  ProductCombination,
-  User,
-} from "@/server/models";
+import { INVENTORY_MOVEMENT_TYPE } from "@/constants";
+import { db, pool } from "@/server/db/drizzle";
+import { inventoryMovements, priceHistories } from "@/server/db/schema";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
-import sequelize from "@/server/db/sequelize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -20,9 +14,9 @@ import {
 } from "../utils/fixtures";
 
 describe("Inventory Movements & Parity Integration Tests", () => {
-  let user: User;
-  let product: Product;
-  let combination: ProductCombination;
+  let user: any;
+  let product: any;
+  let combination: any;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -53,25 +47,29 @@ describe("Inventory Movements & Parity Integration Tests", () => {
 
   it("should exclude ADJUSTMENT_OUT from totalAmount and totalQuantity in getMovements summary", async () => {
     // 1. Create an IN movement (qty: 10, totalCost: 1000)
-    await InventoryMovement.create({
+    await db.insert(inventoryMovements).values({
       combinationId: combination.id,
       userId: user.id,
       type: INVENTORY_MOVEMENT_TYPE.IN,
-      quantity: 10,
-      totalCost: 1000,
+      quantity: "10",
+      totalCost: "1000",
       referenceType: "GOOD_RECEIPT",
       referenceId: 101,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // 2. Create an ADJUSTMENT_OUT movement (qty: 3, totalCost: 300)
-    await InventoryMovement.create({
+    await db.insert(inventoryMovements).values({
       combinationId: combination.id,
       userId: user.id,
       type: INVENTORY_MOVEMENT_TYPE.ADJUSTMENT_OUT,
-      quantity: 3,
-      totalCost: 300,
+      quantity: "3",
+      totalCost: "300",
       referenceType: "STOCK_ADJUSTMENT",
       referenceId: 102,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // Act
@@ -92,14 +90,16 @@ describe("Inventory Movements & Parity Integration Tests", () => {
 
   it("should accurately paginate and return distinct counts in getMovements", async () => {
     for (let i = 1; i <= 5; i++) {
-      await InventoryMovement.create({
+      await db.insert(inventoryMovements).values({
         combinationId: combination.id,
         userId: user.id,
         type: INVENTORY_MOVEMENT_TYPE.IN,
-        quantity: i,
-        totalCost: i * 50,
+        quantity: String(i),
+        totalCost: String(i * 50),
         referenceType: "GOOD_RECEIPT",
         referenceId: 200 + i,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 
@@ -116,12 +116,15 @@ describe("Inventory Movements & Parity Integration Tests", () => {
 
   it("should accurately paginate and return distinct counts in getPriceHistory", async () => {
     for (let i = 1; i <= 3; i++) {
-      await PriceHistory.create({
+      await db.insert(priceHistories).values({
         productId: product.id,
         combinationId: combination.id,
-        fromPrice: 100 * i,
-        toPrice: 120 * i,
+        fromPrice: String(100 * i),
+        toPrice: String(120 * i),
         changedBy: user.id,
+        changedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 
@@ -135,33 +138,39 @@ describe("Inventory Movements & Parity Integration Tests", () => {
 
   it("should filter movements by date range with timezone boundary safety", async () => {
     // Arrange: Movement in July
-    const mJuly = await InventoryMovement.create({
+    const [mJuly] = await db.insert(inventoryMovements).values({
       combinationId: combination.id,
       userId: user.id,
       type: INVENTORY_MOVEMENT_TYPE.IN,
-      quantity: 5,
-      totalCost: 500,
+      quantity: "5",
+      totalCost: "500",
       referenceType: "GOOD_RECEIPT",
       referenceId: 301,
-    });
-    await sequelize.query(
-      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-07-31 10:00:00+08' WHERE id = :id`,
-      { replacements: { id: mJuly.id } },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    await pool.query(
+      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-07-31 10:00:00+08' WHERE id = $1`,
+      [mJuly.id],
     );
 
     // Movement in August
-    const mAugust = await InventoryMovement.create({
+    const [mAugust] = await db.insert(inventoryMovements).values({
       combinationId: combination.id,
       userId: user.id,
       type: INVENTORY_MOVEMENT_TYPE.IN,
-      quantity: 10,
-      totalCost: 1000,
+      quantity: "10",
+      totalCost: "1000",
       referenceType: "GOOD_RECEIPT",
       referenceId: 302,
-    });
-    await sequelize.query(
-      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-08-01 00:00:00+08' WHERE id = :id`,
-      { replacements: { id: mAugust.id } },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    await pool.query(
+      `UPDATE "InventoryMovements" SET "updatedAt" = '2026-08-01 00:00:00+08' WHERE id = $1`,
+      [mAugust.id],
     );
 
     // Act

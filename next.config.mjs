@@ -2,7 +2,7 @@
 const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  serverExternalPackages: ["sequelize", "pg", "pg-hstore"],
+  serverExternalPackages: ["pg"],
   async redirects() {
     return [
       {

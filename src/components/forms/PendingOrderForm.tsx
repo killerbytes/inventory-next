@@ -9,7 +9,7 @@ import ProductLookupInput from "@/components/forms/ProductLookupInput";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { GoodReceiptInputSchema, GoodReceiptLineInputSchema, ProductCombinationSchema, SupplierData } from "@/schemas";
-import { goodReceiptItemDefault, UNIT_COLOR } from "@/types/definitions";
+import { goodReceiptItemDefault, UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
 import React from "react";

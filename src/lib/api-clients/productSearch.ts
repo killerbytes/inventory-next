@@ -17,13 +17,11 @@ export const getMappedSearchProductCombinations = async (params: {
     limit: params.limit ?? 20,
     ...params,
   });
-
   const searchResults = Array.isArray(response)
     ? response
     : Array.isArray((response as any)?.data)
       ? (response as any).data
       : [];
-
   const result: any[] = [];
   const words = search
     .toLowerCase()
@@ -38,20 +36,19 @@ export const getMappedSearchProductCombinations = async (params: {
 
     const combinations = isMatch
       ? (item.combinations || []).map((i: any) => ({
-          ...i,
-          name: `${i.name} ***${item.description}***`,
-          product: item,
-        }))
+        ...i,
+        name: `${i.name} ***${item.description}***`,
+        product: item,
+      }))
       : (item.combinations || []).map((i: any) => ({
-          ...i,
-          product: item,
-        }));
+        ...i,
+        product: item,
+      }));
 
     const filtered = (combinations ?? []).filter((i: any) => {
       const name = (i.name || "").toLowerCase();
       return words.every((word) => name.includes(word));
     });
-
     result.push(...filtered);
   }
 

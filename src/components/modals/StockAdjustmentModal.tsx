@@ -8,7 +8,7 @@ import { useUIStore } from "@/stores/uiStore";
 import {
   STOCK_ADJUSTMENT_TYPE,
   STOCK_ADJUSTMENT_TYPE_OPTIONS,
-} from "@/types/definitions";
+} from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";

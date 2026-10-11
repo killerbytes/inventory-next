@@ -1,37 +1,45 @@
-import sequelize from "@/server/db/sequelize";
+import { db } from "@/server/db/drizzle";
 import {
-  BreakPack,
-  Inventory,
-  InventoryMovement,
-  PriceHistory,
-  Product,
-  ProductCombination,
-  SalesOrder,
-  SalesOrderItem,
-  StockAdjustment,
-  User,
-} from "@/server/models";
-import { PAGINATION } from "@/types/definitions";
-import { Op } from "sequelize";
+  breakPacks,
+  inventories,
+  inventoryMovements,
+  priceHistories,
+  productCombinations,
+  salesOrders,
+  salesOrderItems,
+  stockAdjustments,
+} from "@/server/db/schema";
+import { PAGINATION } from "@/constants";
+import {
+  eq,
+  and,
+  isNull,
+  desc,
+  asc,
+  gte,
+  lte,
+  ilike,
+  or,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 import "server-only";
 import {
   GetReordersLevelsInput,
   inventoryServerService,
 } from "./inventoryServer.service";
-import { buildDateFilter } from "./dateFilter";
+import { getDateBounds } from "./dateFilter";
 
 export const reportsServerService = {
   getPriceHistory: async () => {
-    return await PriceHistory.findAll({
-      include: [
-        {
-          model: ProductCombination,
-          as: "combination",
-          include: [{ model: Product, as: "product" }],
+    return await db.query.priceHistories.findMany({
+      with: {
+        combination: {
+          with: { product: true },
         },
-        { model: User, as: "user" },
-      ],
-      order: [["id", "DESC"]],
+        user: true,
+      },
+      orderBy: (tbl, { desc }) => [desc(tbl.id)],
     });
   },
 
@@ -46,39 +54,41 @@ export const reportsServerService = {
           ? (page - 1) * limit
           : undefined;
 
-    const queryOptions: any = {
-      include: [
-        {
-          model: ProductCombination,
-          as: "fromCombination",
-          include: [{ model: Product, as: "product" }],
-        },
-        {
-          model: ProductCombination,
-          as: "toCombination",
-          include: [{ model: Product, as: "product" }],
-        },
-        { model: User, as: "user" },
-      ],
-      order: [["id", "DESC"]],
-    };
-
     if (limit !== undefined) {
-      queryOptions.limit = limit;
-      queryOptions.offset = offset || 0;
-      queryOptions.distinct = true;
-      const { count, rows } = await BreakPack.findAndCountAll(queryOptions);
+      const [countRes] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(breakPacks);
+      const total = countRes?.count ?? 0;
+
+      const rows = await db.query.breakPacks.findMany({
+        with: {
+          fromCombination: { with: { product: true } },
+          toCombination: { with: { product: true } },
+          user: true,
+        },
+        orderBy: (tbl, { desc }) => [desc(tbl.id)],
+        limit,
+        offset: offset || 0,
+      });
+
       return {
         rows,
         meta: {
-          total: count,
-          totalPages: Math.ceil(count / limit),
+          total,
+          totalPages: Math.ceil(total / limit),
           currentPage: page || 1,
         },
       };
     }
 
-    return await BreakPack.findAll(queryOptions);
+    return await db.query.breakPacks.findMany({
+      with: {
+        fromCombination: { with: { product: true } },
+        toCombination: { with: { product: true } },
+        user: true,
+      },
+      orderBy: (tbl, { desc }) => [desc(tbl.id)],
+    });
   },
 
   getPopularProducts: async (params: any = {}) => {
@@ -92,70 +102,74 @@ export const reportsServerService = {
     } = params;
     const offset = (page - 1) * limit;
 
-    const salesOrderWhere: any = {
-      status: "RECEIVED",
-    };
-    const dateFilter = buildDateFilter(startDate, endDate);
-    if (dateFilter) {
-      salesOrderWhere.orderDate = dateFilter;
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
+    const orderConditions: any[] = [
+      eq(salesOrders.status, "RECEIVED"),
+      isNull(salesOrders.deletedAt),
+      isNull(salesOrderItems.deletedAt),
+    ];
+    if (startBound) {
+      orderConditions.push(gte(salesOrders.orderDate, startBound));
+    }
+    if (endBound) {
+      orderConditions.push(lte(salesOrders.orderDate, endBound));
     }
 
-    const orderByMap: Record<string, any> = {
-      name: [{ model: ProductCombination, as: "combinations" }, "name"],
-      transactionCount: [sequelize.literal('"transactionCount"'), order],
-    };
+    const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
+    let orderExpression: any = orderDir(sql`count(distinct ${salesOrders.id})`);
+    if (sort === "name") {
+      orderExpression = orderDir(productCombinations.name);
+    }
 
-    const orderBy = orderByMap[sort] || [
-      sequelize.literal('"transactionCount"'),
-      order,
-    ];
-
-    const rows = await SalesOrderItem.findAll({
-      attributes: [
-        "combinationId",
-        [
-          sequelize.fn(
-            "COUNT",
-            sequelize.fn("DISTINCT", sequelize.col("salesOrder.id")),
-          ),
+    const baseQuery = db
+      .select({
+        combinationId: salesOrderItems.combinationId,
+        combinationName: productCombinations.name,
+        transactionCount: sql<number>`count(distinct ${salesOrders.id})::int`.as(
           "transactionCount",
-        ],
-      ],
-      include: [
-        {
-          model: SalesOrder,
-          as: "salesOrder",
-          attributes: [],
-          where: salesOrderWhere,
-        },
-        {
-          model: ProductCombination,
-          as: "combination",
-        },
-      ],
-      group: ["combinationId", "combination.id"],
-      order: [orderBy],
-      limit,
-      offset,
-    });
+        ),
+      })
+      .from(salesOrderItems)
+      .innerJoin(salesOrders, eq(salesOrderItems.salesOrderId, salesOrders.id))
+      .leftJoin(
+        productCombinations,
+        eq(salesOrderItems.combinationId, productCombinations.id),
+      )
+      .where(and(...orderConditions))
+      .groupBy(
+        salesOrderItems.combinationId,
+        productCombinations.id,
+        productCombinations.name,
+      );
 
-    const count = await SalesOrderItem.count({
-      distinct: true,
-      col: "combinationId",
-      include: [
-        {
-          model: SalesOrder,
-          as: "salesOrder",
-          where: salesOrderWhere,
-        },
-      ],
-    });
+    const rows = await baseQuery
+      .orderBy(orderExpression)
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(baseQuery.as("subquery"));
+    const total = countQuery[0]?.count ?? 0;
+
+    const data = rows.map((r) => ({
+      combinationId: r.combinationId,
+      transactionCount: r.transactionCount,
+      combination: {
+        id: r.combinationId,
+        name: r.combinationName,
+      },
+      combinations: {
+        id: r.combinationId,
+        name: r.combinationName,
+      },
+    }));
 
     return {
-      data: rows.map(i => i.get({ plain: true })),
+      data,
       meta: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
       },
     };
@@ -165,61 +179,50 @@ export const reportsServerService = {
     const { limit = 50, page = 1 } = params;
     const offset = (page - 1) * limit;
 
-    const rows = await SalesOrderItem.findAll({
-      attributes: [
-        "combinationId",
-        "nameSnapshot",
-        "unit",
-        [
-          sequelize.literal(`SUM("SalesOrderItem"."quantity")`),
+    const baseQuery = db
+      .select({
+        combinationId: salesOrderItems.combinationId,
+        nameSnapshot: salesOrderItems.nameSnapshot,
+        unit: salesOrderItems.unit,
+        totalQuantity: sql<number>`sum(${salesOrderItems.quantity})::numeric`.as(
           "totalQuantity",
-        ],
-        [
-          sequelize.literal(
-            `SUM(("SalesOrderItem"."purchasePrice" - COALESCE("combinations->inventory"."averagePrice", 0)) * "SalesOrderItem"."quantity")`,
-          ),
+        ),
+        totalProfit: sql<number>`sum((${salesOrderItems.purchasePrice} - coalesce(${inventories.averagePrice}, 0)) * ${salesOrderItems.quantity})::numeric`.as(
           "totalProfit",
-        ],
-      ],
-      include: [
-        {
-          model: SalesOrder,
-          as: "salesOrder",
-        },
-        {
-          model: ProductCombination,
-          as: "combinations",
-          include: [
-            {
-              model: Inventory,
-              as: "inventory",
-              attributes: ["averagePrice"],
-            },
-          ],
-        },
-      ],
-      group: [
-        "SalesOrderItem.nameSnapshot",
-        "SalesOrderItem.unit",
-        "salesOrder.id",
-        "SalesOrderItem.combinationId",
-        "combinations.id",
-        "combinations->inventory.id",
-      ],
-      limit,
-      offset,
-    });
+        ),
+      })
+      .from(salesOrderItems)
+      .innerJoin(salesOrders, eq(salesOrderItems.salesOrderId, salesOrders.id))
+      .leftJoin(
+        productCombinations,
+        eq(salesOrderItems.combinationId, productCombinations.id),
+      )
+      .leftJoin(
+        inventories,
+        eq(productCombinations.id, inventories.combinationId),
+      )
+      .where(isNull(salesOrderItems.deletedAt))
+      .groupBy(
+        salesOrderItems.combinationId,
+        salesOrderItems.nameSnapshot,
+        salesOrderItems.unit,
+      );
 
-    const count = await SalesOrderItem.count({
-      distinct: true,
-      col: "combinationId",
-    });
+    const rows = await baseQuery.limit(limit).offset(offset);
+
+    const countQuery = await db
+      .select({
+        count: sql<number>`count(distinct ${salesOrderItems.combinationId})::int`,
+      })
+      .from(salesOrderItems)
+      .where(isNull(salesOrderItems.deletedAt));
+    const total = countQuery[0]?.count ?? 0;
 
     return {
       data: rows,
       meta: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
       },
     };
@@ -234,138 +237,147 @@ export const reportsServerService = {
       q,
       startDate = null,
       endDate = null,
-      status,
     } = params;
     const offset = (page - 1) * limit;
 
-    const where: any = { "$salesOrderItems.id$": null };
+    const soldSubquery = db
+      .select({ combinationId: salesOrderItems.combinationId })
+      .from(salesOrderItems)
+      .innerJoin(
+        salesOrders,
+        and(
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+          eq(salesOrders.status, "RECEIVED"),
+          isNull(salesOrders.deletedAt),
+        ),
+      )
+      .where(isNull(salesOrderItems.deletedAt));
+
+    const conditions: any[] = [
+      isNull(productCombinations.deletedAt),
+      sql`${inventories.quantity} > 0`,
+      notInArray(productCombinations.id, soldSubquery),
+    ];
 
     if (q) {
-      where[Op.or] = [
-        { name: { [Op.iLike]: `%${q}%` } },
-        { sku: { [Op.iLike]: `%${q}%` } },
-      ];
-    }
-    if (status) {
-      where.status = status;
-    }
-    const dateFilter = buildDateFilter(startDate, endDate);
-    if (dateFilter) {
-      where.createdAt = dateFilter;
+      conditions.push(
+        or(
+          ilike(productCombinations.name, `%${q}%`),
+          ilike(productCombinations.sku, `%${q}%`),
+        ),
+      );
     }
 
-    const orderByMap: Record<string, any> = {
-      quantity: [sequelize.literal('"inventory.quantity"'), order],
-    };
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
+    if (startBound) {
+      conditions.push(gte(productCombinations.createdAt, startBound));
+    }
+    if (endBound) {
+      conditions.push(lte(productCombinations.createdAt, endBound));
+    }
 
-    const orderBy = orderByMap[sort] || [sort, order];
+    const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
+    let orderExpression: any = orderDir(inventories.quantity);
+    if (sort === "name") {
+      orderExpression = orderDir(productCombinations.name);
+    }
 
-    const { rows, count } = await ProductCombination.findAndCountAll({
-      include: [
-        {
-          model: Inventory,
-          as: "inventory",
-          where: {
-            quantity: { [Op.gt]: 0 },
-          },
+    const baseQuery = db
+      .select({
+        id: productCombinations.id,
+        productId: productCombinations.productId,
+        name: productCombinations.name,
+        sku: productCombinations.sku,
+        unit: productCombinations.unit,
+        price: productCombinations.price,
+        conversionFactor: productCombinations.conversionFactor,
+        reorderLevel: productCombinations.reorderLevel,
+        isBreakPack: productCombinations.isBreakPack,
+        isBreakPackOfId: productCombinations.isBreakPackOfId,
+        isActive: productCombinations.isActive,
+        createdAt: productCombinations.createdAt,
+        updatedAt: productCombinations.updatedAt,
+        inventory: {
+          id: inventories.id,
+          quantity: inventories.quantity,
+          averagePrice: inventories.averagePrice,
         },
-        {
-          model: SalesOrderItem,
-          as: "salesOrderItems",
-          required: false,
-          attributes: [],
-          include: [
-            {
-              model: SalesOrder,
-              as: "salesOrder",
-              required: true,
-              attributes: [],
-              where: {
-                status: "RECEIVED",
-              },
-            },
-          ],
-        },
-      ],
-      where,
-      order: [orderBy],
-      limit,
-      offset,
-      distinct: true,
-      subQuery: false,
-    });
+      })
+      .from(productCombinations)
+      .innerJoin(
+        inventories,
+        eq(productCombinations.id, inventories.combinationId),
+      )
+      .where(and(...conditions));
+
+    const rows = await baseQuery
+      .orderBy(orderExpression)
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(baseQuery.as("subquery"));
+    const total = countQuery[0]?.count ?? 0;
 
     return {
-      data: rows.map(i => (i.get ? i.get({ plain: true }) : i)),
+      data: rows,
       meta: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
       },
     };
   },
 
   getInventoryValue: async () => {
-    const result: any = await Inventory.unscoped().findOne({
-      attributes: [
-        [sequelize.literal('SUM("quantity" * "averagePrice")'), "totalValue"],
-      ],
-      raw: true,
-      order: [],
-    });
+    const [res] = await db
+      .select({
+        totalValue: sql<string>`coalesce(sum(${inventories.quantity} * ${inventories.averagePrice}), 0)`,
+      })
+      .from(inventories)
+      .where(isNull(inventories.deletedAt));
 
     return {
-      totalValue: parseFloat(result?.totalValue) || 0,
+      totalValue: parseFloat(res?.totalValue ?? "0") || 0,
     };
   },
 
   getInventoryValueFromMovements: async () => {
-    const result: any = await InventoryMovement.unscoped().findOne({
-      attributes: [
-        [sequelize.fn("SUM", sequelize.col("totalCost")), "totalValue"],
-      ],
-      raw: true,
-      order: [],
-    });
+    const [res] = await db
+      .select({
+        totalValue: sql<string>`coalesce(sum(${inventoryMovements.totalCost}), 0)`,
+      })
+      .from(inventoryMovements);
 
     return {
-      totalValue: parseFloat(result?.totalValue) || 0,
+      totalValue: parseFloat(res?.totalValue ?? "0") || 0,
     };
   },
 
-  /**
-   * Retrieves products and combinations below their reorder level threshold that have sales history.
-   * Aligns with inventory-api `inventoryService.getReordersLevels`.
-   *
-   * @param params Pagination and sorting parameters (limit, page, sort, order)
-   * @returns Paginated list of low-stock inventory records with combination details and transaction stats
-   */
   getReorderLevels: async (params: GetReordersLevelsInput = {}) => {
     return await inventoryServerService.getReordersLevels(params);
   },
 
-  /**
-   * Retrieves product combinations with inventory stock (> 0) that have no sales history in completed (RECEIVED) sales orders.
-   * Aligns with inventory-api `reportsService.noSaleProducts`.
-   *
-   * @param params Pagination, filtering, and sorting parameters (limit, page, sort, order, q, startDate, endDate)
-   * @returns Paginated list of no-sale product combinations with inventory details
-   */
   getNoSales: async (params: any = {}) => {
     return await reportsServerService.noSaleProducts(params);
   },
 
   getProfitSummary: async () => {
-    const orders = await SalesOrder.findAll({
-      include: [{ model: SalesOrderItem, as: "salesOrderItems" }],
+    const orders = await db.query.salesOrders.findMany({
+      where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+      with: {
+        salesOrderItems: true,
+      },
     });
+
     const totalSales = orders.reduce(
       (acc, o) => acc + Number(o.totalAmount || 0),
       0,
     );
     let totalCost = 0;
     for (const order of orders) {
-      const items = (order as any).salesOrderItems || [];
+      const items = order.salesOrderItems || [];
       for (const item of items) {
         const qty = Number(item.quantity || 0);
         const origPrice = Number(item.originalPrice || item.purchasePrice || 0);
@@ -384,16 +396,21 @@ export const reportsServerService = {
   },
 
   getStockAdjustments: async () => {
-    return await StockAdjustment.findAll({
-      include: [
-        {
-          model: ProductCombination,
-          as: "combination",
-          include: [{ model: Product, as: "product" }],
+    const rows = await db.query.stockAdjustments.findMany({
+      with: {
+        combination: {
+          with: { product: true },
         },
-        { model: User, as: "user" },
-      ],
-      order: [["id", "DESC"]],
+        user: true,
+      },
+      orderBy: (tbl, { desc }) => [desc(tbl.id)],
     });
+
+    return rows.map((r) => ({
+      ...r,
+      systemQuantity: Number(r.systemQuantity),
+      newQuantity: Number(r.newQuantity),
+      difference: Number(r.difference),
+    }));
   },
 };

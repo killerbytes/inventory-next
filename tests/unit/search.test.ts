@@ -49,25 +49,62 @@ describe("buildTsQuery (Unit)", () => {
 });
 
 describe("productCombinationServerService.search SQL Parity (Unit)", () => {
-  it("should not group by pc.unit or select pc.unit at product level", async () => {
-    const { sequelize } = await import("@/server/models");
+  it("should execute search query using Drizzle db.execute and project products with combinations", async () => {
+    const { db } = await import("@/server/db/drizzle");
     const { productCombinationServerService } = await import(
       "@/server/services/productCombinationServer.service"
     );
 
-    const querySpy = vi.spyOn(sequelize, "query").mockResolvedValue([] as any);
+    const mockProductRows = [
+      {
+        id: 1,
+        name: "Steel Pipe",
+        description: "Heavy structural pipe",
+        categoryId: 5,
+        combinations: [
+          {
+            id: 101,
+            productId: 1,
+            name: "Steel Pipe - 2 inch",
+            sku: "SP-2",
+            unit: "PCS",
+            price: "150.00",
+            inventory: { id: 10, quantity: 10, averagePrice: "120.00" },
+          },
+        ],
+      },
+    ];
 
-    await productCombinationServerService.search({ search: "pipe" });
+    const executeSpy = vi
+      .spyOn(db, "execute")
+      .mockResolvedValue({ rows: mockProductRows } as any);
 
-    expect(querySpy).toHaveBeenCalled();
-    const sqlExecuted = querySpy.mock.calls[0][0] as string;
+    const results = await productCombinationServerService.search({ search: "pipe" });
 
-    // Verify it groups strictly by product to avoid splitting combinations
-    expect(sqlExecuted).not.toContain('pc."unit",');
-    expect(sqlExecuted).not.toContain('GROUP BY p.id, p.name, pc."unit"');
-    expect(sqlExecuted).toContain("GROUP BY p.id, p.name");
+    expect(executeSpy).toHaveBeenCalled();
+    const sqlArg = executeSpy.mock.calls[0][0];
+    const sqlText = (sqlArg as any)?.queryChunks
+      ? (sqlArg as any).queryChunks
+        .map((c: any) => (typeof c === "string" ? c : c?.value || ""))
+        .join("")
+      : "";
 
-    querySpy.mockRestore();
+    expect(sqlText).toContain('p.id');
+    expect(sqlText).toContain('p.name');
+    expect(sqlText).toContain('p.description');
+    expect(sqlText).toContain('p."categoryId"');
+    expect(sqlText).toContain('"combinations"');
+    expect(sqlText).toContain('GROUP BY');
+    expect(results).toHaveLength(1);
+    expect(results[0]).toHaveProperty("id", 1);
+    expect(results[0]).toHaveProperty("name", "Steel Pipe");
+    expect(results[0]).toHaveProperty("description", "Heavy structural pipe");
+    expect(results[0]).toHaveProperty("categoryId", 5);
+    expect(results[0]).toHaveProperty("combinations");
+    expect(results[0].combinations).toHaveLength(1);
+    expect(results[0].combinations[0]).toHaveProperty("id", 101);
+
+    executeSpy.mockRestore();
   });
 });
 

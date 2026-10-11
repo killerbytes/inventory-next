@@ -20,7 +20,7 @@ import {
 } from "@/server/actions/invoice.actions";
 import { getSuppliersAction } from "@/server/actions/supplier.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { INVOICE_STATUS, STATUS_COLOR } from "@/types/definitions";
+import { INVOICE_STATUS, STATUS_COLOR } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ColumnDef } from "@tanstack/react-table";
 import { addWeeks, format } from "date-fns";

@@ -1,6 +1,6 @@
 import GoodReceiptModal from "@/components/modals/GoodReceiptModal";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS } from "@/types/definitions";
+import { ORDER_STATUS } from "@/constants";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

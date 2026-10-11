@@ -1,4 +1,4 @@
-import { Inventory } from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
 import { salesServerService } from "@/server/services/salesServer.service";
 import { resetDatabase, setupDatabase } from "../setup";
@@ -89,11 +89,12 @@ describe("Inventory Concurrency (Integration)", () => {
     const fulfilled = results.filter((r) => r.status === "fulfilled");
     const rejected = results.filter((r) => r.status === "rejected");
 
-    const inventory = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inventory = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
 
     expect(Number(inventory?.quantity)).toBeGreaterThanOrEqual(0);
+
 
     if (fulfilled.length === 1) {
       expect(Number(inventory?.quantity)).toBe(0);

@@ -12,7 +12,7 @@ import {
   Pagination,
   PAGINATION,
   STATUS_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";

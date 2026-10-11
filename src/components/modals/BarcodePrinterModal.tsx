@@ -11,7 +11,7 @@ import Barcode from "react-barcode";
 import Modal from "../common/Modal";
 import { formatCurrency } from "@/lib/utils";
 import ColorBadge from "../common/ColorBadge";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 
 function BarcodePrinterModalContent({
   combinations,

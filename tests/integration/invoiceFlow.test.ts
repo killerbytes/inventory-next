@@ -1,328 +1,252 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import sequelize from "@/server/db/sequelize";
-import {
-  Category,
-  GoodReceipt,
-  GoodReceiptLine,
-  Invoice,
-  InvoiceLine,
-  Payment,
-  PaymentApplication,
-  Product,
-  ProductCombination,
-  ReturnTransaction,
-  Supplier,
-  User,
-} from "@/server/models";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { db } from "@/server/db/drizzle";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import { paymentServerService } from "@/server/services/paymentServer.service";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
-import { INVOICE_STATUS, ORDER_STATUS, ORDER_TYPE } from "@/types/definitions";
+import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
+import { INVOICE_STATUS, ORDER_STATUS, ORDER_TYPE } from "@/constants";
+import { resetDatabase, setupDatabase } from "../setup";
+import {
+  createCategory,
+  createCombination,
+  createProduct,
+  createSupplier,
+  createUser,
+} from "../utils/fixtures";
 
 describe("Invoices Flow & Side Effects Integration Tests", () => {
-  let testSupplier: Supplier;
-  let testCategory: Category;
-  let testProduct: Product;
-  let testCombo: ProductCombination;
-  let testUser: User;
+  let testSupplier: any;
+  let testCategory: any;
+  let testProduct: any;
+  let testCombo: any;
+  let testUser: any;
 
   beforeAll(async () => {
-    await sequelize.authenticate();
-
-    testSupplier = await Supplier.create({
-      name: `Supplier ${Date.now()}`,
-      contact: "Test Contact",
-      email: `supplier_${Date.now()}@example.com`,
-    });
-
-    testCategory = await Category.create({
-      name: `Category ${Date.now()}`,
-      order: 1,
-    });
-
-    testProduct = await Product.create({
-      name: `Product ${Date.now()}`,
-      categoryId: testCategory.id,
-      baseUnit: "PCS",
-    });
-
-    testCombo = await ProductCombination.create({
-      name: "Test Combo",
-      productId: testProduct.id,
-      unit: "PCS",
-      price: 100,
-    });
-
-    // Ensure a default user exists for changedBy foreign keys
-    testUser = await User.findOne() || await User.create({
-      name: "System Tester",
-      username: `tester_${Date.now()}`,
-      email: `tester_${Date.now()}@example.com`,
-      password: "hashedpassword",
-      role: "ADMIN",
-    });
+    await setupDatabase();
   });
 
-  afterAll(async () => {
-    if (testSupplier) {
-      await PaymentApplication.destroy({ where: {}, force: true });
-      await Payment.destroy({ where: { supplierId: testSupplier.id }, force: true });
-      await InvoiceLine.destroy({ where: {}, force: true });
-      await Invoice.destroy({ where: { supplierId: testSupplier.id }, force: true });
-      await GoodReceiptLine.destroy({ where: {}, force: true });
-      await GoodReceipt.destroy({ where: { supplierId: testSupplier.id }, force: true });
-      await testSupplier.destroy({ force: true });
-    }
-    if (testCombo) await testCombo.destroy({ force: true });
-    if (testProduct) await testProduct.destroy({ force: true });
-    if (testCategory) await testCategory.destroy({ force: true });
+  beforeEach(async () => {
+    await resetDatabase();
+    testUser = await createUser(0);
+    testSupplier = await createSupplier(0);
+    testCategory = await createCategory(0);
+    testProduct = await createProduct(0);
+
+    await createCombination(
+      [
+        {
+          name: "Test Combo",
+          unit: "PCS",
+          price: 100,
+          conversionFactor: 1,
+          reorderLevel: 1,
+          values: [],
+        },
+      ],
+      testProduct.id,
+      testUser.id,
+    );
+    const combos = await productCombinationServerService.getByProductId(testProduct.id);
+    testCombo = combos.combinations[0];
   });
+
+  const createReceivedReceipt = async (amount = 500) => {
+    const qty = Math.max(1, Math.floor(amount / 50));
+    const gr = await goodReceiptServerService.create(
+      {
+        supplierId: testSupplier.id,
+        referenceNo: `GR-${Date.now()}`,
+        receiptDate: new Date(),
+        goodReceiptLines: [
+          { combinationId: testCombo.id, quantity: qty, purchasePrice: 50 },
+        ],
+      },
+      testUser.id,
+    );
+    await goodReceiptServerService.update(
+      gr.id,
+      {
+        status: ORDER_STATUS.RECEIVED,
+        goodReceiptLines: [
+          { combinationId: testCombo.id, quantity: qty, purchasePrice: 50 },
+        ],
+      },
+      testUser.id,
+    );
+    return gr;
+  };
 
   it("creates an invoice in DRAFT state and preserves GoodReceipt status as RECEIVED", async () => {
-    const gr = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-DRAFT-${Date.now()}`,
-      totalAmount: 500,
-      status: ORDER_STATUS.RECEIVED,
-      receiptDate: new Date(),
-    } as any);
+    const gr = await createReceivedReceipt(500);
 
-    let createdInvoice: any = null;
-    try {
-      createdInvoice = await invoiceServerService.create(
-        {
-          supplierId: testSupplier.id,
-          invoiceNumber: `INV-DRAFT-${Date.now()}`,
-          invoiceDate: new Date(),
-          dueDate: new Date(),
-          status: INVOICE_STATUS.DRAFT,
-          invoiceLines: [{ goodReceiptId: gr.id, amount: 500 }],
-        },
-        testUser.id
-      );
+    const createdInvoice = await invoiceServerService.create(
+      {
+        supplierId: testSupplier.id,
+        invoiceNumber: `INV-DRAFT-${Date.now()}`,
+        invoiceDate: new Date(),
+        dueDate: new Date(),
+        status: INVOICE_STATUS.DRAFT,
+        invoiceLines: [{ goodReceiptId: gr.id, amount: 500 }],
+      },
+      testUser.id,
+    );
 
-      expect(createdInvoice).toBeDefined();
-      expect(createdInvoice.status).toBe(INVOICE_STATUS.DRAFT);
-      expect(Number(createdInvoice.totalAmount)).toBe(500);
+    expect(createdInvoice).toBeDefined();
+    expect(createdInvoice.status).toBe(INVOICE_STATUS.DRAFT);
+    expect(Number(createdInvoice.totalAmount)).toBe(500);
 
-      // Verify GoodReceipt is STILL RECEIVED (not completed yet)
-      const refreshedGr = await GoodReceipt.findByPk(gr.id);
-      expect(refreshedGr?.status).toBe(ORDER_STATUS.RECEIVED);
-    } finally {
-      if (createdInvoice) {
-        await InvoiceLine.destroy({ where: { invoiceId: createdInvoice.id } });
-        await Invoice.destroy({ where: { id: createdInvoice.id }, force: true });
-      }
-      await gr.destroy({ force: true });
-    }
+    // Verify GoodReceipt is STILL RECEIVED (not completed yet)
+    const refreshedGr = await goodReceiptServerService.get(gr.id);
+    expect(refreshedGr?.status).toBe(ORDER_STATUS.RECEIVED);
   });
 
   it("transitions linked GoodReceipt to COMPLETED atomically when Invoice is POSTED", async () => {
-    const gr = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-POSTED-${Date.now()}`,
-      totalAmount: 1000,
-      status: ORDER_STATUS.RECEIVED,
-      receiptDate: new Date(),
-    } as any);
+    const gr = await createReceivedReceipt(1000);
 
-    let createdInvoice: any = null;
-    try {
-      createdInvoice = await invoiceServerService.create(
-        {
-          supplierId: testSupplier.id,
-          invoiceNumber: `INV-POSTED-${Date.now()}`,
-          invoiceDate: new Date(),
-          dueDate: new Date(),
-          status: INVOICE_STATUS.POSTED,
-          invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
-        },
-        testUser.id
-      );
+    const createdInvoice = await invoiceServerService.create(
+      {
+        supplierId: testSupplier.id,
+        invoiceNumber: `INV-POSTED-${Date.now()}`,
+        invoiceDate: new Date(),
+        dueDate: new Date(),
+        status: INVOICE_STATUS.POSTED,
+        invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
+      },
+      testUser.id,
+    );
 
-      expect(createdInvoice).toBeDefined();
-      expect(createdInvoice.status).toBe(INVOICE_STATUS.POSTED);
+    expect(createdInvoice).toBeDefined();
+    expect(createdInvoice.status).toBe(INVOICE_STATUS.POSTED);
 
-      // Verify GoodReceipt was atomically transitioned to COMPLETED
-      const refreshedGr = await GoodReceipt.findByPk(gr.id);
-      expect(refreshedGr?.status).toBe(ORDER_STATUS.COMPLETED);
-    } finally {
-      if (createdInvoice) {
-        await InvoiceLine.destroy({ where: { invoiceId: createdInvoice.id } });
-        await Invoice.destroy({ where: { id: createdInvoice.id }, force: true });
-      }
-      await gr.destroy({ force: true });
-    }
+    // Verify GoodReceipt was atomically transitioned to COMPLETED
+    const refreshedGr = await goodReceiptServerService.get(gr.id);
+    expect(refreshedGr?.status).toBe(ORDER_STATUS.COMPLETED);
   });
 
   it("enforces deletion guard: non-DRAFT invoice cannot be deleted", async () => {
-    const gr = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-GUARD-${Date.now()}`,
-      totalAmount: 600,
-      status: ORDER_STATUS.RECEIVED,
-      receiptDate: new Date(),
-    } as any);
+    const gr = await createReceivedReceipt(600);
 
-    let postedInvoice: any = null;
-    try {
-      postedInvoice = await invoiceServerService.create(
-        {
-          supplierId: testSupplier.id,
-          invoiceNumber: `INV-GUARD-${Date.now()}`,
-          invoiceDate: new Date(),
-          dueDate: new Date(),
-          status: INVOICE_STATUS.POSTED,
-          invoiceLines: [{ goodReceiptId: gr.id, amount: 600 }],
-        },
-        testUser.id
-      );
+    const postedInvoice = await invoiceServerService.create(
+      {
+        supplierId: testSupplier.id,
+        invoiceNumber: `INV-GUARD-${Date.now()}`,
+        invoiceDate: new Date(),
+        dueDate: new Date(),
+        status: INVOICE_STATUS.POSTED,
+        invoiceLines: [{ goodReceiptId: gr.id, amount: 600 }],
+      },
+      testUser.id,
+    );
 
-      // Attempting to delete POSTED invoice must reject
-      await expect(invoiceServerService.delete(postedInvoice.id)).rejects.toThrow(
-        "Invoice is not in a valid state"
-      );
-    } finally {
-      if (postedInvoice) {
-        // Manually revert to DRAFT to clean up
-        await Invoice.update({ status: INVOICE_STATUS.DRAFT }, { where: { id: postedInvoice.id } });
-        await invoiceServerService.delete(postedInvoice.id);
-        await Invoice.destroy({ where: { id: postedInvoice.id }, force: true });
-      }
-      await gr.destroy({ force: true });
-    }
+    // Attempting to delete POSTED invoice must reject
+    await expect(invoiceServerService.delete(postedInvoice.id)).rejects.toThrow(
+      "Invoice is not in a valid state",
+    );
   });
 
   it("applies payment, records amountRemaining, and transitions status to PARTIALLY_PAID then PAID", async () => {
-    const gr = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-PAY-${Date.now()}`,
-      totalAmount: 1000,
-      status: ORDER_STATUS.RECEIVED,
-      receiptDate: new Date(),
-    } as any);
+    const gr = await createReceivedReceipt(1000);
 
-    let invoice: any = null;
-    let payment1: any = null;
-    let payment2: any = null;
+    const invoice = await invoiceServerService.create(
+      {
+        supplierId: testSupplier.id,
+        invoiceNumber: `INV-PAY-${Date.now()}`,
+        invoiceDate: new Date(),
+        dueDate: new Date(),
+        status: INVOICE_STATUS.POSTED,
+        invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
+      },
+      testUser.id,
+    );
 
-    try {
-      invoice = await invoiceServerService.create(
-        {
-          supplierId: testSupplier.id,
-          invoiceNumber: `INV-PAY-${Date.now()}`,
-          invoiceDate: new Date(),
-          dueDate: new Date(),
-          status: INVOICE_STATUS.POSTED,
-          invoiceLines: [{ goodReceiptId: gr.id, amount: 1000 }],
-        },
-        testUser.id
-      );
+    // Step 1: Partial payment of 400
+    const payment1 = await paymentServerService.create(
+      {
+        supplierId: testSupplier.id,
+        amount: 400,
+        paymentMethod: "CHECK",
+        referenceNo: "CHK-1001",
+        applications: [{ invoiceId: invoice.id, amountApplied: 400 }],
+      },
+      testUser.id,
+    );
 
-      // Step 1: Partial payment of 400
-      payment1 = await paymentServerService.create(
-        {
-          supplierId: testSupplier.id,
-          amount: 400,
-          paymentMethod: "CHECK",
-          referenceNo: "CHK-1001",
-          applications: [{ invoiceId: invoice.id, amountApplied: 400 }],
-        },
-        testUser.id
-      );
+    expect(payment1).toBeDefined();
+    const app1 = await db.query.paymentApplications.findFirst({
+      where: (pa, { eq, and }) =>
+        and(eq(pa.paymentId, payment1.id), eq(pa.invoiceId, invoice.id)),
+    });
+    expect(app1).toBeDefined();
+    expect(Number(app1?.amountApplied)).toBe(400);
+    expect(Number(app1?.amountRemaining)).toBe(600);
 
-      expect(payment1).toBeDefined();
-      const app1 = await PaymentApplication.findOne({
-        where: { paymentId: payment1.id, invoiceId: invoice.id },
-      });
-      expect(app1).toBeDefined();
-      expect(Number(app1?.amountApplied)).toBe(400);
-      expect(Number(app1?.amountRemaining)).toBe(600);
+    const partialInvoice = await invoiceServerService.get(invoice.id);
+    expect(partialInvoice?.status).toBe(INVOICE_STATUS.PARTIALLY_PAID);
 
-      const partialInvoice = await Invoice.findByPk(invoice.id);
-      expect(partialInvoice?.status).toBe(INVOICE_STATUS.PARTIALLY_PAID);
+    // Step 2: Final payment of remaining 600
+    const payment2 = await paymentServerService.create(
+      {
+        supplierId: testSupplier.id,
+        amount: 600,
+        paymentMethod: "BANK_TRANSFER",
+        referenceNo: "WIRE-2002",
+        applications: [{ invoiceId: invoice.id, amountApplied: 600 }],
+      },
+      testUser.id,
+    );
 
-      // Step 2: Final payment of remaining 600
-      payment2 = await paymentServerService.create(
-        {
-          supplierId: testSupplier.id,
-          amount: 600,
-          paymentMethod: "BANK_TRANSFER",
-          referenceNo: "WIRE-2002",
-          applications: [{ invoiceId: invoice.id, amountApplied: 600 }],
-        },
-        testUser.id
-      );
+    expect(payment2).toBeDefined();
+    const app2 = await db.query.paymentApplications.findFirst({
+      where: (pa, { eq, and }) =>
+        and(eq(pa.paymentId, payment2.id), eq(pa.invoiceId, invoice.id)),
+    });
+    expect(app2).toBeDefined();
+    expect(Number(app2?.amountApplied)).toBe(600);
+    expect(Number(app2?.amountRemaining)).toBe(0);
 
-      expect(payment2).toBeDefined();
-      const app2 = await PaymentApplication.findOne({
-        where: { paymentId: payment2.id, invoiceId: invoice.id },
-      });
-      expect(app2).toBeDefined();
-      expect(Number(app2?.amountApplied)).toBe(600);
-      expect(Number(app2?.amountRemaining)).toBe(0);
-
-      const paidInvoice = await Invoice.findByPk(invoice.id);
-      expect(paidInvoice?.status).toBe(INVOICE_STATUS.PAID);
-    } finally {
-      if (payment1) await Payment.destroy({ where: { id: payment1.id }, force: true });
-      if (payment2) await Payment.destroy({ where: { id: payment2.id }, force: true });
-      if (invoice) {
-        await Invoice.update({ status: INVOICE_STATUS.DRAFT }, { where: { id: invoice.id } });
-        await invoiceServerService.delete(invoice.id);
-        await Invoice.destroy({ where: { id: invoice.id }, force: true });
-      }
-      await gr.destroy({ force: true });
-    }
+    const paidInvoice = await invoiceServerService.get(invoice.id);
+    expect(paidInvoice?.status).toBe(INVOICE_STATUS.PAID);
   });
 
   it("goodReceiptServerService.getBySupplierId filters RECEIVED status and calculates return deductions", async () => {
-    const gr1 = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-SUPP-1-${Date.now()}`,
-      totalAmount: 800,
-      status: ORDER_STATUS.RECEIVED,
-      receiptDate: new Date(),
-    } as any);
+    // 1. Receipt in RECEIVED status
+    const gr1 = await createReceivedReceipt(800);
 
-    const gr2 = await GoodReceipt.create({
-      supplierId: testSupplier.id,
-      referenceNo: `GR-SUPP-2-${Date.now()}`,
-      totalAmount: 300,
-      status: ORDER_STATUS.DRAFT, // Not received, should be excluded when filtering RECEIVED
-      receiptDate: new Date(),
-    } as any);
+    // 2. Receipt in DRAFT status
+    const gr2 = await goodReceiptServerService.create(
+      {
+        supplierId: testSupplier.id,
+        referenceNo: `GR-DRAFT-${Date.now()}`,
+        receiptDate: new Date(),
+        goodReceiptLines: [
+          { combinationId: testCombo.id, quantity: 2, purchasePrice: 50 },
+        ],
+      },
+      testUser.id,
+    );
 
-    // Create a return transaction against gr1 deducting 100
-    const returnTx = await ReturnTransaction.create({
-      referenceId: gr1.id,
-      sourceType: ORDER_TYPE.PURCHASE,
-      totalReturnAmount: 100,
-      totalExchangeAmount: 0,
-      changedBy: testUser.id,
-    } as any);
+    // 3. Process supplier return against gr1
+    await goodReceiptServerService.supplierReturns(
+      gr1.id,
+      [{ combinationId: testCombo.id, quantity: 2 }],
+      "Damaged goods",
+    );
 
-    try {
-      // getBySupplierId will be called by GoodReceiptPickerModal
-      const result: any = await (goodReceiptServerService as any).getBySupplierId(
-        testSupplier.id,
-        { status: ORDER_STATUS.RECEIVED }
-      );
+    // getBySupplierId will be called by GoodReceiptPickerModal
+    const result: any = await (goodReceiptServerService as any).getBySupplierId(
+      testSupplier.id,
+      { status: ORDER_STATUS.RECEIVED },
+    );
 
-      expect(result).toBeDefined();
-      expect(result.data).toBeDefined();
-      const ids = result.data.map((r: any) => r.id);
-      expect(ids).toContain(gr1.id);
-      expect(ids).not.toContain(gr2.id); // gr2 was DRAFT
+    expect(result).toBeDefined();
+    expect(result.data).toBeDefined();
+    const ids = result.data.map((r: any) => r.id);
+    expect(ids).toContain(gr1.id);
+    expect(ids).not.toContain(gr2.id); // gr2 was DRAFT
 
-      // Check summary or receipt data has return amount
-      const targetGr = result.data.find((r: any) => r.id === gr1.id);
-      expect(Number(targetGr.totalReturnAmount || 0)).toBe(100);
-    } finally {
-      if (returnTx) await returnTx.destroy({ force: true });
-      await gr1.destroy({ force: true });
-      await gr2.destroy({ force: true });
-    }
+    // Check target receipt has return deductions
+    const targetGr = result.data.find((r: any) => r.id === gr1.id);
+    expect(Number(targetGr.totalReturnAmount || 0)).toBe(100);
   });
 });

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CategoryData, ProductData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
-import { UserRole } from "@/types/definitions";
+import { UserRole } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Package, Plus } from "lucide-react";
 import { RoleGuard } from "../common/RoleGuard";

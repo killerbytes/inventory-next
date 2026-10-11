@@ -1,46 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { Op } from "sequelize";
-import { buildDateFilter } from "@/server/services";
+import { getDateBounds } from "@/server/services";
 
-describe("buildDateFilter (Unit)", () => {
-  it("should return undefined when neither startDate nor endDate is provided", () => {
+describe("getDateBounds (Unit)", () => {
+  it("should return undefined bounds when neither startDate nor endDate is provided", () => {
     // Arrange & Act
-    const resUndefined = buildDateFilter(undefined, undefined);
-    const resNull = buildDateFilter(null, null);
-    const resEmpty = buildDateFilter("", "");
+    const resUndefined = getDateBounds(undefined, undefined);
+    const resNull = getDateBounds(null, null);
+    const resEmpty = getDateBounds("", "");
 
     // Assert
-    expect(resUndefined).toBeUndefined();
-    expect(resNull).toBeUndefined();
-    expect(resEmpty).toBeUndefined();
+    expect(resUndefined.startBound).toBeUndefined();
+    expect(resUndefined.endBound).toBeUndefined();
+    expect(resNull.startBound).toBeUndefined();
+    expect(resNull.endBound).toBeUndefined();
+    expect(resEmpty.startBound).toBeUndefined();
+    expect(resEmpty.endBound).toBeUndefined();
   });
 
-  it("should generate Op.gte with start-of-day converted to UTC for Asia/Manila", () => {
+  it("should generate startBound with start-of-day converted to UTC for Asia/Manila", () => {
     // Arrange: "2026-07-01" in Asia/Manila (UTC+8) midnight is 2026-06-30 16:00:00.000Z
     const startDate = "2026-07-01";
 
     // Act
-    const filter = buildDateFilter(startDate, undefined);
+    const bounds = getDateBounds(startDate, undefined);
 
     // Assert
-    expect(filter).toBeDefined();
-    expect(filter![Op.gte]).toBeInstanceOf(Date);
-    expect(filter![Op.gte]?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
-    expect(filter![Op.lte]).toBeUndefined();
+    expect(bounds.startBound).toBeDefined();
+    expect(bounds.startBound).toBeInstanceOf(Date);
+    expect(bounds.startBound?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
+    expect(bounds.endBound).toBeUndefined();
   });
 
-  it("should generate Op.lte with end-of-day converted to UTC for Asia/Manila", () => {
+  it("should generate endBound with end-of-day converted to UTC for Asia/Manila", () => {
     // Arrange: "2026-07-31" in Asia/Manila (UTC+8) 23:59:59.999 is 2026-07-31 15:59:59.999Z
     const endDate = "2026-07-31";
 
     // Act
-    const filter = buildDateFilter(undefined, endDate);
+    const bounds = getDateBounds(undefined, endDate);
 
     // Assert
-    expect(filter).toBeDefined();
-    expect(filter![Op.lte]).toBeInstanceOf(Date);
-    expect(filter![Op.lte]?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
-    expect(filter![Op.gte]).toBeUndefined();
+    expect(bounds.endBound).toBeDefined();
+    expect(bounds.endBound).toBeInstanceOf(Date);
+    expect(bounds.endBound?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
+    expect(bounds.startBound).toBeUndefined();
   });
 
   it("should handle both startDate and endDate simultaneously", () => {
@@ -49,12 +51,12 @@ describe("buildDateFilter (Unit)", () => {
     const endDate = "2026-07-31";
 
     // Act
-    const filter = buildDateFilter(startDate, endDate);
+    const bounds = getDateBounds(startDate, endDate);
 
     // Assert
-    expect(filter).toBeDefined();
-    expect(filter![Op.gte]?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
-    expect(filter![Op.lte]?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
+    expect(bounds.startBound).toBeDefined();
+    expect(bounds.startBound?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
+    expect(bounds.endBound?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
   });
 
   it("should accept Date objects as input and convert properly", () => {
@@ -63,12 +65,12 @@ describe("buildDateFilter (Unit)", () => {
     const endDateObj = new Date("2026-07-31T05:00:00.000Z");
 
     // Act
-    const filter = buildDateFilter(startDateObj, endDateObj);
+    const bounds = getDateBounds(startDateObj, endDateObj);
 
     // Assert
-    expect(filter).toBeDefined();
-    expect(filter![Op.gte]?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
-    expect(filter![Op.lte]?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
+    expect(bounds.startBound).toBeDefined();
+    expect(bounds.startBound?.toISOString()).toBe("2026-06-30T16:00:00.000Z");
+    expect(bounds.endBound?.toISOString()).toBe("2026-07-31T15:59:59.999Z");
   });
 
   it("should respect custom timezone override", () => {
@@ -76,10 +78,11 @@ describe("buildDateFilter (Unit)", () => {
     const startDate = "2026-07-01";
 
     // Act
-    const filter = buildDateFilter(startDate, undefined, "UTC");
+    const bounds = getDateBounds(startDate, undefined, "UTC");
 
     // Assert
-    expect(filter).toBeDefined();
-    expect(filter![Op.gte]?.toISOString()).toBe("2026-07-01T00:00:00.000Z");
+    expect(bounds.startBound).toBeDefined();
+    expect(bounds.startBound?.toISOString()).toBe("2026-07-01T00:00:00.000Z");
   });
 });
+

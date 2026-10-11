@@ -19,7 +19,7 @@ import {
   updateGoodReceiptAction,
 } from "@/server/actions/goodReceipt.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/types/definitions";
+import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper, RowSelectionState } from "@tanstack/react-table";
 import { ArrowLeft, Building2, CheckCircle2, Undo2 } from "lucide-react";
 import Link from "next/link";
@@ -76,30 +76,30 @@ export default function GoodReceiptDetailClientWidget({
     () => [
       ...(true
         ? [
-            columnHelper.display({
-              id: "select",
-              meta: { className: "w-auto" },
-              header: ({ table }) => (
-                <Checkbox
-                  checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                  }
-                  onCheckedChange={(value) => {
-                    table.toggleAllPageRowsSelected(!!value);
-                  }}
-                  aria-label="Select all"
-                />
-              ),
-              cell: ({ row }) => (
-                <Checkbox
-                  checked={row.getIsSelected()}
-                  onCheckedChange={(value) => row.toggleSelected(!!value)}
-                  aria-label="Select row"
-                />
-              ),
-            }),
-          ]
+          columnHelper.display({
+            id: "select",
+            meta: { className: "w-auto" },
+            header: ({ table }) => (
+              <Checkbox
+                checked={
+                  table.getIsAllPageRowsSelected() ||
+                  (table.getIsSomePageRowsSelected() && "indeterminate")
+                }
+                onCheckedChange={(value) => {
+                  table.toggleAllPageRowsSelected(!!value);
+                }}
+                aria-label="Select all"
+              />
+            ),
+            cell: ({ row }) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+              />
+            ),
+          }),
+        ]
         : []),
 
       columnHelper.display({

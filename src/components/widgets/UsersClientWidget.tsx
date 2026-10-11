@@ -5,7 +5,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { UserData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
-import { UserRole } from "@/types/definitions";
+import { UserRole } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Edit, Plus, Shield, Users } from "lucide-react";
 import { useMemo } from "react";

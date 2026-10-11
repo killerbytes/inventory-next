@@ -1,5 +1,5 @@
 import GoodReceiptsClientWidget from "@/components/widgets/GoodReceiptsClientWidget";
-import { ORDER_STATUS } from "@/types/definitions";
+import { ORDER_STATUS } from "@/constants";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

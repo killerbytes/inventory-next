@@ -1,7 +1,7 @@
 import "server-only";
 import { getSession, SessionUser } from "./session";
 import { hasPermission, Permission } from "@/lib/rbac";
-import { UserRole } from "@/types/definitions";
+import { UserRole } from "@/constants";
 import { redirect } from "next/navigation";
 
 /**

@@ -7,7 +7,7 @@ export const SESSION_COOKIE_NAME = "auth_session";
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
       throw new Error(
         "FATAL SECURITY CONFIGURATION: SESSION_SECRET environment variable is required in production.",
       );
@@ -16,8 +16,6 @@ function getSessionSecret(): string {
   }
   return secret;
 }
-
-const SESSION_SECRET = getSessionSecret();
 
 let activeTestSession: SessionUser | null = null;
 
@@ -40,7 +38,7 @@ export interface SessionUser {
  */
 export function sealSession(user: SessionUser): string {
   const payloadB64 = Buffer.from(JSON.stringify(user)).toString("base64url");
-  const hmac = crypto.createHmac("sha256", SESSION_SECRET);
+  const hmac = crypto.createHmac("sha256", getSessionSecret());
   hmac.update(payloadB64);
   const signature = hmac.digest("hex");
   return `${payloadB64}.${signature}`;
@@ -58,7 +56,7 @@ export function unsealSession(token: string): SessionUser | null {
     if (parts.length !== 2) return null;
 
     const [payloadB64, signature] = parts;
-    const hmac = crypto.createHmac("sha256", SESSION_SECRET);
+    const hmac = crypto.createHmac("sha256", getSessionSecret());
     hmac.update(payloadB64);
     const expectedSignature = hmac.digest("hex");
 

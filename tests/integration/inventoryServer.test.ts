@@ -1,17 +1,6 @@
 // @vitest-environment node
 import { normalize } from "@/lib/compute";
-import {
-  Category,
-  Customer,
-  Inventory,
-  InventoryMovement,
-  Product,
-  ProductCombination,
-  Supplier,
-  User,
-  VariantType,
-  VariantValue,
-} from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
@@ -30,17 +19,17 @@ import {
 } from "../utils/fixtures";
 
 describe("Inventory Service & Concurrency Integration Tests", () => {
-  let user0: User;
-  let user1: User;
-  let category0: Category;
-  let category1: Category;
-  let product0: Product;
-  let product1: Product;
-  let variantType0: VariantType;
-  let supplier0: Supplier;
-  let customer0: Customer;
-  let combination1: ProductCombination;
-  let combination2: ProductCombination;
+  let user0: any;
+  let user1: any;
+  let category0: any;
+  let category1: any;
+  let product0: any;
+  let product1: any;
+  let variantType0: any;
+  let supplier0: any;
+  let customer0: any;
+  let combination1: any;
+  let combination2: any;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -92,11 +81,12 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       user0.id,
     );
 
-    const combos = await ProductCombination.findAll({
-      where: { productId: product0.id },
+    const combos = await db.query.productCombinations.findMany({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.productId, product0.id), isNull(tbl.deletedAt)),
     });
-    combination1 = combos.find((c) => c.unit === "BOX")!;
-    combination2 = combos.find((c) => c.unit === "PCS")!;
+    combination1 = combos.find((c: any) => c.unit === "BOX")!;
+    combination2 = combos.find((c: any) => c.unit === "PCS")!;
   });
 
   it("should list inventory movements", async () => {
@@ -152,7 +142,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       user0.id,
     );
 
-    const inventory = await Inventory.findAll();
+    const inventory = await db.query.inventories.findMany();
     const inv1 = inventory.find((i) => i.combinationId === combination1.id);
     const inv2 = inventory.find((i) => i.combinationId === combination2.id);
 
@@ -231,7 +221,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       user0.id,
     );
 
-    const movements = await InventoryMovement.findAll();
+    const movements = await db.query.inventoryMovements.findMany();
     const costPerUnit0 = normalize((10 * 100 - 5) / 10);
 
     expect(movements.length).toBe(1);
@@ -283,7 +273,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     );
 
     const costPerUnit = normalize((20 * 200 - 10 + 995) / 30);
-    const movements2 = await InventoryMovement.findAll();
+    const movements2 = await db.query.inventoryMovements.findMany();
     expect(movements2.length).toBe(2);
     expect(movements2[1].combinationId).toBe(combination1.id);
     expect(movements2[1].type).toBe("IN");
@@ -331,7 +321,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     );
 
     const costPerUnit2 = normalize((costPerUnit * 30 + 30 * 300) / 60);
-    const movements3 = await InventoryMovement.findAll();
+    const movements3 = await db.query.inventoryMovements.findMany();
     expect(movements3.length).toBe(3);
     expect(movements3[2].combinationId).toBe(combination1.id);
     expect(movements3[2].type).toBe("IN");
@@ -342,8 +332,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     expect(movements3[2].referenceId).toBe(3);
     expect(movements3[2].referenceType).toBe("GOOD_RECEIPT");
 
-    const inv = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inv = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
     expect(Number(inv?.quantity)).toBe(60);
     expect(Number(inv?.averagePrice)).toBe(costPerUnit2);
@@ -371,13 +361,13 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     const salesOrder = await salesServerService.get(1);
     expect(salesOrder?.status).toBe("RECEIVED");
 
-    const inventory = await Inventory.findAll();
-    const inv1 = inventory.find((i) => i.combinationId === combination1.id);
+    const inventory = await db.query.inventories.findMany();
+    const inv1 = inventory.find((i: any) => i.combinationId === combination1.id);
     expect(inventory.length).toBe(2);
     expect(inv1).toBeDefined();
     expect(Number(inv1?.quantity)).toBe(50);
 
-    const movements4 = await InventoryMovement.findAll();
+    const movements4 = await db.query.inventoryMovements.findMany();
     expect(movements4.length).toBe(4);
     expect(movements4[3].combinationId).toBe(combination1.id);
     expect(movements4[3].type).toBe("OUT");
@@ -389,12 +379,12 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     const salesOrder2 = await salesServerService.get(1);
     expect(salesOrder2?.status).toBe("CANCELLED");
 
-    const inventory2 = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inventory2 = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
     expect(Number(inventory2?.quantity)).toBe(60);
 
-    const movements5 = await InventoryMovement.findAll();
+    const movements5 = await db.query.inventoryMovements.findMany();
     expect(movements5.length).toBe(5);
     expect(movements5[4].combinationId).toBe(combination1.id);
     expect(movements5[4].type).toBe("CANCELLATION");
@@ -436,7 +426,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       user0.id,
     );
 
-    const movements6 = await InventoryMovement.findAll();
+    const movements6 = await db.query.inventoryMovements.findMany();
     const costPerUnit3 = normalize((233.0833 * 60 + 10 * 100) / 70);
     expect(movements6.length).toBe(6);
     expect(movements6[5].combinationId).toBe(combination1.id);
@@ -492,7 +482,9 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
   });
 
   it("should list price history", async () => {
-    const redVal = await VariantValue.findOne({ where: { value: "Red" } });
+    const redVal = await db.query.variantValues.findFirst({
+      where: (tbl, { eq }) => eq(tbl.value, "Red"),
+    });
     const redId = redVal?.id ?? 1;
 
     await productCombinationServerService.updateByProductId(
@@ -706,8 +698,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       user0.id,
     );
 
-    const inventoryBefore = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inventoryBefore = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
     expect(Number(inventoryBefore?.quantity)).toBe(20);
     expect(Number(inventoryBefore?.averagePrice)).toBe(150);
@@ -724,15 +716,19 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       "Defective",
     );
 
-    const inventoryAfter = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inventoryAfter = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
     expect(Number(inventoryAfter?.quantity)).toBe(15);
     expect(Number(inventoryAfter?.averagePrice)).toBeCloseTo(166.67, 1);
 
-    const latestMovement = await InventoryMovement.findOne({
-      where: { combinationId: combination1.id, type: "SUPPLIER_RETURN_OUT" },
-      order: [["id", "DESC"]],
+    const latestMovement = await db.query.inventoryMovements.findFirst({
+      where: (tbl, { eq, and }) =>
+        and(
+          eq(tbl.combinationId, combination1.id),
+          eq(tbl.type, "SUPPLIER_RETURN_OUT"),
+        ),
+      orderBy: (tbl, { desc }) => [desc(tbl.id)],
     });
     expect(latestMovement).toBeDefined();
     expect(Number(latestMovement?.quantity)).toBe(-5);
@@ -773,8 +769,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     const fulfilled = results.filter((r) => r.status === "fulfilled");
     const rejected = results.filter((r) => r.status === "rejected");
 
-    const inventory = await Inventory.findOne({
-      where: { combinationId: combination1.id },
+    const inventory = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
 
     expect(Number(inventory?.quantity)).toBeGreaterThanOrEqual(0);

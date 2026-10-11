@@ -11,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { PAGINATION } from "@/types/definitions";
+import { PAGINATION } from "@/constants";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface FilterProps {

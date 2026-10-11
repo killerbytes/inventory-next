@@ -4,9 +4,10 @@ import {
   CustomerUpdateInput,
   CustomerUpdateSchema,
 } from "@/schemas";
-import { Customer } from "@/server/models";
-import { Op } from "sequelize";
 import "server-only";
+import db from "@/server/db/drizzle";
+import { customers } from "@/server/db/schema";
+import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 
 export interface GetCustomerPaginatedInput {
   limit?: number;
@@ -18,15 +19,17 @@ export interface GetCustomerPaginatedInput {
 
 export const customerServerService = {
   get: async (id: number) => {
-    const customer = await Customer.findByPk(id);
-    return customer?.get({ plain: true });
+    const customer = await db.query.customers.findFirst({
+      where: and(eq(customers.id, id), isNull(customers.deletedAt)),
+    });
+    return customer ?? null;
   },
 
   getAll: async () => {
-    const customers = await Customer.findAll({
-      order: [["name", "ASC"]],
+    return await db.query.customers.findMany({
+      where: isNull(customers.deletedAt),
+      orderBy: [asc(customers.name)],
     });
-    return customers.map((c) => c.get({ plain: true }));
   },
 
   getPaginated: async (params: GetCustomerPaginatedInput = {}) => {
@@ -40,23 +43,34 @@ export const customerServerService = {
 
     const offset = (page - 1) * limit;
 
-    const where = q
-      ? {
-          [Op.or]: [
-            { address: { [Op.iLike]: `%${q}%` } },
-            { email: { [Op.iLike]: `%${q}%` } },
-            { name: { [Op.iLike]: `%${q}%` } },
-            { phone: { [Op.iLike]: `%${q}%` } },
-            { notes: { [Op.iLike]: `%${q}%` } },
-          ],
-        }
-      : undefined;
+    const conditions: any[] = [isNull(customers.deletedAt)];
+    if (q) {
+      conditions.push(
+        or(
+          ilike(customers.address, `%${q}%`),
+          ilike(customers.email, `%${q}%`),
+          ilike(customers.name, `%${q}%`),
+          ilike(customers.phone, `%${q}%`),
+          ilike(customers.notes, `%${q}%`),
+        ),
+      );
+    }
 
-    const { count, rows } = await Customer.findAndCountAll({
+    const whereClause = and(...conditions);
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(whereClause);
+
+    const count = Number(countResult?.count || 0);
+
+    const rows = await db.query.customers.findMany({
+      where: whereClause,
       limit,
       offset,
-      order: [[sort, order]],
-      where,
+      orderBy:
+        order === "DESC" ? [desc(customers.name)] : [asc(customers.name)],
     });
 
     return {
@@ -70,25 +84,71 @@ export const customerServerService = {
   },
 
   create: async (data: CustomerInput) => {
-    const validatedData = CustomerInputSchema.parse(data);
-    return await Customer.create(validatedData);
+    try {
+      const validatedData = CustomerInputSchema.parse(data);
+      const [created] = await db
+        .insert(customers)
+        .values({
+          name: validatedData.name,
+          email: validatedData.email || null,
+          phone: validatedData.phone || null,
+          address: validatedData.address || null,
+          notes: validatedData.notes || null,
+          isActive: validatedData.isActive ?? true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      return created;
+    } catch (err: any) {
+      const code = err.code || err.cause?.code;
+      const detail = err.detail || err.cause?.detail;
+      if (code === "23505") {
+        const error: any = new Error("Unique constraint violation");
+        error.name = "SequelizeUniqueConstraintError";
+        error.fields = detail?.includes("email") ? ["email"] : ["name"];
+        throw error;
+      }
+      throw err;
+    }
   },
 
   update: async (id: number, data: CustomerUpdateInput) => {
     const validatedData = CustomerUpdateSchema.parse(data);
-    const customer = await Customer.findByPk(id);
-    if (!customer) {
+    const existing = await db.query.customers.findFirst({
+      where: and(eq(customers.id, id), isNull(customers.deletedAt)),
+    });
+    if (!existing) {
       throw new Error(`Customer with ID ${id} not found`);
     }
-    return await customer.update(validatedData);
+
+    const updateValues: any = {
+      ...validatedData,
+      updatedAt: new Date(),
+    };
+
+    const [updated] = await db
+      .update(customers)
+      .set(updateValues)
+      .where(eq(customers.id, id))
+      .returning();
+    return updated;
   },
 
   delete: async (id: number) => {
-    const customer = await Customer.findByPk(id);
-    if (!customer) {
+    const existing = await db.query.customers.findFirst({
+      where: and(eq(customers.id, id), isNull(customers.deletedAt)),
+    });
+    if (!existing) {
       throw new Error(`Customer with ID ${id} not found`);
     }
-    await customer.destroy();
+
+    await db
+      .update(customers)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(customers.id, id));
+
     return { success: true, message: `Customer ${id} deleted successfully` };
   },
 };
+export default customerServerService;

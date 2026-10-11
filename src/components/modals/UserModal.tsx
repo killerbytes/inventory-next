@@ -18,7 +18,7 @@ import {
   updateUserAction,
 } from "@/server/actions/user.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { USER_ROLE_OPTIONS } from "@/types/definitions";
+import { USER_ROLE_OPTIONS } from "@/constants";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import Modal from "../common/Modal";

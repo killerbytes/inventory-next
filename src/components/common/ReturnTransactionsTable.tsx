@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ReturnItemData, ReturnTransactionData } from "@/schemas";
-import { INVENTORY_MOVEMENT_TYPE, UNIT_COLOR } from "@/types/definitions";
+import { INVENTORY_MOVEMENT_TYPE, UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo } from "react";

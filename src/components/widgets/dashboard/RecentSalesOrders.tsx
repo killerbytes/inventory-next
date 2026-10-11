@@ -13,7 +13,7 @@ import {
   MODE_OF_PAYMENT_COLOR,
   ORDER_STATUS,
   STATUS_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

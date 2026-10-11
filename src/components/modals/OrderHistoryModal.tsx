@@ -12,7 +12,7 @@ import {
 import { formatDateTime } from "@/lib/utils";
 import { OrderStatusHistoryData } from "@/schemas/orderStatusHistory.schema";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS } from "@/types/definitions";
+import { ORDER_STATUS } from "@/constants";
 import Modal from "../common/Modal";
 
 export interface StatusHistoryItem {

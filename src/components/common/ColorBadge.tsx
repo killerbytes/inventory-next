@@ -1,5 +1,5 @@
 import React from "react";
-import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
+import { INVENTORY_MOVEMENT_TYPE } from "@/constants";
 import { cx } from "class-variance-authority";
 import { Badge } from "@/components/ui/badge";
 

@@ -1,17 +1,24 @@
 import { normalize } from "@/lib/compute";
-import sequelize from "@/server/db/sequelize";
+import { db } from "@/server/db/drizzle";
+import { payments, paymentApplications } from "@/server/db/schema/payments";
+import { invoices } from "@/server/db/schema/invoices";
+import { suppliers } from "@/server/db/schema/suppliers";
+import { users } from "@/server/db/schema/users";
+import { INVOICE_STATUS, PAGINATION } from "@/constants";
 import {
-  Invoice,
-  Payment,
-  PaymentApplication,
-  Supplier,
-  User,
-} from "@/server/models";
-import { INVOICE_STATUS, PAGINATION } from "@/types/definitions";
-import { Op } from "sequelize";
+  eq,
+  and,
+  isNull,
+  desc,
+  asc,
+  gte,
+  lte,
+  ilike,
+  sql,
+} from "drizzle-orm";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
-import { buildDateFilter } from "./dateFilter";
+import { getDateBounds } from "./dateFilter";
 
 export interface PaymentApplicationInput {
   invoiceId: number;
@@ -28,6 +35,7 @@ export interface CreatePaymentInput {
   referenceNo?: string | null;
   referenceNumber?: string | null;
   notes?: string | null;
+  paymentDate?: Date | string | null;
   applications?: PaymentApplicationInput[];
 }
 
@@ -41,18 +49,25 @@ export interface UpdatePaymentInput {
 
 export const paymentServerService = {
   get: async (id: number) => {
-    return await Payment.findByPk(id, {
-      include: [
-        { model: Supplier, as: "supplier" },
-        { model: PaymentApplication, as: "applications" },
-      ],
+    return await db.query.payments.findFirst({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.id, Number(id)), isNull(tbl.deletedAt)),
+      with: {
+        supplier: true,
+        applications: {
+          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+        },
+      },
     });
   },
 
   getAll: async () => {
-    return await Payment.findAll({
-      include: [{ model: Supplier, as: "supplier" }],
-      order: [["id", "DESC"]],
+    return await db.query.payments.findMany({
+      where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+      with: {
+        supplier: true,
+      },
+      orderBy: (tbl, { desc }) => [desc(tbl.id)],
     });
   },
 
@@ -63,82 +78,91 @@ export const paymentServerService = {
       q,
       startDate,
       endDate,
-      status,
       sort = "id",
       order: sortOrder = "DESC",
     } = params;
 
     try {
-      const where: any = {};
-      if (status) {
-        where.status = status;
-      }
-      const dateFilter = buildDateFilter(startDate, endDate);
-      if (dateFilter) {
-        where.updatedAt = dateFilter;
-      }
-
       const offset = (page - 1) * limit;
+      const { startBound, endBound } = getDateBounds(startDate, endDate);
 
-      const orderByMap: Record<string, any> = {
-        "payment.user.username": [
-          { model: Payment, as: "payment" },
-          { model: User, as: "user" },
-          "username",
-        ],
-        "payment.supplier.name": [
-          { model: Payment, as: "payment" },
-          { model: Supplier, as: "supplier" },
-          "name",
-        ],
-        "payment.referenceNo": [
-          { model: Payment, as: "payment" },
-          "referenceNo",
-        ],
-        "invoice.invoiceNumber": [
-          { model: Invoice, as: "invoice" },
-          "invoiceNumber",
-        ],
-      };
+      const conditions: any[] = [isNull(paymentApplications.deletedAt)];
 
-      const orderBy = orderByMap[sort]
-        ? [...orderByMap[sort], sortOrder]
-        : [sort, sortOrder];
+      if (startBound) {
+        conditions.push(gte(paymentApplications.updatedAt, startBound));
+      }
+      if (endBound) {
+        conditions.push(lte(paymentApplications.updatedAt, endBound));
+      }
 
-      const { count, rows } = await PaymentApplication.findAndCountAll({
-        limit,
-        offset,
-        order: [orderBy as any],
-        where: Object.keys(where).length ? where : undefined,
-        distinct: true,
-        include: [
-          {
-            model: Payment,
-            as: "payment",
-            include: [
-              {
-                model: Supplier,
-                as: "supplier",
-              },
-              {
-                model: User,
-                as: "user",
-              },
-            ],
-          },
-          {
-            model: Invoice,
-            as: "invoice",
-            where: q ? { invoiceNumber: { [Op.iLike]: `%${q}%` } } : undefined,
-          },
-        ],
-      });
+      let invoiceJoinCondition = eq(paymentApplications.invoiceId, invoices.id);
+      if (q) {
+        invoiceJoinCondition = and(
+          eq(paymentApplications.invoiceId, invoices.id),
+          ilike(invoices.invoiceNumber, `%${q}%`),
+        ) as any;
+      }
+
+      const orderDir = sortOrder.toUpperCase() === "ASC" ? asc : desc;
+      let orderCol: any = orderDir(paymentApplications.id);
+      if (sort === "payment.referenceNo") {
+        orderCol = orderDir(payments.referenceNo);
+      } else if (sort === "invoice.invoiceNumber") {
+        orderCol = orderDir(invoices.invoiceNumber);
+      } else if (sort === "payment.supplier.name") {
+        orderCol = orderDir(suppliers.name);
+      } else if (sort === "payment.user.username") {
+        orderCol = orderDir(users.username);
+      }
+
+      const countRes = await db
+        .select({
+          count: sql<number>`count(distinct ${paymentApplications.id})::int`,
+        })
+        .from(paymentApplications)
+        .leftJoin(payments, eq(paymentApplications.paymentId, payments.id))
+        .leftJoin(suppliers, eq(payments.supplierId, suppliers.id))
+        .leftJoin(users, eq(payments.changedBy, users.id))
+        .innerJoin(invoices, invoiceJoinCondition)
+        .where(and(...conditions));
+
+      const total = countRes[0]?.count ?? 0;
+
+      const rows = await db
+        .select({
+          application: paymentApplications,
+          payment: payments,
+          supplier: suppliers,
+          user: users,
+          invoice: invoices,
+        })
+        .from(paymentApplications)
+        .leftJoin(payments, eq(paymentApplications.paymentId, payments.id))
+        .leftJoin(suppliers, eq(payments.supplierId, suppliers.id))
+        .leftJoin(users, eq(payments.changedBy, users.id))
+        .innerJoin(invoices, invoiceJoinCondition)
+        .where(and(...conditions))
+        .orderBy(orderCol)
+        .limit(limit)
+        .offset(offset);
+
+      const formatted = rows.map((r) => ({
+        ...r.application,
+        payment: r.payment
+          ? {
+            ...r.payment,
+            supplier: r.supplier,
+            user: r.user,
+          }
+          : null,
+        invoice: r.invoice,
+      }));
 
       return {
-        data: rows,
+        data: formatted,
         meta: {
-          total: count,
-          totalPages: Math.ceil(count / limit),
+          total,
+          totalPages: Math.ceil(total / limit),
           currentPage: page,
         },
       };
@@ -149,37 +173,49 @@ export const paymentServerService = {
 
   create: async (data: CreatePaymentInput, userId?: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
+      return await db.transaction(async (tx) => {
         const paymentAmount = Number(data.amountPaid ?? data.amount ?? 0);
-        const payment = await Payment.create(
-          {
+        const [payment] = await tx
+          .insert(payments)
+          .values({
             supplierId: data.supplierId ? Number(data.supplierId) : null,
-            amount: paymentAmount,
-            paymentDate: (data as any).paymentDate || new Date(),
+            amount: String(paymentAmount),
+            paymentDate: data.paymentDate
+              ? new Date(data.paymentDate)
+              : new Date(),
             referenceNo: data.referenceNumber || data.referenceNo || null,
             notes: data.notes || null,
             changedBy: userId ?? (data as any).changedBy ?? 1,
-            paymentMethod: data.paymentMethod || "CASH",
-          } as any,
-          { transaction },
-        );
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
 
         const apps = data.applications || [];
         let totalApplied = 0;
 
         for (const app of apps) {
-          const invoice = await Invoice.findByPk(app.invoiceId, {
-            transaction,
+          const invoice = await tx.query.invoices.findFirst({
+            where: (tbl, { eq, and, isNull }) =>
+              and(eq(tbl.id, Number(app.invoiceId)), isNull(tbl.deletedAt)),
           });
           if (!invoice) {
             throw new Error("Invoice not found");
           }
 
-          const invoicePaid = await PaymentApplication.sum("amountApplied", {
-            where: { invoiceId: invoice.id },
-            transaction,
-          });
-          const alreadyPaid = invoicePaid || 0;
+          const sumRes = await tx
+            .select({
+              total: sql<string>`coalesce(sum(${paymentApplications.amountApplied}), 0)`,
+            })
+            .from(paymentApplications)
+            .where(
+              and(
+                eq(paymentApplications.invoiceId, invoice.id),
+                isNull(paymentApplications.deletedAt),
+              ),
+            );
+
+          const alreadyPaid = Number(sumRes[0]?.total ?? 0);
           const remaining = normalize(
             Number(invoice.totalAmount || 0) - alreadyPaid,
           );
@@ -192,28 +228,30 @@ export const paymentServerService = {
             );
           }
 
-          await PaymentApplication.create(
-            {
-              paymentId: payment.id,
-              invoiceId: invoice.id,
-              amountApplied: Number(app.amountApplied),
-              amountRemaining: remaining - Number(app.amountApplied),
-            },
-            { transaction },
-          );
+          await tx.insert(paymentApplications).values({
+            paymentId: payment.id,
+            invoiceId: invoice.id,
+            amountApplied: String(Number(app.amountApplied)),
+            amountRemaining: String(remaining - Number(app.amountApplied)),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
 
           totalApplied += Number(app.amountApplied);
 
           if (Number(app.amountApplied) >= remaining) {
-            await invoice.update(
-              { status: INVOICE_STATUS.PAID },
-              { transaction },
-            );
+            await tx
+              .update(invoices)
+              .set({ status: INVOICE_STATUS.PAID, updatedAt: new Date() })
+              .where(eq(invoices.id, invoice.id));
           } else {
-            await invoice.update(
-              { status: INVOICE_STATUS.PARTIALLY_PAID },
-              { transaction },
-            );
+            await tx
+              .update(invoices)
+              .set({
+                status: INVOICE_STATUS.PARTIALLY_PAID,
+                updatedAt: new Date(),
+              })
+              .where(eq(invoices.id, invoice.id));
           }
         }
 
@@ -232,22 +270,32 @@ export const paymentServerService = {
 
   update: async (id: number, data: UpdatePaymentInput) => {
     try {
-      const payment = await Payment.findByPk(id);
+      const payment = await db.query.payments.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, Number(id)), isNull(tbl.deletedAt)),
+      });
       if (!payment) {
         throw new Error(`Payment with ID ${id} not found`);
       }
-      return await payment.update({
-        ...(data.amountPaid !== undefined || data.amount !== undefined
-          ? { amount: Number(data.amountPaid ?? data.amount) }
-          : {}),
-        ...(data.paymentMethod !== undefined && {
-          paymentMethod: data.paymentMethod,
-        }),
-        ...(data.referenceNumber !== undefined && {
-          referenceNumber: data.referenceNumber,
-        }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-      });
+
+      const updateData: any = { updatedAt: new Date() };
+      if (data.amountPaid !== undefined || data.amount !== undefined) {
+        updateData.amount = String(Number(data.amountPaid ?? data.amount));
+      }
+      if (data.referenceNumber !== undefined) {
+        updateData.referenceNo = data.referenceNumber;
+      }
+      if (data.notes !== undefined) {
+        updateData.notes = data.notes;
+      }
+
+      const [updated] = await db
+        .update(payments)
+        .set(updateData)
+        .where(eq(payments.id, Number(id)))
+        .returning();
+
+      return updated;
     } catch (error) {
       handleServiceError(error);
     }
@@ -255,17 +303,25 @@ export const paymentServerService = {
 
   delete: async (id: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const payment = await Payment.findByPk(id, { transaction });
+      return await db.transaction(async (tx) => {
+        const payment = await tx.query.payments.findFirst({
+          where: (tbl, { eq, and, isNull }) =>
+            and(eq(tbl.id, Number(id)), isNull(tbl.deletedAt)),
+        });
         if (!payment) {
           throw new Error("Payment not found");
         }
 
-        await PaymentApplication.destroy({
-          where: { paymentId: id },
-          transaction,
-        });
-        await payment.destroy({ transaction });
+        await tx
+          .update(paymentApplications)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(paymentApplications.paymentId, Number(id)));
+
+        await tx
+          .update(payments)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(payments.id, Number(id)));
+
         return { success: true, message: `Payment ${id} deleted successfully` };
       });
     } catch (error) {

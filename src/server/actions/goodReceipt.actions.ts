@@ -9,7 +9,7 @@ import {
   ReturnExchangeFormSchema,
 } from "@/schemas";
 import { goodReceiptServerService } from "@/server/services";
-import { ORDER_STATUS } from "@/types/definitions";
+import { ORDER_STATUS } from "@/constants";
 import { revalidatePath } from "next/cache";
 import z from "zod";
 import { createProtectedAction } from "./safeAction";

@@ -14,7 +14,7 @@ import {
 } from "@/schemas";
 import { updateProductCombinationsAction } from "@/server/actions/product.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { UNIT_COLOR, UNIT_OPTIONS } from "@/types/definitions";
+import { UNIT_COLOR, UNIT_OPTIONS } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ColumnDef } from "@tanstack/react-table";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";

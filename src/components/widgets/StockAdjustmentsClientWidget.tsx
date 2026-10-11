@@ -3,7 +3,7 @@
 import { DataTable } from "@/components/common/DataTable";
 import PageHeader from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
-import { STOCK_ADJUSTMENT_TYPE_COLOR, UNIT_COLOR } from "@/types/definitions";
+import { STOCK_ADJUSTMENT_TYPE_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo } from "react";

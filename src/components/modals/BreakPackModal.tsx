@@ -8,7 +8,7 @@ import {
 } from "@/schemas";
 import { breakPackAction } from "@/server/actions/inventory.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertCircleIcon,
@@ -199,20 +199,20 @@ function BreakPackModalContent({ product }: { product: ProductData }) {
                                 (c: any) => c.id === Number(value.children),
                               ),
                             ) === "BREAK_PACK" && (
-                              <div className="flex items-center gap-1">
-                                <PackageOpen color="red" /> (Break Pack)
-                              </div>
-                            )}
+                                <div className="flex items-center gap-1">
+                                  <PackageOpen color="red" /> (Break Pack)
+                                </div>
+                              )}
                             {getPackRelationType(
                               combination,
                               options.find(
                                 (c: any) => c.id === Number(value.children),
                               ),
                             ) === "RE_PACK" && (
-                              <div className="flex items-center gap-1">
-                                <PackagePlus color="green" /> (Re Pack)
-                              </div>
-                            )}
+                                <div className="flex items-center gap-1">
+                                  <PackagePlus color="green" /> (Re Pack)
+                                </div>
+                              )}
                           </span>
                         </>
                       );

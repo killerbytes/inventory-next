@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
-import { UNIT_COLOR, UNIT_OPTIONS } from "@/types/definitions";
+import { UNIT_COLOR, UNIT_OPTIONS } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";

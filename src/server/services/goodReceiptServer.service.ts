@@ -1,22 +1,16 @@
 import { getAmount, getTotalAmount, normalize } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
 import { GoodReceiptData, GoodReceiptInput } from "@/schemas";
-import sequelize from "@/server/db/sequelize";
+import { db } from "@/server/db/drizzle";
 import {
-  Category,
-  GoodReceipt,
-  GoodReceiptLine,
-  Inventory,
-  OrderStatusHistory,
-  Product,
-  ProductCombination,
-  ReturnItem,
-  ReturnTransaction,
-  Supplier,
-  User,
-  VariantType,
-  VariantValue,
-} from "@/server/models";
+  goodReceipts,
+  goodReceiptLines,
+  orderStatusHistories,
+  returnTransactions,
+  returnItems,
+  inventories,
+  suppliers,
+} from "@/server/db/schema";
 import {
   INVENTORY_MOVEMENT_REFERENCE_TYPE,
   INVENTORY_MOVEMENT_TYPE,
@@ -24,13 +18,27 @@ import {
   ORDER_TYPE,
   PAGINATION,
   RETURN_TYPE,
-} from "@/types/definitions";
-import { Op } from "sequelize";
+} from "@/constants";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import "server-only";
+import { getDateBounds } from "./dateFilter";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
 import { ReturnExchangeItem } from "./salesServer.service";
-import { buildDateFilter } from "./dateFilter";
 
 export interface ListGoodReceiptsParams {
   startDate?: string | null;
@@ -61,101 +69,134 @@ export interface CreateGoodReceiptLineInput {
   variantSnapshot?: any;
 }
 
+
+
 const mappedProductCombinationProps = (productCombination: any) => {
+  const values = (productCombination.combinationValues || [])
+    .map((cv: any) => cv.value)
+    .filter(Boolean)
+    .sort((a: any, b: any) => (a.variantTypeId || 0) - (b.variantTypeId || 0));
+
   return {
     unit: productCombination.unit,
     nameSnapshot: productCombination.name,
-    categorySnapshot: productCombination.product?.category,
+    categorySnapshot: productCombination.product?.category || null,
     variantSnapshot: getMappedVariantValues(
       productCombination.product?.variants,
-      productCombination.values,
+      values,
     ),
     skuSnapshot: productCombination.sku,
   };
 };
 
-const fetchProductCombinationWithDetails = async (
-  combinationId: number,
-  transaction?: any,
-) => {
-  return await ProductCombination.findByPk(combinationId, {
-    include: [
-      {
-        model: Product,
-        as: "product",
-        include: [
-          { model: Category, as: "category" },
-          {
-            model: VariantType,
-            as: "variants",
-            include: [{ model: VariantValue, as: "values" }],
+const fetchProductCombinationWithDetails = async (combinationId: number) => {
+  return await db.query.productCombinations.findFirst({
+    where: (tbl, { eq }) => eq(tbl.id, combinationId),
+    with: {
+      product: {
+        with: {
+          category: true,
+          variants: {
+            with: {
+              values: true,
+            },
           },
-        ],
+        },
       },
-      {
-        model: VariantValue,
-        as: "values",
-        through: { attributes: [] },
-        order: [["variantTypeId", "ASC"]],
+      combinationValues: {
+        with: {
+          value: true,
+        },
       },
-    ],
-    transaction,
+    },
   });
 };
 
 const updateOrder = async (
   payload: any,
   goodReceipt: any,
-  transaction: any,
+  tx: typeof db,
   updateOrderItems: boolean = false,
 ) => {
-  const updateData: any = {
-    ...payload,
-  };
+  const updateData: any = { ...payload };
   if (payload.goodReceiptLines) {
-    updateData.totalAmount = getTotalAmount(payload.goodReceiptLines);
+    updateData.totalAmount = String(getTotalAmount(payload.goodReceiptLines));
   }
   delete updateData.goodReceiptLines;
+  updateData.updatedAt = new Date();
 
-  await goodReceipt.update(updateData, { transaction });
+  await tx
+    .update(goodReceipts)
+    .set(updateData)
+    .where(eq(goodReceipts.id, goodReceipt.id));
 
   if (updateOrderItems && Array.isArray(payload.goodReceiptLines)) {
     const payloadIds = payload.goodReceiptLines
       .filter((i: any) => i.id)
-      .map((i: any) => i.id);
+      .map((i: any) => Number(i.id));
 
-    await GoodReceiptLine.destroy({
-      where: {
-        goodReceiptId: goodReceipt.id,
-        id: { [Op.notIn]: payloadIds.length > 0 ? payloadIds : [0] },
-      },
-      transaction,
-    });
+    // Soft-delete removed lines belonging to this receipt
+    if (payloadIds.length > 0) {
+      await tx
+        .update(goodReceiptLines)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(goodReceiptLines.goodReceiptId, goodReceipt.id),
+            notInArray(goodReceiptLines.id, payloadIds),
+            isNull(goodReceiptLines.deletedAt),
+          ),
+        );
+    } else {
+      await tx
+        .update(goodReceiptLines)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(goodReceiptLines.goodReceiptId, goodReceipt.id),
+            isNull(goodReceiptLines.deletedAt),
+          ),
+        );
+    }
 
     for (const item of payload.goodReceiptLines) {
       const productCombination = await fetchProductCombinationWithDetails(
         item.combinationId,
-        transaction,
       );
 
       const mappedProps = productCombination
         ? mappedProductCombinationProps(productCombination)
         : {};
 
-      const lineData = {
-        ...item,
+      const lineData: any = {
+        combinationId: item.combinationId,
+        quantity: String(item.quantity || 0),
+        purchasePrice: String(item.purchasePrice || 0),
+        totalAmount: String(getAmount(item)),
+        discount: String(item.discount || 0),
+        discountNote: item.discountNote || null,
         ...mappedProps,
-        totalAmount: getAmount(item),
-        goodReceiptId: goodReceipt.id,
+        updatedAt: new Date(),
       };
 
       if (item.id) {
-        await GoodReceiptLine.update(lineData, {
-          where: { id: item.id, goodReceiptId: goodReceipt.id },
-          transaction,
-        });
+        // IDOR protection: only update line if it belongs to this goodReceipt
+        await tx
+          .update(goodReceiptLines)
+          .set(lineData)
+          .where(
+            and(
+              eq(goodReceiptLines.id, item.id),
+              eq(goodReceiptLines.goodReceiptId, goodReceipt.id),
+              isNull(goodReceiptLines.deletedAt),
+            ),
+          );
       } else {
-        await GoodReceiptLine.create(lineData, { transaction });
+        await tx.insert(goodReceiptLines).values({
+          ...lineData,
+          goodReceiptId: goodReceipt.id,
+          createdAt: new Date(),
+        });
       }
     }
   }
@@ -164,7 +205,7 @@ const updateOrder = async (
 const processReceivedOrder = async (
   payload: any,
   goodReceipt: any,
-  transaction: any,
+  tx: typeof db,
   userId?: number,
 ) => {
   await updateOrder(
@@ -173,7 +214,7 @@ const processReceivedOrder = async (
       status: ORDER_STATUS.RECEIVED,
     },
     goodReceipt,
-    transaction,
+    tx,
     true,
   );
 
@@ -185,10 +226,12 @@ const processReceivedOrder = async (
   for (const item of linesToProcess) {
     const { combinationId, quantity, purchasePrice, discount = 0 } = item;
 
-    const inventory = await Inventory.findOne({
-      where: { combinationId },
-      transaction,
-    });
+    const [inventory] = await tx
+      .select()
+      .from(inventories)
+      .where(eq(inventories.combinationId, combinationId))
+      .for("update");
+
     if (!inventory) {
       throw new Error("Inventory not found");
     }
@@ -216,49 +259,114 @@ const processReceivedOrder = async (
       INVENTORY_MOVEMENT_TYPE.IN,
       goodReceipt.id,
       INVENTORY_MOVEMENT_REFERENCE_TYPE.GOOD_RECEIPT,
-      transaction,
+      tx,
     );
   }
 
-  await OrderStatusHistory.create(
-    {
-      goodReceiptId: goodReceipt.id,
-      status: ORDER_STATUS.RECEIVED,
-      changedBy: userId ?? 1,
-      changedAt: new Date(),
-    },
-    { transaction },
-  );
+  await tx.insert(orderStatusHistories).values({
+    goodReceiptId: goodReceipt.id,
+    status: ORDER_STATUS.RECEIVED,
+    changedBy: userId ?? 1,
+    changedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 };
 
 const processUpdateOrder = async (
   payload: any,
   goodReceipt: any,
-  transaction: any,
+  tx: typeof db,
 ) => {
-  await updateOrder(payload, goodReceipt, transaction, true);
+  await updateOrder(payload, goodReceipt, tx, true);
+};
+
+const getSummary = async (whereCondition: any) => {
+  const [totalSumResult] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${goodReceipts.totalAmount}), 0)` })
+    .from(goodReceipts)
+    .where(
+      and(
+        whereCondition,
+        notInArray(goodReceipts.status, [ORDER_STATUS.DRAFT, ORDER_STATUS.VOID]),
+        isNull(goodReceipts.deletedAt),
+      ),
+    );
+  const totalAmount = Number(totalSumResult?.total || 0);
+
+  const [totalPaidResult] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${goodReceipts.totalAmount}), 0)` })
+    .from(goodReceipts)
+    .where(
+      and(
+        whereCondition,
+        eq(goodReceipts.status, ORDER_STATUS.COMPLETED),
+        isNull(goodReceipts.deletedAt),
+      ),
+    );
+  const totalPaid = Number(totalPaidResult?.total || 0);
+
+  const matchingOrders = await db
+    .select({ id: goodReceipts.id })
+    .from(goodReceipts)
+    .where(and(whereCondition, isNull(goodReceipts.deletedAt)));
+  const orderIds = matchingOrders.map((o) => o.id);
+
+  let totalReturnAmount = 0;
+  if (orderIds.length > 0) {
+    const [returnsSumResult] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${returnTransactions.totalReturnAmount}), 0)` })
+      .from(returnTransactions)
+      .where(
+        and(
+          inArray(returnTransactions.referenceId, orderIds),
+          eq(returnTransactions.sourceType, ORDER_TYPE.PURCHASE),
+        ),
+      );
+    totalReturnAmount = Number(returnsSumResult?.total || 0);
+  }
+
+  return {
+    totalAmount: totalAmount - totalReturnAmount,
+    totalPayableAmount: totalAmount - totalPaid,
+    totalReturnAmount: totalReturnAmount,
+  };
 };
 
 export const goodReceiptServerService = {
   get: async (id: number) => {
-    return await GoodReceipt.findByPk(id, {
-      include: [...goodReceiptIncludes],
-      order: [
-        [
-          {
-            model: GoodReceiptLine,
-            as: "goodReceiptLines",
+    const receipt = await db.query.goodReceipts.findFirst({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.id, id), isNull(tbl.deletedAt)),
+      with: {
+        supplier: true,
+        goodReceiptLines: {
+          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+          orderBy: (tbl, { asc }) => asc(tbl.id),
+          with: {
+            combination: true,
           },
-          "id",
-          "ASC",
-        ],
-        [
-          { model: OrderStatusHistory, as: "goodReceiptStatusHistory" },
-          "id",
-          "DESC",
-        ],
-      ],
+        },
+        goodReceiptStatusHistory: {
+          orderBy: (tbl, { desc }) => desc(tbl.id),
+          with: {
+            user: true,
+          },
+        },
+        returnTransactions: {
+          where: (tbl, { eq }) => eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+          with: {
+            returnItems: {
+              with: {
+                combination: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    return (receipt as unknown as GoodReceiptData) ?? null;
   },
 
   getAll: async (params: ListGoodReceiptsParams = {}) => {
@@ -282,29 +390,33 @@ export const goodReceiptServerService = {
 
     const sort = params.sort || "receiptDate";
     const order = params.order || "DESC";
-    const where: any = {};
+    const conditions = [isNull(goodReceipts.deletedAt)];
 
-    const dateFilter = buildDateFilter(startDate, endDate);
-    if (dateFilter) {
-      where.receiptDate = dateFilter;
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
+    if (startBound) {
+      conditions.push(gte(goodReceipts.receiptDate, startBound));
+    }
+    if (endBound) {
+      conditions.push(lte(goodReceipts.receiptDate, endBound));
     }
 
     if (supplierId) {
-      where.supplierId = Number(supplierId);
+      conditions.push(eq(goodReceipts.supplierId, Number(supplierId)));
     }
 
     if (status) {
-      where.status = status;
+      conditions.push(eq(goodReceipts.status, status));
     }
 
     if (search) {
-      where[Op.or] = [
-        { referenceNo: { [Op.iLike]: `%${search}%` } },
-        { status: { [Op.iLike]: `%${search}%` } },
-      ];
+      conditions.push(
+        or(
+          ilike(goodReceipts.referenceNo, `%${search}%`),
+          ilike(goodReceipts.status, `%${search}%`),
+        )!,
+      );
     }
 
-    const sortOrder = order === "ASC" ? "ASC" : "DESC";
     const allowedSortFields = new Set([
       "id",
       "supplierId",
@@ -317,70 +429,139 @@ export const goodReceiptServerService = {
       "supplier.name",
     ]);
     const validSort = allowedSortFields.has(sort) ? sort : "receiptDate";
+    const whereClause = and(...conditions);
 
-    const orderByMap: Record<string, any[]> = {
-      "supplier.name": [{ model: Supplier, as: "supplier" }, "name"],
-    };
-    const primaryOrder = orderByMap[validSort]
-      ? [...orderByMap[validSort], sortOrder]
-      : [validSort, sortOrder];
+    const [countResult] = await db
+      .select({ total: count(goodReceipts.id) })
+      .from(goodReceipts)
+      .where(whereClause);
 
-    const orderClause: any[] = [primaryOrder];
-    if (validSort !== "id") {
-      orderClause.push(["id", "DESC"]);
+    const total = Number(countResult?.total || 0);
+
+    let rows: any[];
+    if (validSort === "supplier.name") {
+      const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
+      const sortedReceipts = await db
+        .select({ id: goodReceipts.id })
+        .from(goodReceipts)
+        .leftJoin(suppliers, eq(goodReceipts.supplierId, suppliers.id))
+        .where(whereClause)
+        .orderBy(orderDir(suppliers.name), desc(goodReceipts.id))
+        .limit(limit)
+        .offset(offset);
+
+      const sortedIds = sortedReceipts.map((r) => r.id);
+      console.log(sortedIds);
+      if (sortedIds.length > 0) {
+        const fetchedRows = await db.query.goodReceipts.findMany({
+          where: inArray(goodReceipts.id, sortedIds),
+          with: {
+            supplier: true,
+            goodReceiptLines: {
+              where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+              orderBy: (tbl, { asc }) => asc(tbl.id),
+              with: {
+                combination: true,
+              },
+            },
+            goodReceiptStatusHistory: {
+              orderBy: (tbl, { desc }) => desc(tbl.id),
+              with: {
+                user: true,
+              },
+            },
+            returnTransactions: {
+              where: (tbl, { eq }) => eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+              with: {
+                returnItems: {
+                  with: {
+                    combination: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+        rows = sortedIds.map((id) => fetchedRows.find((r) => r.id === id)!);
+      } else {
+        rows = [];
+      }
+    } else {
+      rows = await db.query.goodReceipts.findMany({
+        where: whereClause,
+        limit,
+        offset,
+        orderBy: (tbl, { asc, desc }) => {
+          const col = tbl[validSort as keyof typeof tbl] || tbl.receiptDate;
+          return order.toUpperCase() === "ASC" ? asc(col) : desc(col);
+        },
+        with: {
+          supplier: true,
+          goodReceiptLines: {
+            where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+            orderBy: (tbl, { asc }) => asc(tbl.id),
+            with: {
+              combination: true,
+            },
+          },
+          goodReceiptStatusHistory: {
+            orderBy: (tbl, { desc }) => desc(tbl.id),
+            with: {
+              user: true,
+            },
+          },
+          returnTransactions: {
+            where: (tbl, { eq }) => eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+            with: {
+              returnItems: {
+                with: {
+                  combination: true,
+                },
+              },
+            },
+          },
+        },
+      });
     }
 
-    const { rows, count } = await GoodReceipt.findAndCountAll({
-      where,
-      include: [...goodReceiptIncludes],
-      order: orderClause as any,
-      limit,
-      offset,
-      distinct: true,
-    });
-
     const meta = {
-      total: count,
-      totalPages: Math.ceil(count / limit),
+      total,
+      totalPages: Math.ceil(total / limit),
       currentPage: page,
     };
 
     return {
-      data: rows.map(
-        (r) => r.get({ plain: true }) as unknown as GoodReceiptData,
-      ),
+      data: rows,
       pagination: meta,
       meta,
-      summary: await getSummary(where),
+      summary: await getSummary(whereClause),
     };
   },
 
   getByProductCombination: async (list: (number | string)[]) => {
     const result: any[] = [];
     for (const id of list) {
-      const gr = await GoodReceiptLine.findOne({
-        where: { id: Number(id) },
-        include: [
-          {
-            model: ProductCombination,
-            as: "combination",
-          },
-        ],
+      const grLine = await db.query.goodReceiptLines.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, Number(id)), isNull(tbl.deletedAt)),
+        with: {
+          combination: true,
+        },
       });
 
-      if (gr) {
-        const purchasePrice = Number(gr.purchasePrice || 0);
-        const quantity = Number(gr.quantity || 1);
-        const totalAmount = Number(gr.totalAmount || 0);
-        const combo = (gr as any).combinations || {};
+      if (grLine) {
+        const purchasePrice = Number(grLine.purchasePrice || 0);
+        const quantity = Number(grLine.quantity || 1);
+        const totalAmount = Number(grLine.totalAmount || 0);
+        const combo = (grLine as any).combination || {};
 
         result.push({
-          id: gr.id,
-          comboId: gr.combinationId,
+          id: grLine.id,
+          comboId: grLine.combinationId,
           purchasePrice,
           unitPrice: quantity > 0 ? totalAmount / quantity : purchasePrice,
           quantity,
-          price: combo.price || 0,
+          price: Number(combo.price || 0),
         });
       }
     }
@@ -389,7 +570,7 @@ export const goodReceiptServerService = {
 
   create: async (data: GoodReceiptInput, userId: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
+      return await db.transaction(async (tx) => {
         const rawLines = data.goodReceiptLines || [];
         const totalAmount = getTotalAmount(rawLines);
 
@@ -397,7 +578,6 @@ export const goodReceiptServerService = {
           rawLines.map(async (item) => {
             const productCombination = await fetchProductCombinationWithDetails(
               item.combinationId,
-              transaction,
             );
 
             if (!productCombination) {
@@ -412,35 +592,59 @@ export const goodReceiptServerService = {
           }),
         );
 
-        const receipt = await GoodReceipt.create(
-          {
-            ...data,
-            goodReceiptLines: processedItems,
-            totalAmount,
+        const [receipt] = await tx
+          .insert(goodReceipts)
+          .values({
+            supplierId: data.supplierId,
+            receiptDate: new Date(data.receiptDate),
+            referenceNo: data.referenceNo,
+            internalNotes: data.internalNotes,
+            totalAmount: String(totalAmount),
             status: ORDER_STATUS.DRAFT,
-          } as any,
-          {
-            include: [
-              {
-                model: GoodReceiptLine,
-                as: "goodReceiptLines",
-              },
-            ],
-            transaction,
-          },
-        );
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
 
-        await OrderStatusHistory.create(
-          {
-            goodReceiptId: receipt.id,
-            status: ORDER_STATUS.DRAFT,
-            changedBy: userId,
-            changedAt: new Date(),
-          },
-          { transaction },
-        );
+        const createdLines: any[] = [];
+        if (processedItems.length > 0) {
+          const inserted = await tx
+            .insert(goodReceiptLines)
+            .values(
+              processedItems.map((line) => ({
+                goodReceiptId: receipt.id,
+                combinationId: line.combinationId,
+                quantity: String(line.quantity || 0),
+                purchasePrice: String(line.purchasePrice || 0),
+                totalAmount: String(line.totalAmount || 0),
+                discount: String(line.discount || 0),
+                discountNote: line.discountNote || null,
+                unit: line.unit,
+                skuSnapshot: line.skuSnapshot || "",
+                nameSnapshot: line.nameSnapshot || "",
+                categorySnapshot: line.categorySnapshot || null,
+                variantSnapshot: line.variantSnapshot || null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              })),
+            )
+            .returning();
+          createdLines.push(...inserted);
+        }
 
-        return receipt;
+        await tx.insert(orderStatusHistories).values({
+          goodReceiptId: receipt.id,
+          status: ORDER_STATUS.DRAFT,
+          changedBy: userId,
+          changedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        return {
+          ...receipt,
+          goodReceiptLines: createdLines,
+        };
       });
     } catch (error) {
       handleServiceError(error);
@@ -449,16 +653,17 @@ export const goodReceiptServerService = {
 
   update: async (id: number, data: any, userId?: number) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const goodReceipt = await GoodReceipt.findByPk(id, {
-          include: [
-            {
-              model: GoodReceiptLine,
-              as: "goodReceiptLines",
+      return await db.transaction(async (tx) => {
+        const goodReceipt = await tx.query.goodReceipts.findFirst({
+          where: (tbl, { eq, and, isNull }) =>
+            and(eq(tbl.id, id), isNull(tbl.deletedAt)),
+          with: {
+            goodReceiptLines: {
+              where: (tbl, { isNull }) => isNull(tbl.deletedAt),
             },
-          ],
-          transaction,
+          },
         });
+
         if (!goodReceipt) {
           throw new Error("Good Receipt not found");
         }
@@ -466,11 +671,11 @@ export const goodReceiptServerService = {
         switch (true) {
           case goodReceipt.status === ORDER_STATUS.DRAFT &&
             data.status === ORDER_STATUS.RECEIVED:
-            await processReceivedOrder(data, goodReceipt, transaction, userId);
+            await processReceivedOrder(data, goodReceipt, tx as any, userId);
             break;
           case goodReceipt.status === ORDER_STATUS.DRAFT &&
             (data.status === ORDER_STATUS.DRAFT || !data.status):
-            await processUpdateOrder(data, goodReceipt, transaction);
+            await processUpdateOrder(data, goodReceipt, tx as any);
             break;
           default:
             throw new Error(
@@ -478,7 +683,38 @@ export const goodReceiptServerService = {
             );
         }
 
-        return goodReceipt;
+        const refreshed = await tx.query.goodReceipts.findFirst({
+          where: (tbl, { eq, and, isNull }) =>
+            and(eq(tbl.id, id), isNull(tbl.deletedAt)),
+          with: {
+            supplier: true,
+            goodReceiptLines: {
+              where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+              orderBy: (tbl, { asc }) => asc(tbl.id),
+              with: {
+                combination: true,
+              },
+            },
+            goodReceiptStatusHistory: {
+              orderBy: (tbl, { desc }) => desc(tbl.id),
+              with: {
+                user: true,
+              },
+            },
+            returnTransactions: {
+              where: (tbl, { eq }) => eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+              with: {
+                returnItems: {
+                  with: {
+                    combination: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return refreshed ?? goodReceipt;
       });
     } catch (error) {
       handleServiceError(error);
@@ -486,29 +722,33 @@ export const goodReceiptServerService = {
   },
 
   delete: async (id: number, userId?: number) => {
-    return await sequelize.transaction(async (transaction) => {
-      const receipt = await GoodReceipt.findByPk(id, { transaction });
+    return await db.transaction(async (tx) => {
+      const receipt = await tx.query.goodReceipts.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, id), isNull(tbl.deletedAt)),
+      });
+
       if (!receipt) {
         throw new Error(`Good Receipt with ID ${id} not found`);
       }
       if (receipt.status !== ORDER_STATUS.DRAFT) {
         throw new Error("Good Receipt is not in a valid state");
       }
-      await updateOrder(
-        { status: ORDER_STATUS.VOID },
-        receipt,
-        transaction,
-        false,
-      );
-      await OrderStatusHistory.create(
-        {
-          goodReceiptId: receipt.id,
-          status: ORDER_STATUS.VOID,
-          changedBy: userId ?? 1,
-          changedAt: new Date(),
-        },
-        { transaction },
-      );
+
+      await tx
+        .update(goodReceipts)
+        .set({ status: ORDER_STATUS.VOID, updatedAt: new Date() })
+        .where(eq(goodReceipts.id, receipt.id));
+
+      await tx.insert(orderStatusHistories).values({
+        goodReceiptId: receipt.id,
+        status: ORDER_STATUS.VOID,
+        changedBy: userId ?? 1,
+        changedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
       return {
         success: true,
         message: `Good Receipt ${id} voided successfully`,
@@ -517,10 +757,15 @@ export const goodReceiptServerService = {
   },
 
   cancelOrder: async (id: number) => {
-    return await sequelize.transaction(async (transaction) => {
-      const receipt = await GoodReceipt.findByPk(id, {
-        include: [{ model: GoodReceiptLine, as: "goodReceiptLines" }],
-        transaction,
+    return await db.transaction(async (tx) => {
+      const receipt = await tx.query.goodReceipts.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, id), isNull(tbl.deletedAt)),
+        with: {
+          goodReceiptLines: {
+            where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+          },
+        },
       });
 
       if (!receipt) {
@@ -531,14 +776,13 @@ export const goodReceiptServerService = {
         return receipt;
       }
 
-      await receipt.update({ status: "CANCELLED" }, { transaction });
+      await tx
+        .update(goodReceipts)
+        .set({ status: "CANCELLED", updatedAt: new Date() })
+        .where(eq(goodReceipts.id, receipt.id));
 
-      // Reverse inventory increases
-      const lines = (receipt as any).goodReceiptLines || [];
+      const lines = receipt.goodReceiptLines || [];
       for (const line of lines) {
-        if (transaction && Object.keys(transaction).length === 0) {
-          continue;
-        }
         await inventoryServerService.inventoryDecrease(
           {
             combinationId: Number(line.combinationId),
@@ -547,7 +791,7 @@ export const goodReceiptServerService = {
           "OUT",
           receipt.id,
           "CANCELLED_GOOD_RECEIPT",
-          transaction,
+          tx,
         );
       }
 
@@ -560,10 +804,15 @@ export const goodReceiptServerService = {
     returns: ReturnExchangeItem[],
     reason: string = "Supplier Return",
   ) => {
-    return await sequelize.transaction(async (transaction) => {
-      const receipt = await GoodReceipt.findByPk(referenceId, {
-        include: [{ model: GoodReceiptLine, as: "goodReceiptLines" }],
-        transaction,
+    return await db.transaction(async (tx) => {
+      const receipt = await tx.query.goodReceipts.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, referenceId), isNull(tbl.deletedAt)),
+        with: {
+          goodReceiptLines: {
+            where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+          },
+        },
       });
 
       if (!receipt) {
@@ -583,12 +832,12 @@ export const goodReceiptServerService = {
         throw new Error("No return items specified");
       }
 
-      const receiptLines = receipt.goodReceiptLines;
+      const receiptLines = receipt.goodReceiptLines || [];
       let totalReturnAmount = 0;
 
       // 1. Validate items and enforce cumulative return quantity limits
       for (const ret of activeReturns) {
-        const itemLine = receiptLines?.find(
+        const itemLine = receiptLines.find(
           (l: any) => Number(l.combinationId) === Number(ret.combinationId),
         );
         if (!itemLine) {
@@ -597,19 +846,17 @@ export const goodReceiptServerService = {
           );
         }
 
-        const priorReturnTransactions = await ReturnTransaction.findAll({
-          where: {
-            referenceId,
-            sourceType: ORDER_TYPE.PURCHASE,
-          },
-          include: [
-            {
-              model: ReturnItem,
-              as: "returnItems",
-              where: { combinationId: ret.combinationId },
+        const priorReturnTransactions = await tx.query.returnTransactions.findMany({
+          where: (tbl, { eq, and }) =>
+            and(
+              eq(tbl.referenceId, referenceId),
+              eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+            ),
+          with: {
+            returnItems: {
+              where: (tbl, { eq }) => eq(tbl.combinationId, Number(ret.combinationId)),
             },
-          ],
-          transaction,
+          },
         });
 
         const totalPriorReturnQuantity = priorReturnTransactions.reduce(
@@ -637,21 +884,23 @@ export const goodReceiptServerService = {
       }
 
       // 2. Create ReturnTransaction
-      const returnTx = await ReturnTransaction.create(
-        {
+      const [returnTx] = await tx
+        .insert(returnTransactions)
+        .values({
           sourceType: ORDER_TYPE.PURCHASE,
           referenceId,
-          totalReturnAmount: 0,
-          totalExchangeAmount: 0,
-          paymentDifference: 0,
+          totalReturnAmount: "0",
+          totalExchangeAmount: "0",
+          paymentDifference: "0",
           type: RETURN_TYPE.SUPPLIER_RETURN_OUT,
-        },
-        { transaction },
-      );
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
 
       // 3. Process each return item & inventory reduction
       for (const ret of activeReturns) {
-        const itemLine = receiptLines?.find(
+        const itemLine = receiptLines.find(
           (l: any) => Number(l.combinationId) === Number(ret.combinationId),
         );
         const discountPerItem = itemLine?.discount
@@ -661,29 +910,23 @@ export const goodReceiptServerService = {
           Number(itemLine?.purchasePrice || 0) - discountPerItem;
         const returnCost = unitPrice * Number(ret.quantity);
 
-        await ReturnItem.create(
-          {
-            returnTransactionId: returnTx.id,
-            combinationId: ret.combinationId,
-            quantity: Number(ret.quantity),
-            unitPrice,
-            totalAmount: returnCost,
-            type: RETURN_TYPE.SUPPLIER_RETURN_OUT,
-            reason,
-          },
-          { transaction },
-        );
-
-        const lock =
-          transaction && Object.keys(transaction).length > 0 && transaction.LOCK
-            ? { lock: transaction.LOCK.UPDATE }
-            : {};
-
-        const inventory = await Inventory.findOne({
-          where: { combinationId: ret.combinationId },
-          transaction,
-          ...lock,
+        await tx.insert(returnItems).values({
+          returnTransactionId: returnTx.id,
+          combinationId: Number(ret.combinationId),
+          quantity: String(ret.quantity),
+          unitPrice: String(unitPrice),
+          totalAmount: String(returnCost),
+          type: RETURN_TYPE.SUPPLIER_RETURN_OUT,
+          reason,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
+
+        const [inventory] = await tx
+          .select()
+          .from(inventories)
+          .where(eq(inventories.combinationId, Number(ret.combinationId)))
+          .for("update");
 
         if (!inventory) {
           throw new Error(
@@ -703,25 +946,26 @@ export const goodReceiptServerService = {
 
         await inventoryServerService.inventoryDecrease(
           {
-            combinationId: ret.combinationId,
+            combinationId: Number(ret.combinationId),
             quantity: Number(ret.quantity),
             averagePrice,
           },
           INVENTORY_MOVEMENT_TYPE.SUPPLIER_RETURN_OUT,
           receipt.id,
           INVENTORY_MOVEMENT_REFERENCE_TYPE.GOOD_RECEIPT,
-          transaction,
+          tx,
         );
       }
 
       const paymentDifference = -totalReturnAmount;
-      await returnTx.update(
-        {
-          totalReturnAmount,
-          paymentDifference,
-        },
-        { transaction },
-      );
+      await tx
+        .update(returnTransactions)
+        .set({
+          totalReturnAmount: String(totalReturnAmount),
+          paymentDifference: String(paymentDifference),
+          updatedAt: new Date(),
+        })
+        .where(eq(returnTransactions.id, returnTx.id));
 
       return {
         success: true,
@@ -739,21 +983,30 @@ export const goodReceiptServerService = {
   },
 
   getGoodReceiptWithReturns: async (goodReceiptId: number) => {
-    const gr = await GoodReceipt.findByPk(goodReceiptId, {
-      include: [{ model: GoodReceiptLine, as: "goodReceiptLines" }],
+    const gr = await db.query.goodReceipts.findFirst({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.id, goodReceiptId), isNull(tbl.deletedAt)),
+      with: {
+        goodReceiptLines: {
+          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+        },
+      },
     });
 
     if (!gr) throw new Error("Good Receipt not found");
 
-    const returnTransactions = await ReturnTransaction.findAll({
-      where: {
-        referenceId: goodReceiptId,
-        sourceType: "PURCHASE",
+    const returnTxs = await db.query.returnTransactions.findMany({
+      where: (tbl, { eq, and }) =>
+        and(
+          eq(tbl.referenceId, goodReceiptId),
+          eq(tbl.sourceType, "PURCHASE"),
+        ),
+      with: {
+        returnItems: true,
       },
-      include: [{ model: ReturnItem, as: "returnItems" }],
     });
 
-    const allReturnItems = returnTransactions.flatMap((rt: any) =>
+    const allReturnItems = returnTxs.flatMap((rt: any) =>
       (rt.returnItems || []).map((ri: any) => ({
         returnTransactionId: rt.id,
         combinationId: ri.combinationId,
@@ -763,7 +1016,7 @@ export const goodReceiptServerService = {
       })),
     );
 
-    const items = ((gr as any).goodReceiptLines || []).map((line: any) => {
+    const items = (gr.goodReceiptLines || []).map((line: any) => {
       const lineReturns = allReturnItems.filter(
         (ri: any) => Number(ri.combinationId) === Number(line.combinationId),
       );
@@ -802,54 +1055,90 @@ export const goodReceiptServerService = {
       limit = PAGINATION.PAGE_SIZE,
       page = PAGINATION.PAGE,
     } = params;
-    const where: any = {
-      supplierId: id,
-    };
+
+    const conditions = [
+      eq(goodReceipts.supplierId, id),
+      isNull(goodReceipts.deletedAt),
+    ];
 
     if (q) {
-      where.referenceNo = { [Op.iLike]: `%${q}%` };
+      conditions.push(ilike(goodReceipts.referenceNo, `%${q}%`));
     }
     if (status && status !== "ALL") {
-      where.status = status;
+      conditions.push(eq(goodReceipts.status, status));
     }
 
-    const dateFilter = buildDateFilter(startDate, endDate);
-    if (dateFilter) {
-      where.createdAt = dateFilter;
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
+    if (startBound) {
+      conditions.push(gte(goodReceipts.createdAt, startBound));
     }
+    if (endBound) {
+      conditions.push(lte(goodReceipts.createdAt, endBound));
+    }
+
+    const whereClause = and(...conditions);
     const offset = (page - 1) * limit;
 
-    const order: any[] = [];
-    if (sort) {
-      order.push([sort, params.order || "ASC"]);
-    } else {
-      order.push(["id", "DESC"]);
-    }
+    const [countResult] = await db
+      .select({ total: count(goodReceipts.id) })
+      .from(goodReceipts)
+      .where(whereClause);
 
-    const { count, rows } = await GoodReceipt.findAndCountAll({
-      order: order as any,
-      where: Object.keys(where).length ? where : undefined,
-      include: [...goodReceiptIncludes],
+    const total = Number(countResult?.total || 0);
+
+    const rows = await db.query.goodReceipts.findMany({
+      where: whereClause,
       limit,
       offset,
-      distinct: true,
+      orderBy: (tbl, { asc, desc }) => {
+        if (sort) {
+          const col = tbl[sort as keyof typeof tbl] || tbl.id;
+          return params.order?.toUpperCase() === "ASC" ? asc(col) : desc(col);
+        }
+        return desc(tbl.id);
+      },
+      with: {
+        supplier: true,
+        goodReceiptLines: {
+          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+          orderBy: (tbl, { asc }) => asc(tbl.id),
+          with: {
+            combination: true,
+          },
+        },
+        goodReceiptStatusHistory: {
+          orderBy: (tbl, { desc }) => desc(tbl.id),
+          with: {
+            user: true,
+          },
+        },
+        returnTransactions: {
+          where: (tbl, { eq }) => eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+          with: {
+            returnItems: {
+              with: {
+                combination: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     const orderIds = rows.map((r: any) => r.id);
-    const returnTransactions =
+    const returnTxs =
       orderIds.length > 0
-        ? await ReturnTransaction.findAll({
-          where: {
-            referenceId: { [Op.in]: orderIds },
-            sourceType: ORDER_TYPE.PURCHASE,
-          },
+        ? await db.query.returnTransactions.findMany({
+          where: (tbl, { inArray, eq, and }) =>
+            and(
+              inArray(tbl.referenceId, orderIds),
+              eq(tbl.sourceType, ORDER_TYPE.PURCHASE),
+            ),
         })
         : [];
 
     const enrichedRows = rows.map((row: any) => {
-      const rowReturns = returnTransactions.filter(
-        (rt: any) => rt.referenceId === row.id,
-      );
+      const rowReturns = returnTxs.filter((rt: any) => rt.referenceId === row.id);
       const totalReturnAmount = rowReturns.reduce(
         (sum: number, rt: any) => sum + Number(rt.totalReturnAmount || 0),
         0,
@@ -858,38 +1147,37 @@ export const goodReceiptServerService = {
         (sum: number, rt: any) => sum + Number(rt.totalExchangeAmount || 0),
         0,
       );
-      const plain = row.toJSON ? row.toJSON() : row;
       return {
-        ...plain,
+        ...row,
         totalReturnAmount,
         totalExchangeAmount,
       };
     });
 
-    const totalAmount =
-      (await GoodReceipt.sum("totalAmount", {
-        where: Object.keys(where).length ? where : undefined,
-      })) || 0;
+    const [totalSumResult] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${goodReceipts.totalAmount}), 0)` })
+      .from(goodReceipts)
+      .where(whereClause);
+    const totalAmount = Number(totalSumResult?.total || 0);
 
-    const totalReturnAmount =
-      orderIds.length > 0
-        ? (await ReturnTransaction.sum("totalReturnAmount", {
-          where: {
-            referenceId: { [Op.in]: orderIds },
-            sourceType: ORDER_TYPE.PURCHASE,
-          },
-        })) || 0
-        : 0;
-
-    const totalExchangeAmount =
-      orderIds.length > 0
-        ? (await ReturnTransaction.sum("totalExchangeAmount", {
-          where: {
-            referenceId: { [Op.in]: orderIds },
-            sourceType: ORDER_TYPE.PURCHASE,
-          },
-        })) || 0
-        : 0;
+    let totalReturnAmount = 0;
+    let totalExchangeAmount = 0;
+    if (orderIds.length > 0) {
+      const [returnSum] = await db
+        .select({
+          totalReturn: sql<string>`COALESCE(SUM(${returnTransactions.totalReturnAmount}), 0)`,
+          totalExchange: sql<string>`COALESCE(SUM(${returnTransactions.totalExchangeAmount}), 0)`,
+        })
+        .from(returnTransactions)
+        .where(
+          and(
+            inArray(returnTransactions.referenceId, orderIds),
+            eq(returnTransactions.sourceType, ORDER_TYPE.PURCHASE),
+          ),
+        );
+      totalReturnAmount = Number(returnSum?.totalReturn || 0);
+      totalExchangeAmount = Number(returnSum?.totalExchange || 0);
+    }
 
     return {
       data: enrichedRows,
@@ -899,93 +1187,10 @@ export const goodReceiptServerService = {
         totalExchangeAmount,
       },
       meta: {
-        total: count,
-        totalPages: Math.ceil(count / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
         currentPage: page,
       },
     };
   },
-};
-
-const goodReceiptIncludes = [
-  {
-    model: GoodReceiptLine,
-    as: "goodReceiptLines",
-    include: [
-      {
-        model: ProductCombination,
-        as: "combination",
-      },
-    ],
-  },
-  {
-    model: Supplier,
-    as: "supplier",
-  },
-  {
-    model: OrderStatusHistory,
-    as: "goodReceiptStatusHistory",
-    include: [
-      {
-        model: User,
-        as: "user",
-      },
-    ],
-  },
-  {
-    model: ReturnTransaction,
-    as: "returnTransactions",
-    required: false,
-    where: [
-      {
-        sourceType: ORDER_TYPE.PURCHASE,
-      },
-    ],
-    include: [
-      {
-        model: ReturnItem,
-        as: "returnItems",
-        include: [
-          {
-            model: ProductCombination,
-            as: "combination",
-          },
-        ],
-      },
-    ],
-  },
-];
-
-const getSummary = async (where: any) => {
-  let totalAmount = await GoodReceipt.sum("totalAmount", {
-    where: {
-      status: { [Op.notIn]: [ORDER_STATUS.DRAFT, ORDER_STATUS.VOID] },
-      ...where,
-    },
-  });
-
-  let totalPaid = await GoodReceipt.sum("totalAmount", {
-    where: {
-      status: ORDER_STATUS.COMPLETED,
-      ...where,
-    },
-  });
-
-  const orderIds = await GoodReceipt.findAll({
-    attributes: ["id"],
-    where: Object.keys(where).length ? where : undefined,
-    raw: true,
-  }).then((r) => r.map((o) => o.id));
-
-  let returnsWhere = { referenceId: { [Op.in]: orderIds } };
-
-  const totalReturnAmount = await ReturnTransaction.sum("totalReturnAmount", {
-    where: returnsWhere,
-  });
-
-  return {
-    totalAmount: totalAmount - (totalReturnAmount || 0),
-    totalPayableAmount: totalAmount - totalPaid,
-    totalReturnAmount: totalReturnAmount,
-  };
 };

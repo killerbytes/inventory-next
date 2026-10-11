@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import PageHeader from "../layout/PageHeader";
 import Link from "next/link";
 import ColorBadge from "../common/ColorBadge";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 
 const columnHelper = createColumnHelper<any>();
 

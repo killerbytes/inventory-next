@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   DRAFT_STORAGE_KEYS,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/draftStorage";
 import { SalesOrderInputSchema, SalesOrderInput } from "@/schemas/salesOrder.schema";
 import { GoodReceiptInputSchema, GoodReceiptInput } from "@/schemas/goodReceipt.schema";
-import { MODE_OF_PAYMENT, ORDER_STATUS } from "@/types/definitions";
+import { MODE_OF_PAYMENT, ORDER_STATUS } from "@/constants";
 
 describe("Generic Draft Storage Utility (Unit)", () => {
   beforeEach(() => {

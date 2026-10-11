@@ -4,7 +4,7 @@ import ColorBadge from "@/components/common/ColorBadge";
 import { DataTable } from "@/components/common/DataTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo } from "react";

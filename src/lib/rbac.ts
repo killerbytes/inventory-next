@@ -1,4 +1,4 @@
-import { UserRole } from "@/types/definitions";
+import { UserRole } from "@/constants";
 
 /**
  * Granular system capability permissions.

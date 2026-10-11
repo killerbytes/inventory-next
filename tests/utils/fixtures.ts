@@ -1,12 +1,4 @@
-import {
-  Category,
-  Customer,
-  GoodReceipt,
-  Product,
-  Supplier,
-  User,
-  VariantType,
-} from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { categoryServerService } from "@/server/services/categoryServer.service";
 import { customerServerService } from "@/server/services/customerServer.service";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
@@ -249,44 +241,48 @@ export const goodReceipts = [
   },
 ];
 
-export async function createCategory(index = 0): Promise<Category> {
-  return await Category.create({ ...categories[index] });
+export async function createCategory(index = 0): Promise<any> {
+  return await categoryServerService.create({ ...categories[index] });
 }
 
-export async function createUser(index = 0): Promise<User> {
+export async function createUser(index = 0): Promise<any> {
   const payload = { ...users[index] };
-  let user = await User.findOne({ where: { username: payload.username } });
+  let user = await db.query.users.findFirst({
+    where: (tbl, { eq, and, isNull }) =>
+      and(eq(tbl.username, payload.username), isNull(tbl.deletedAt)),
+  });
   if (!user) {
-    user = await User.create({
+    user = await userServerService.create({
       name: payload.name,
       username: payload.username,
       email: payload.email,
-      password: User.generateHash(payload.password),
-      role: payload.role,
+      password: payload.password,
+      confirmPassword: payload.password,
+      role: payload.role as any,
       isActive: true,
     });
   } else {
-    await user.update({ isActive: true });
+    await userServerService.update(user.id, { isActive: true });
   }
   return user;
 }
 
-export async function createCustomer(index = 0): Promise<Customer> {
-  return await Customer.create({ ...customers[index] });
+export async function createCustomer(index = 0): Promise<any> {
+  return await customerServerService.create({ ...customers[index] });
 }
 
-export async function createProduct(index = 0): Promise<Product> {
-  return await Product.create({ ...products[index] } as any);
+export async function createProduct(index = 0): Promise<any> {
+  return await productServerService.create({ ...products[index] } as any);
 }
 
-export async function createVariantType(index = 0): Promise<VariantType> {
-  return (await variantTypeServerService.create({
+export async function createVariantType(index = 0): Promise<any> {
+  return await variantTypeServerService.create({
     ...variantTypes[index],
-  })) as VariantType;
+  });
 }
 
-export async function createSupplier(index = 0): Promise<Supplier> {
-  return await Supplier.create({ ...suppliers[index] });
+export async function createSupplier(index = 0): Promise<any> {
+  return await supplierServerService.create({ ...suppliers[index] } as any);
 }
 
 export async function createCombination(

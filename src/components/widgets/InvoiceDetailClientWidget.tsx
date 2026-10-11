@@ -12,7 +12,7 @@ import ColorBadge from "@/components/common/ColorBadge";
 import AddInvoicePaymentModal from "@/components/modals/AddInvoicePaymentModal";
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { INVOICE_STATUS, STATUS_COLOR } from "@/types/definitions";
+import { INVOICE_STATUS, STATUS_COLOR } from "@/constants";
 import { useUIStore } from "@/stores/uiStore";
 
 const columnHelper = createColumnHelper<any>();

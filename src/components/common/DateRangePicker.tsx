@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { MAX_START_DATE } from "@/types/definitions";
+import { MAX_START_DATE } from "@/constants";
 
 interface DateRangePickerProps {
   value?: DateRange;

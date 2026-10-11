@@ -17,7 +17,7 @@ import {
   getCombinationsByIdsAction,
   updatePricesAction,
 } from "@/server/actions/product.actions";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   AlertCircle,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/stores/authStore";
-import { UserRole } from "@/types/definitions";
+import { UserRole } from "@/constants";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
 

@@ -1,5 +1,5 @@
 import { getSKU } from "@/lib/string";
-import { PriceHistory, ProductCombination } from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
 import { productServerService } from "@/server/services/productServer.service";
@@ -77,7 +77,7 @@ describe("Product Combination Service (Integration)", () => {
     expect(Number(combo.combinations[0].price)).toBe(123);
     expect(Number(combo.combinations[1].price)).toBe(123);
 
-    const priceHistories = await PriceHistory.findAll();
+    const priceHistories = await db.query.priceHistories.findMany();
     expect(priceHistories.length).toBe(2);
     expect(Number(priceHistories[0].fromPrice)).toBe(100);
     expect(Number(priceHistories[0].toPrice)).toBe(123);
@@ -445,11 +445,10 @@ describe("Product Combination Service (Integration)", () => {
       expect(Number(updatedCombo1.price)).toBe(150.5);
       expect(Number(updatedCombo2.price)).toBe(10.99);
 
-      const priceHistories = await PriceHistory.findAll({
-        where: {
-          combinationId: [currentCombos[0].id, currentCombos[1].id],
-        },
-        order: [["id", "DESC"]],
+      const priceHistories = await db.query.priceHistories.findMany({
+        where: (tbl, { inArray }) =>
+          inArray(tbl.combinationId, [currentCombos[0].id, currentCombos[1].id]),
+        orderBy: (tbl, { desc }) => [desc(tbl.id)],
       });
 
       const history1 = priceHistories.find(
@@ -489,10 +488,48 @@ describe("Product Combination Service (Integration)", () => {
       );
       expect(Number(unchangedCombo1.price)).toBe(initialPrice);
 
-      const histories = await PriceHistory.findAll({
-        where: { combinationId: currentCombos[0].id, toPrice: 999.99 },
+      const histories = await db.query.priceHistories.findMany({
+        where: (tbl, { eq, and }) =>
+          and(
+            eq(tbl.combinationId, currentCombos[0].id),
+            eq(tbl.toPrice, "999.99"),
+          ),
       });
       expect(histories.length).toBe(0);
     });
   });
+
+  describe("search", () => {
+    it("should search products and return product objects with nested combinations array matching inventory-api contract", async () => {
+      // Act
+      const results: any = await productCombinationServerService.search({
+        search: "Shovel",
+      });
+
+      // Assert
+      expect(results.length).toBeGreaterThan(0);
+      const productMatch = results[0];
+      expect(productMatch).toHaveProperty("id");
+      expect(productMatch).toHaveProperty("name");
+      expect(productMatch).toHaveProperty("categoryId", 1);
+      expect(productMatch).toHaveProperty("combinations");
+      expect(Array.isArray(productMatch.combinations)).toBe(true);
+      expect(productMatch.combinations.length).toBeGreaterThan(0);
+
+      const combo = productMatch.combinations[0];
+      expect(combo).toHaveProperty("id");
+      expect(combo).toHaveProperty("productId", productMatch.id);
+      expect(combo).toHaveProperty("name");
+      expect(combo).toHaveProperty("unit");
+      expect(combo).toHaveProperty("price");
+      expect(combo).toHaveProperty("inventory");
+      expect(combo).toHaveProperty("product");
+      expect(combo.product).toEqual({
+        id: productMatch.id,
+        name: productMatch.name,
+        categoryId: 1,
+      });
+    });
+  });
 });
+

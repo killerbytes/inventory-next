@@ -22,7 +22,7 @@ import {
   INVENTORY_MOVEMENT_TYPE_OPTIONS,
   Meta,
   UNIT_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { ClipboardList, SearchIcon } from "lucide-react";

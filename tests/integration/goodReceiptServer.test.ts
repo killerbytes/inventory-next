@@ -1,15 +1,9 @@
 // @vitest-environment node
 import { GoodReceiptInput } from "@/schemas";
-import {
-  Inventory,
-  InventoryMovement,
-  ReturnItem,
-  ReturnTransaction,
-  User,
-} from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
-import { ORDER_TYPE, RETURN_TYPE } from "@/types/definitions";
+import { ORDER_TYPE, RETURN_TYPE } from "@/constants";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -23,7 +17,7 @@ import {
 } from "../utils/fixtures";
 
 describe("Good Receipt Service (Integration)", () => {
-  let user0: User;
+  let user0: any;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -121,7 +115,9 @@ describe("Good Receipt Service (Integration)", () => {
     );
 
     const goodReceipt2 = await goodReceiptServerService.get(1);
-    const inventory = await Inventory.findAll();
+    const inventory = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
 
     expect(goodReceipt2?.status).toBe("RECEIVED");
     expect(Number(goodReceipt2?.totalAmount)).toBe(5090);
@@ -164,7 +160,9 @@ describe("Good Receipt Service (Integration)", () => {
       },
       user0.id,
     );
-    const inventory2 = await Inventory.findAll();
+    const inventory2 = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
 
     expect(inventory2.length).toBe(2);
     expect(Number(inventory2[0].quantity)).toBe(22);
@@ -272,10 +270,18 @@ describe("Good Receipt Service (Integration)", () => {
       returns as any,
       "reason",
     );
-    const inventory = await Inventory.findAll();
-    const inventoryMovement = await InventoryMovement.findAll();
-    const returnTransaction = await ReturnTransaction.findAll();
-    const returnItems = await ReturnItem.findAll();
+    const inventory = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
+    const inventoryMovement = await db.query.inventoryMovements.findMany({
+      orderBy: (m, { asc }) => [asc(m.id)],
+    });
+    const returnTransaction = await db.query.returnTransactions.findMany({
+      orderBy: (t, { asc }) => [asc(t.id)],
+    });
+    const returnItems = await db.query.returnItems.findMany({
+      orderBy: (i, { asc }) => [asc(i.id)],
+    });
 
     expect(result.success).toBe(true);
     expect(Number(inventory[0].quantity)).toBe(0);
@@ -327,8 +333,12 @@ describe("Good Receipt Service (Integration)", () => {
     await goodReceiptServerService.supplierReturns(1, returns, "reason");
     await goodReceiptServerService.supplierReturns(1, returns, "reason");
 
-    const returnTransaction = await ReturnTransaction.findAll();
-    const returnItems = await ReturnItem.findAll();
+    const returnTransaction = await db.query.returnTransactions.findMany({
+      orderBy: (t, { asc }) => [asc(t.id)],
+    });
+    const returnItems = await db.query.returnItems.findMany({
+      orderBy: (i, { asc }) => [asc(i.id)],
+    });
 
     expect(returnTransaction.length).toBe(2);
     expect(returnTransaction[0].id).toBe(1);
@@ -361,7 +371,9 @@ describe("Good Receipt Service (Integration)", () => {
     expect(returnItems[1].combinationId).toBe(1);
     expect(Number(returnItems[1].totalAmount)).toBe(100);
 
-    const inv = await Inventory.findAll();
+    const inv = await db.query.inventories.findMany({
+      orderBy: (inv, { asc }) => [asc(inv.id)],
+    });
     expect(Number(inv[0].quantity)).toBe(8);
   });
 

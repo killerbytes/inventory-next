@@ -7,7 +7,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Annoyed } from "lucide-react";
 import Link from "next/link";

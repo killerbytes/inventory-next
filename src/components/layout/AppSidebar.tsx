@@ -175,7 +175,6 @@ const navGroups = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
   const [dark, setDark] = React.useState(false);
   const router = useRouter();
 

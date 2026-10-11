@@ -1,18 +1,25 @@
-import { ORDER_STATUS } from "@/types/definitions";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { orderStatusHistories } from "@/server/db/schema/orderStatusHistories";
+import { ORDER_STATUS } from "@/constants";
 import * as z from "zod";
 import { UserSchema } from "./user.schema";
 
-export const OrderStatusHistoryBaseSchema = z.object({
-  status: z.coerce.number(),
+export const OrderStatusHistoryBaseSchema = createInsertSchema(
+  orderStatusHistories,
+  {
+    status: () => z.coerce.number(),
+  },
+).pick({
+  status: true,
 });
 
-export const OrderStatusHistorySchema = OrderStatusHistoryBaseSchema.extend({
-  id: z.number(),
+export const OrderStatusHistorySelectSchema =
+  createSelectSchema(orderStatusHistories);
+
+export const OrderStatusHistorySchema = OrderStatusHistorySelectSchema.extend({
   goodReceiptId: z.coerce.number().nullish(),
   salesOrderId: z.coerce.number().nullish(),
   status: z.nativeEnum(ORDER_STATUS),
-  changedBy: z.number(),
-  changedAt: z.coerce.date(),
   user: UserSchema,
 });
 
@@ -20,3 +27,4 @@ export type OrderStatusHistoryInput = z.infer<
   typeof OrderStatusHistoryBaseSchema
 >;
 export type OrderStatusHistoryData = z.infer<typeof OrderStatusHistorySchema>;
+

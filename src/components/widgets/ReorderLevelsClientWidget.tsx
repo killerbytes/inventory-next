@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatDate } from "@/lib/utils";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { cx } from "class-variance-authority";
 import Link from "next/link";
@@ -81,8 +81,8 @@ export default function ReorderLevelsClientWidget({
         cell: ({ row }) => {
           const qty = Number(
             row.original.quantity ??
-              row.original.combinations?.inventory?.quantity ??
-              0,
+            row.original.combinations?.inventory?.quantity ??
+            0,
           );
           return (
             <div
@@ -113,8 +113,8 @@ export default function ReorderLevelsClientWidget({
         cell: ({ row }) => {
           const qty = Number(
             row.original.quantity ??
-              row.original.combinations?.inventory?.quantity ??
-              0,
+            row.original.combinations?.inventory?.quantity ??
+            0,
           );
           const isOutOfStock = qty <= 0;
           return (

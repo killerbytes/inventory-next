@@ -1,4 +1,4 @@
-import { ProductCombination } from "@/server/models";
+import { db } from "@/server/db/drizzle";
 import { productServerService } from "@/server/services/productServer.service";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -44,11 +44,11 @@ describe("Product Service (Integration)", () => {
       categoryId: 1,
     });
 
-    const productCombination = await ProductCombination.findAll({
-      where: {
-        productId: updated.id,
-      },
+    const productCombination = await db.query.productCombinations.findMany({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.productId, updated.id), isNull(tbl.deletedAt)),
     });
+
 
     expect(updated).not.toBeNull();
     expect(updated.name).toBe("Wood Shovel");

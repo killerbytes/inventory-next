@@ -30,7 +30,7 @@ import { formatCurrency } from "@/lib/utils";
 import { SalesOrderData } from "@/schemas";
 import { cancelSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/types/definitions";
+import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper, RowSelectionState } from "@tanstack/react-table";
 import {
   AlertCircle,

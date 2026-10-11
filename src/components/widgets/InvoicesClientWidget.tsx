@@ -16,7 +16,7 @@ import {
   Meta,
   PAGINATION,
   STATUS_COLOR,
-} from "@/types/definitions";
+} from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { CreditCard, Plus, SearchIcon } from "lucide-react";
 import Link from "next/link";

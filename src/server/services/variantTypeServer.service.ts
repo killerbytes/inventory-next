@@ -1,7 +1,7 @@
-import sequelize from "@/server/db/sequelize";
-import { VariantType, VariantValue } from "@/server/models";
-import { Op } from "sequelize";
 import "server-only";
+import db from "@/server/db/drizzle";
+import { variantTypes, variantValues } from "@/server/db/schema";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { handleServiceError } from "./errorHandler";
 
 export interface CreateVariantTypeInput {
@@ -20,45 +20,62 @@ export interface UpdateVariantTypeInput {
 
 export const variantTypeServerService = {
   get: async (id: number) => {
-    return await VariantType.findByPk(id, {
-      include: [{ model: VariantValue, as: "values" }],
+    const result = await db.query.variantTypes.findFirst({
+      where: eq(variantTypes.id, id),
+      with: {
+        values: true,
+      },
     });
+    return result ?? null;
   },
 
   getByProductId: async (productId: number) => {
-    return await VariantType.findAll({
-      where: { productId: Number(productId) },
-      include: [{ model: VariantValue, as: "values" }],
-      order: [
-        ["id", "ASC"],
-        [{ model: VariantValue, as: "values" }, "value", "ASC"],
-      ],
+    return await db.query.variantTypes.findMany({
+      where: eq(variantTypes.productId, Number(productId)),
+      with: {
+        values: {
+          orderBy: (val, { asc }) => [asc(val.value)],
+        },
+      },
+      orderBy: [asc(variantTypes.id)],
     });
   },
 
   getAll: async (productId?: number) => {
     const where = productId
-      ? { productId: Number(productId) }
-      : { isTemplate: true };
-    return await VariantType.findAll({
+      ? eq(variantTypes.productId, Number(productId))
+      : eq(variantTypes.isTemplate, true);
+    return await db.query.variantTypes.findMany({
       where,
-      include: [{ model: VariantValue, as: "values" }],
-      order: [["name", "ASC"]],
+      with: {
+        values: true,
+      },
+      orderBy: [asc(variantTypes.name)],
     });
   },
 
   create: async (data: CreateVariantTypeInput) => {
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const result = await VariantType.create(data, { transaction });
+      return await db.transaction(async (tx) => {
+        const [result] = await tx
+          .insert(variantTypes)
+          .values({
+            name: data.name,
+            productId: data.productId ?? null,
+            isTemplate: data.isTemplate ?? false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
 
-        for (const value of data.values || []) {
-          await VariantValue.create(
-            {
-              value: value.value,
+        if (data.values && data.values.length > 0) {
+          await tx.insert(variantValues).values(
+            data.values.map((v: any) => ({
+              value: v.value,
               variantTypeId: result.id,
-            },
-            { transaction },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })),
           );
         }
 
@@ -72,58 +89,70 @@ export const variantTypeServerService = {
   update: async (id: number, data: UpdateVariantTypeInput) => {
     const { id: _id, values = [], ...rest } = data;
     try {
-      const variantType = await VariantType.findByPk(id);
-      if (!variantType) {
+      const existing = await db.query.variantTypes.findFirst({
+        where: eq(variantTypes.id, id),
+      });
+      if (!existing) {
         throw new Error(`VariantType with ID ${id} not found`);
       }
 
-      return await sequelize.transaction(async (transaction) => {
-        if (data.isBreakpackFilter) {
-          const variantsExists = await VariantType.findOne({
-            where: {
-              productId: variantType.productId,
-              id: { [Op.ne]: id },
-              isBreakpackFilter: true,
-            },
-          });
-          if (variantsExists) {
-            await variantsExists.update(
-              { isBreakpackFilter: false },
-              { transaction },
+      return await db.transaction(async (tx) => {
+        if (data.isBreakpackFilter && existing.productId) {
+          await tx
+            .update(variantTypes)
+            .set({ isBreakpackFilter: false, updatedAt: new Date() })
+            .where(
+              and(
+                eq(variantTypes.productId, existing.productId),
+                ne(variantTypes.id, id),
+                eq(variantTypes.isBreakpackFilter, true),
+              ),
             );
-          }
         }
 
-        await variantType.update(rest, { transaction });
+        await tx
+          .update(variantTypes)
+          .set({ ...rest, updatedAt: new Date() })
+          .where(eq(variantTypes.id, id));
 
-        const existingVariantValues = await VariantValue.findAll({
-          where: { variantTypeId: variantType.id },
-          transaction,
+        const existingValues = await tx.query.variantValues.findMany({
+          where: eq(variantValues.variantTypeId, existing.id),
         });
-        const deleteIds = existingVariantValues
+
+        const incomingIds = values
+          .map((i: any) => i.id)
+          .filter(Boolean) as number[];
+        const deleteIds = existingValues
           .map((i) => i.id)
-          .filter((item) => !values?.map((i) => i.id).includes(item));
+          .filter((itemId) => !incomingIds.includes(itemId));
 
-        await VariantValue.destroy({
-          where: { id: deleteIds },
-          transaction,
-        });
+        if (deleteIds.length > 0) {
+          await tx
+            .delete(variantValues)
+            .where(inArray(variantValues.id, deleteIds));
+        }
 
         for (const value of values) {
           if (value?.id) {
-            const variantValue = await VariantValue.findByPk(value.id);
-            await variantValue?.update({ value: value.value }, { transaction });
+            await tx
+              .update(variantValues)
+              .set({ value: value.value, updatedAt: new Date() })
+              .where(eq(variantValues.id, value.id));
           } else {
-            await VariantValue.create(
-              { variantTypeId: variantType.id, value: value.value },
-              { transaction },
-            );
+            await tx.insert(variantValues).values({
+              variantTypeId: existing.id,
+              value: value.value,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
           }
         }
 
-        return await VariantType.findByPk(id, {
-          include: [{ model: VariantValue, as: "values" }],
-          transaction,
+        return await tx.query.variantTypes.findFirst({
+          where: eq(variantTypes.id, id),
+          with: {
+            values: true,
+          },
         });
       });
     } catch (error) {
@@ -132,19 +161,23 @@ export const variantTypeServerService = {
   },
 
   delete: async (id: number) => {
-    const variantType = await VariantType.findByPk(id);
-    if (!variantType) {
+    const existing = await db.query.variantTypes.findFirst({
+      where: eq(variantTypes.id, id),
+    });
+    if (!existing) {
       throw new Error(`VariantType with ID ${id} not found`);
     }
 
-    await sequelize.transaction(async (transaction) => {
-      await VariantValue.destroy({
-        where: { variantTypeId: id },
-        transaction,
-      });
-      await variantType.destroy({ transaction });
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(variantValues)
+        .where(eq(variantValues.variantTypeId, id));
+      await tx
+        .delete(variantTypes)
+        .where(eq(variantTypes.id, id));
     });
 
     return { success: true, message: `VariantType ${id} deleted successfully` };
   },
 };
+export default variantTypeServerService;

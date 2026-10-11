@@ -1,38 +1,56 @@
-import { ORDER_TYPE, RETURN_TYPE } from "@/types/definitions";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { returnItems } from "@/server/db/schema/returnItems";
+import { returnTransactions } from "@/server/db/schema/returnTransactions";
+import { ORDER_TYPE, RETURN_TYPE } from "@/constants";
 import z from "zod";
-import { GoodReceiptLineBaseSchema, GoodReceiptLineSchema } from "./goodReceipt.schema";
+import { GoodReceiptLineBaseSchema } from "./goodReceipt.schema";
 import { ProductCombinationSchema } from "./productCombination.schema";
 
-export const ReturnItemBaseSchema = z.object({
-  combinationId: z.coerce.number().positive(),
-  quantity: z.coerce.number().positive(),
-  returnTransactionId: z.coerce.number(),
-  unitPrice: z.coerce.number(),
-  totalAmount: z.coerce.number(),
-  reason: z.string().nullish(),
-  type: z.string(),
+export const ReturnItemBaseSchema = createInsertSchema(returnItems, {
+  combinationId: () => z.coerce.number().positive(),
+  quantity: () => z.coerce.number().positive(),
+  returnTransactionId: () => z.coerce.number(),
+  unitPrice: () => z.coerce.number(),
+  totalAmount: () => z.coerce.number(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const ReturnItemSchema = ReturnItemBaseSchema.extend({
-  id: z.number(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+export const ReturnItemSelectSchema = createSelectSchema(returnItems);
+export const ReturnItemSchema = ReturnItemSelectSchema.extend({
+  quantity: z.coerce.number(),
+  unitPrice: z.coerce.number(),
+  totalAmount: z.coerce.number(),
   combination: ProductCombinationSchema,
 });
 
-export const ReturnTransactionBaseSchema = z.object({
-  referenceId: z.number(),
+export const ReturnTransactionBaseSchema = createInsertSchema(
+  returnTransactions,
+  {
+    referenceId: () => z.number(),
+    sourceType: () => z.nativeEnum(ORDER_TYPE),
+    totalReturnAmount: () => z.coerce.number(),
+    totalExchangeAmount: () => z.coerce.number().nullish(),
+    paymentDifference: () => z.coerce.number(),
+    type: () => z.nativeEnum(RETURN_TYPE),
+  },
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const ReturnTransactionSelectSchema =
+  createSelectSchema(returnTransactions);
+
+export const ReturnTransactionSchema = ReturnTransactionSelectSchema.extend({
   sourceType: z.nativeEnum(ORDER_TYPE),
   totalReturnAmount: z.coerce.number(),
   totalExchangeAmount: z.coerce.number().nullish(),
   paymentDifference: z.coerce.number(),
   type: z.nativeEnum(RETURN_TYPE),
-});
-
-export const ReturnTransactionSchema = ReturnTransactionBaseSchema.extend({
-  id: z.number(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
   returnItems: z.array(ReturnItemSchema),
 });
 
@@ -56,3 +74,4 @@ export const ReturnExchangeFormSchema = z.object({
 export type ReturnItemData = z.infer<typeof ReturnItemSchema>;
 export type ReturnTransactionData = z.infer<typeof ReturnTransactionSchema>;
 export type ReturnExchangeFormInput = z.infer<typeof ReturnExchangeFormSchema>;
+

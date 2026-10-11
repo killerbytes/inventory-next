@@ -1,9 +1,11 @@
-import { INVENTORY_MOVEMENT_TYPE } from "@/types/definitions";
+import { INVENTORY_MOVEMENT_TYPE } from "@/constants";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 import { productCombinationServerService } from "@/server/services/productCombinationServer.service";
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import { salesServerService } from "@/server/services/salesServer.service";
-import { Inventory, ProductCombination } from "@/server/models";
+import { db } from "@/server/db/drizzle";
+import { inventories, productCombinations } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
   createCategory,
@@ -55,14 +57,14 @@ describe("Reports Service (Inventory Value)", () => {
     const combo1 = combinations.combinations[0];
     const combo2 = combinations.combinations[1];
 
-    await Inventory.update(
-      { quantity: 10, averagePrice: 50 },
-      { where: { combinationId: combo1.id } }
-    );
-    await Inventory.update(
-      { quantity: 5, averagePrice: 120 },
-      { where: { combinationId: combo2.id } }
-    );
+    await db
+      .update(inventories)
+      .set({ quantity: "10", averagePrice: "50" })
+      .where(eq(inventories.combinationId, combo1.id));
+    await db
+      .update(inventories)
+      .set({ quantity: "5", averagePrice: "120" })
+      .where(eq(inventories.combinationId, combo2.id));
 
     const result = await reportsServerService.getInventoryValue();
     expect(result.totalValue).toBe(1100);
@@ -102,10 +104,10 @@ describe("Reports Service (Inventory Value)", () => {
     const targetCombo = combinations.combinations[1];
 
     // Set relationship
-    await ProductCombination.update(
-      { isBreakPackOfId: combo.id, isBreakPack: true },
-      { where: { id: targetCombo.id } }
-    );
+    await db
+      .update(productCombinations)
+      .set({ isBreakPackOfId: combo.id, isBreakPack: true })
+      .where(eq(productCombinations.id, targetCombo.id));
 
     // 1. IN: 10 units @ 100 = 1000
     await inventoryServerService.inventoryIncrease(

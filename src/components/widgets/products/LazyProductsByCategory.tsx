@@ -5,7 +5,7 @@ import DataTable from "@/components/common/DataTable";
 import { formatCurrency } from "@/lib/utils";
 import { ProductCombinationData } from "@/schemas";
 import { getProductCombinationsByCategoryIdAction } from "@/server/actions/product.actions";
-import { UNIT_COLOR } from "@/types/definitions";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Loader2Icon } from "lucide-react";
 import Link from "next/link";

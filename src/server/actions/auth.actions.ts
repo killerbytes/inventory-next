@@ -1,7 +1,10 @@
 "use server";
 
+import bcrypt from "bcrypt";
+import { eq, and, isNull } from "drizzle-orm";
 import { setSessionCookie } from "@/server/auth/session";
-import { User } from "@/server/models";
+import { db } from "@/server/db/drizzle";
+import { users } from "@/server/db/schema/users";
 
 export interface LoginResult {
   success: boolean;
@@ -15,7 +18,7 @@ export interface LoginResult {
 }
 
 /**
- * Server action to authenticate user credentials against PostgreSQL User model.
+ * Server action to authenticate user credentials against PostgreSQL users table via Drizzle.
  */
 export async function loginAction(credentials: {
   username?: string;
@@ -30,15 +33,16 @@ export async function loginAction(credentials: {
     };
   }
 
-  const user = await User.scope("withPassword").findOne({
-    where: { username: username.trim() },
+  const user = await db.query.users.findFirst({
+    where: (tbl, { eq, and, isNull }) =>
+      and(eq(tbl.username, username.trim()), isNull(tbl.deletedAt)),
   });
 
   if (!user) {
     throw new Error("Invalid username or password");
   }
 
-  if (!User.validatePassword(password, user.password)) {
+  if (!bcrypt.compareSync(password, user.password)) {
     throw new Error("Invalid username or password");
   }
 
@@ -50,7 +54,7 @@ export async function loginAction(credentials: {
     id: user.id,
     name: user.name,
     username: user.username,
-    role: user.role,
+    role: user.role || "USER",
   };
 
   await setSessionCookie(sessionUser);
@@ -60,3 +64,4 @@ export async function loginAction(credentials: {
     user: sessionUser,
   };
 }
+

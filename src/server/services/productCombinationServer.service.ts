@@ -1,28 +1,65 @@
 import { normalize, truncateQty } from "@/lib/compute";
 import { getMappedProductComboName } from "@/lib/mapped";
-import { getSKU } from "@/lib/string";
+import { getSKU, getBarcode } from "@/lib/string";
 import {
   BreakPackInput,
   ProductCombinationUpdate,
   StockAdjustmentInput,
   stockAdjustmentInputSchema,
 } from "@/schemas";
-import sequelize from "@/server/db/sequelize";
+import { db } from "@/server/db/drizzle";
 import {
-  BreakPack,
-  Inventory,
-  PriceHistory,
-  Product,
-  ProductCombination,
-  StockAdjustment,
-  VariantType,
-  VariantValue,
-} from "@/server/models";
-import { QueryTypes } from "sequelize";
+  productCombinations,
+  combinationValues,
+} from "@/server/db/schema/productCombinations";
+import { products } from "@/server/db/schema/products";
+import { variantTypes, variantValues } from "@/server/db/schema/variantTypes";
+import { inventories } from "@/server/db/schema/inventories";
+import { priceHistories } from "@/server/db/schema/priceHistories";
+import { breakPacks } from "@/server/db/schema/breakPacks";
+import { stockAdjustments } from "@/server/db/schema/stockAdjustments";
+import {
+  eq,
+  and,
+  isNull,
+  inArray,
+  notInArray,
+  asc,
+  sql,
+} from "drizzle-orm";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
 import { productServerService } from "./productServer.service";
+export interface SearchProductCombinationInventory {
+  id: number;
+  quantity: number;
+  averagePrice: string | number;
+}
+
+export interface SearchProductCombinationItem {
+  id: number;
+  productId: number;
+  name: string;
+  sku: string;
+  unit: string;
+  price: string | number;
+  inventory?: SearchProductCombinationInventory | null;
+  product?: {
+    id: number;
+    name: string;
+    categoryId: number;
+  };
+}
+
+export interface SearchProductResult {
+  id: number;
+  name: string;
+  description: string | null;
+  categoryId: number;
+  combinations: SearchProductCombinationItem[];
+}
+
 
 export interface SearchProductCombinationsInput {
   search: string;
@@ -71,425 +108,214 @@ export interface UpdatePriceItem {
   userId?: number;
 }
 
-const getIncludes = [
-  {
-    model: VariantValue,
-    as: "values",
-    through: { attributes: [] },
-  },
-  {
-    model: Product,
-    as: "product",
-    include: [{ model: VariantType, as: "variants" }],
-  },
-  {
-    model: Inventory,
-    as: "inventory",
-  },
-];
-
 export const productCombinationServerService = {
   buildTsQuery,
 
   get: async (id: number | string) => {
-    const productCombination = await ProductCombination.findByPk(Number(id), {
-      include: [...getIncludes],
-      order: [
-        [
-          { model: Product, as: "product" },
-          { model: VariantType, as: "variants" },
-          "name",
-          "ASC",
-        ],
-      ],
+    const numId = Number(id);
+    const combo = await db.query.productCombinations.findFirst({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.id, numId), isNull(tbl.deletedAt)),
+      with: {
+        product: {
+          with: {
+            variants: {
+              orderBy: (tbl, { asc }) => asc(tbl.name),
+            },
+          },
+        },
+        inventory: true,
+        combinationValues: {
+          with: {
+            value: true,
+          },
+        },
+      },
     });
 
-    if (!productCombination) {
+    if (!combo) {
       throw new Error("Product combination not found");
     }
 
-    return productCombination;
+    const values = (combo.combinationValues || [])
+      .map((cv: any) => cv.value)
+      .filter(Boolean);
+
+    return {
+      ...combo,
+      values,
+    };
   },
 
   getByProductId: async (id: number | string) => {
-    const combinations = await ProductCombination.findAll({
-      where: { productId: Number(id) },
-      include: [
-        {
-          model: VariantValue,
-          as: "values",
-          through: { attributes: [] },
+    const numId = Number(id);
+    const combos = await db.query.productCombinations.findMany({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.productId, numId), isNull(tbl.deletedAt)),
+      with: {
+        inventory: true,
+        combinationValues: {
+          with: {
+            value: true,
+          },
         },
-        {
-          model: Inventory,
-          as: "inventory",
-        },
-      ],
-      order: [
-        ["name", "ASC"],
-        ["isBreakPackOfId", "ASC NULLS FIRST"],
+      },
+      orderBy: [
+        asc(productCombinations.name),
+        sql`${productCombinations.isBreakPackOfId} ASC NULLS FIRST`,
       ],
     });
 
-    const variants = await VariantType.findAll({
-      where: { productId: Number(id) },
-      order: [
-        ["name", "ASC"],
-        [{ model: VariantValue, as: "values" }, "value", "ASC"],
-      ],
-      include: [
-        {
-          model: VariantValue,
-          as: "values",
+    const variants = await db.query.variantTypes.findMany({
+      where: (tbl, { eq }) => eq(tbl.productId, numId),
+      with: {
+        values: {
+          orderBy: (tbl, { asc }) => asc(tbl.value),
         },
-      ],
+      },
+      orderBy: (tbl, { asc }) => asc(tbl.name),
+    });
+
+    const formattedCombinations = combos.map((c: any) => {
+      const formatted = {
+        ...c,
+        values: (c.combinationValues || [])
+          .map((cv: any) => cv.value)
+          .filter(Boolean),
+      };
+      (formatted as any).dataValues = formatted;
+      return formatted;
     });
 
     return {
-      combinations,
+      combinations: formattedCombinations,
       variants,
     };
   },
 
   getByBarcode: async (barcode: string) => {
-    const productCombination = await ProductCombination.findOne({
-      where: { barcode },
-      include: [...getIncludes],
-      order: [
-        [
-          { model: Product, as: "product" },
-          { model: VariantType, as: "variants" },
-          "name",
-          "ASC",
-        ],
-      ],
-    });
-
-    if (!productCombination) {
-      throw new Error("Product combination not found");
-    }
-
-    return productCombination;
-  },
-
-  // create: async (
-  //   payload: CombinationItemInput & { productId: number; userId?: number },
-  // ) => {
-  //   const numProductId = Number(payload.productId);
-  //   const product = await Product.findByPk(numProductId, {
-  //     include: [
-  //       {
-  //         model: ProductCombination,
-  //         as: "combinations",
-  //         include: [
-  //           {
-  //             model: VariantValue,
-  //             as: "values",
-  //             through: { attributes: [] },
-  //           },
-  //         ],
-  //       },
-  //       {
-  //         model: VariantType,
-  //         as: "variants",
-  //         include: [{ model: VariantValue, as: "values" }],
-  //       },
-  //     ],
-  //     order: [[{ model: VariantType, as: "variants" }, "name", "ASC"]],
-  //   });
-
-  //   if (!product) {
-  //     throw new Error("Product not found");
-  //   }
-
-  //   validateCombinations([payload], product);
-  //   if (payload.isBreakPackOfId) {
-  //     await validateVariants(payload, product);
-  //   }
-
-  //   return await sequelize.transaction(async (transaction) => {
-  //     const variantValueIds = await getVariantValueIds(
-  //       numProductId,
-  //       payload.values || [],
-  //       transaction,
-  //     );
-  //     if (variantValueIds.length !== (payload.values || []).length) {
-  //       throw new Error("Some variant values are invalid or missing");
-  //     }
-
-  //     const computedName =
-  //       payload.name ||
-  //       getMappedProductComboName(product, payload.values || []);
-  //     const computedSku =
-  //       payload.sku ||
-  //       getSKU(
-  //         (product as any).name || "Product",
-  //         (product as any).categoryId || 1,
-  //         payload.unit || (product as any).baseUnit || "PCS",
-  //         payload.values || [],
-  //       );
-
-  //     const combination = await ProductCombination.create(
-  //       {
-  //         ...payload,
-  //         unit: payload.unit || (product as any).baseUnit || "PCS",
-  //         productId: numProductId,
-  //         name: computedName,
-  //         sku: computedSku,
-  //       } as any,
-  //       { transaction },
-  //     );
-
-  //     if (
-  //       typeof (combination as any).setValues === "function" &&
-  //       variantValueIds.length > 0
-  //     ) {
-  //       await (combination as any).setValues(variantValueIds, { transaction });
-  //     }
-
-  //     await Inventory.findOrCreate({
-  //       where: { combinationId: combination.id },
-  //       defaults: {
-  //         combinationId: combination.id,
-  //         quantity: 0,
-  //       },
-  //       transaction,
-  //     });
-
-  //     return combination;
-  //   });
-  // },
-
-  // update: async (
-  //   payload: CombinationItemInput & {
-  //     id: number | string;
-  //     productId: number;
-  //     userId?: number;
-  //   },
-  // ) => {
-  //   const numId = Number(payload.id);
-  //   const numProductId = Number(payload.productId);
-  //   const userId = payload.userId;
-
-  //   const product = await Product.findByPk(numProductId, {
-  //     include: [
-  //       {
-  //         model: ProductCombination,
-  //         as: "combinations",
-  //         include: [
-  //           {
-  //             model: VariantValue,
-  //             as: "values",
-  //             through: { attributes: [] },
-  //           },
-  //         ],
-  //       },
-  //       {
-  //         model: VariantType,
-  //         as: "variants",
-  //         include: [{ model: VariantValue, as: "values" }],
-  //       },
-  //     ],
-  //     order: [[{ model: VariantType, as: "variants" }, "name", "ASC"]],
-  //   });
-
-  //   if (!product) {
-  //     throw new Error("Product not found");
-  //   }
-
-  //   validateCombinations([payload], product);
-
-  //   return await sequelize.transaction(async (transaction) => {
-  //     const combination = await ProductCombination.findOne({
-  //       where: { id: numId, productId: numProductId },
-  //       transaction,
-  //     });
-
-  //     if (!combination) {
-  //       throw new Error(`Combination with ID ${numId} not found`);
-  //     }
-
-  //     if (
-  //       payload.price !== undefined &&
-  //       normalize(payload.price) !== normalize(combination.price ?? 0)
-  //     ) {
-  //       await PriceHistory.create(
-  //         {
-  //           productId: numProductId,
-  //           combinationId: combination.id,
-  //           fromPrice: combination.price ?? 0,
-  //           toPrice: normalize(payload.price),
-  //           changedBy: userId,
-  //           changedAt: new Date(),
-  //         },
-  //         { transaction },
-  //       );
-  //     }
-
-  //     const computedName =
-  //       payload.name ||
-  //       getMappedProductComboName(product, payload.values || []);
-  //     const computedSku =
-  //       payload.sku ||
-  //       getSKU(
-  //         (product as any).name || "Product",
-  //         (product as any).categoryId || 1,
-  //         payload.unit || (product as any).baseUnit || "PCS",
-  //         payload.values || [],
-  //       );
-
-  //     await combination.update(
-  //       {
-  //         ...payload,
-  //         name: computedName,
-  //         sku: computedSku,
-  //       } as any,
-  //       { transaction },
-  //     );
-
-  //     const variantValueIds = await getVariantValueIds(
-  //       numProductId,
-  //       payload.values || [],
-  //       transaction,
-  //     );
-
-  //     if (variantValueIds.length !== (payload.values || []).length) {
-  //       throw new Error("Some variant values are invalid or missing");
-  //     }
-
-  //     if (
-  //       typeof (combination as any).setValues === "function" &&
-  //       variantValueIds.length > 0
-  //     ) {
-  //       await (combination as any).setValues(variantValueIds, { transaction });
-  //     }
-
-  //     return combination;
-  //   });
-  // },
-
-  // getByProductId: async (productId: number | string) => {
-  //   const combinations = await ProductCombination.findAll({
-  //     where: { productId: Number(productId) },
-  //     include: [
-  //       {
-  //         model: VariantValue,
-  //         as: "values",
-  //         through: { attributes: [] },
-  //       },
-  //       {
-  //         model: Inventory,
-  //         as: "inventory",
-  //       },
-  //     ],
-  //     order: [
-  //       ["name", "ASC"],
-  //       ["isBreakPackOfId", "ASC NULLS FIRST"],
-  //     ],
-  //   });
-
-  //   const variants = await VariantType.findAll({
-  //     where: { productId: Number(productId) },
-  //     order: [
-  //       ["name", "ASC"],
-  //       [{ model: VariantValue, as: "values" }, "value", "ASC"],
-  //     ],
-  //     include: [
-  //       {
-  //         model: VariantValue,
-  //         as: "values",
-  //       },
-  //     ],
-  //   });
-
-  //   return {
-  //     combinations,
-  //     variants,
-  //   };
-  // },
-
-  getByCategoryId: async (categoryId: number | string) => {
-    const combinations = await ProductCombination.findAll({
-      include: [
-        {
-          model: Product,
-          as: "product",
-          where: { categoryId: Number(categoryId) },
+    const combo = await db.query.productCombinations.findFirst({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.barcode, barcode), isNull(tbl.deletedAt)),
+      with: {
+        product: {
+          with: {
+            variants: {
+              orderBy: (tbl, { asc }) => asc(tbl.name),
+            },
+          },
         },
-        {
-          model: Inventory,
-          as: "inventory",
+        inventory: true,
+        combinationValues: {
+          with: {
+            value: true,
+          },
         },
-      ],
-      order: [[{ model: Product, as: "product" }, "name", "ASC"]],
-      where: {
-        isActive: true,
       },
     });
 
-    return combinations;
+    if (!combo) {
+      throw new Error("Product combination not found");
+    }
+
+    const values = (combo.combinationValues || [])
+      .map((cv: any) => cv.value)
+      .filter(Boolean);
+
+    return {
+      ...combo,
+      values,
+    };
+  },
+
+  getByCategoryId: async (categoryId: number | string) => {
+    const categoryProducts = await db.query.products.findMany({
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.categoryId, Number(categoryId)), isNull(tbl.deletedAt)),
+      columns: { id: true },
+    });
+
+    if (categoryProducts.length === 0) return [];
+    const productIds = categoryProducts.map((p) => p.id);
+
+    const combos = await db.query.productCombinations.findMany({
+      where: (tbl, { eq, and, isNull, inArray }) =>
+        and(
+          eq(tbl.isActive, true),
+          isNull(tbl.deletedAt),
+          inArray(tbl.productId, productIds),
+        ),
+      with: {
+        product: true,
+        inventory: true,
+      },
+    });
+
+    return combos;
   },
 
   updateByProductId: async (
     productId: number | string,
-    combinations: ProductCombinationUpdate[],
+    combinationsList: ProductCombinationUpdate[],
     userId: number = 1,
   ) => {
     const numProductId = Number(productId);
     try {
-      return await sequelize.transaction(async (transaction) => {
-        const product = await Product.findByPk(numProductId, {
-          include: [
-            {
-              model: VariantType,
-              as: "variants",
-              include: [{ model: VariantValue, as: "values" }],
+      return await db.transaction(async (tx) => {
+        const product = await tx.query.products.findFirst({
+          where: (tbl, { eq, and, isNull }) =>
+            and(eq(tbl.id, numProductId), isNull(tbl.deletedAt)),
+          with: {
+            variants: {
+              with: { values: true },
             },
-          ],
-          transaction,
+            combinations: {
+              where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+              with: {
+                inventory: true,
+                combinationValues: {
+                  with: { value: true },
+                },
+              },
+            },
+          },
         });
 
         if (!product) {
           throw new Error("Product not found");
         }
 
-        const incomingCombinations = combinations || [];
-        const existingCombinations = await ProductCombination.findAll({
-          where: { productId: numProductId },
-          include: [
-            { model: Inventory, as: "inventory" },
-            {
-              model: VariantValue,
-              as: "values",
-              through: { attributes: [] },
-            },
-          ],
-          transaction,
+        const incomingCombinations = (combinationsList || []).filter(
+          (comb: any) => !comb.isDeleted,
+        );
+        validateCombinations(incomingCombinations, {
+          ...product,
+          combinations: [],
         });
 
-        validateCombinations(incomingCombinations, product);
-
-        const existingMap = new Map<number, ProductCombination>(
-          existingCombinations.map((comb) => [Number(comb.id), comb]),
-        );
+        const existingMap = new Map<number, any>();
+        (product.combinations || []).forEach((comb: any) => {
+          existingMap.set(comb.id, comb);
+        });
 
         const incomingIds = new Set(
           incomingCombinations
-            .map((c) =>
+            .map((c: any) =>
               c.id !== undefined && c.id !== null ? Number(c.id) : null,
             )
-            .filter((id): id is number => id !== null && !isNaN(id)),
+            .filter(Boolean),
         );
 
-        const deleteCandidates = existingCombinations.filter(
-          (comb) => !incomingIds.has(Number(comb.id)),
+        const deleteCandidates = (product.combinations || []).filter(
+          (comb: any) => !incomingIds.has(comb.id),
         );
+
         const blockedIds = deleteCandidates
           .filter(
             (comb: any) =>
               comb.inventory && Number(comb.inventory.quantity) > 0,
           )
-          .map((comb) => comb.id);
+          .map((comb: any) => comb.id);
 
         if (blockedIds.length > 0) {
           throw new Error(
@@ -497,12 +323,12 @@ export const productCombinationServerService = {
           );
         }
 
-        const deletableIds = deleteCandidates.map((comb) => comb.id);
+        const deletableIds = deleteCandidates.map((comb: any) => comb.id);
         if (deletableIds.length > 0) {
-          await ProductCombination.destroy({
-            where: { id: deletableIds },
-            transaction,
-          });
+          await tx
+            .update(productCombinations)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(inArray(productCombinations.id, deletableIds));
         }
 
         for (const combo of incomingCombinations) {
@@ -514,7 +340,7 @@ export const productCombinationServerService = {
           const variantValueIds = await getVariantValueIds(
             numProductId,
             combo.values || [],
-            transaction,
+            tx,
           );
 
           if (variantValueIds.length !== (combo.values || []).length) {
@@ -525,13 +351,13 @@ export const productCombinationServerService = {
             combo.name ||
             getMappedProductComboName(product, combo.values || []);
           const computedSku = getSKU(
-            (product as any).name || "Product",
-            (product as any).categoryId || 1,
-            combo.unit || (product as any).baseUnit || "PCS",
+            product.name,
+            product.categoryId || 1,
+            combo.unit || product.baseUnit || "PCS",
             combo.values || [],
           );
 
-          let combination: ProductCombination;
+          let savedCombinationId: number;
 
           if (comboId !== null) {
             if (!existingMap.has(comboId)) {
@@ -542,84 +368,120 @@ export const productCombinationServerService = {
 
             if (
               combo.price !== undefined &&
-              normalize(combo.price ?? 0) !== normalize(existing.price ?? 0)
+              normalize(combo.price ?? 0) !==
+              normalize(Number(existing.price ?? 0))
             ) {
-              await PriceHistory.create(
-                {
-                  productId: numProductId,
-                  combinationId: existing.id,
-                  fromPrice: existing.price ?? 0,
-                  toPrice: normalize(combo.price ?? 0),
-                  changedBy: userId,
-                  changedAt: new Date(),
-                },
-                { transaction },
-              );
-            }
-
-            await existing.update(
-              {
-                ...combo,
-                name: computedName,
-                sku: computedSku,
+              await tx.insert(priceHistories).values({
                 productId: numProductId,
-              } as any,
-              { transaction },
-            );
-            combination = existing;
-
-            if (typeof (combination as any).setValues === "function") {
-              await (combination as any).setValues(variantValueIds, {
-                transaction,
+                combinationId: existing.id,
+                fromPrice: String(existing.price ?? 0),
+                toPrice: String(normalize(combo.price ?? 0)),
+                changedBy: userId,
+                changedAt: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
               });
             }
+
+            await tx
+              .update(productCombinations)
+              .set({
+                name: computedName,
+                sku: computedSku,
+                unit: combo.unit || existing.unit,
+                price:
+                  combo.price !== undefined
+                    ? String(combo.price)
+                    : existing.price,
+                conversionFactor:
+                  combo.conversionFactor !== undefined
+                    ? String(combo.conversionFactor)
+                    : existing.conversionFactor,
+                barcode: (combo as any).barcode !== undefined ? (combo as any).barcode : existing.barcode,
+                reorderLevel:
+                  combo.reorderLevel !== undefined
+                    ? combo.reorderLevel
+                    : existing.reorderLevel,
+                isBreakPack: combo.isBreakPack ?? existing.isBreakPack,
+                isBreakPackOfId:
+                  combo.isBreakPackOfId !== undefined
+                    ? combo.isBreakPackOfId
+                    : existing.isBreakPackOfId,
+                isActive: combo.isActive ?? existing.isActive,
+                productId: numProductId,
+                updatedAt: new Date(),
+              })
+              .where(eq(productCombinations.id, comboId));
+
+            savedCombinationId = comboId;
+
+            // Delete old combinationValues
+            await tx
+              .delete(combinationValues)
+              .where(eq(combinationValues.combinationId, comboId));
           } else {
-            combination = await ProductCombination.create(
-              {
-                ...combo,
-                unit: combo.unit || (product as any).baseUnit || "PCS",
+            const [created] = await tx
+              .insert(productCombinations)
+              .values({
                 name: computedName,
                 sku: computedSku,
+                unit: combo.unit || product.baseUnit || "PCS",
+                price: combo.price !== undefined ? String(combo.price) : "0",
+                conversionFactor:
+                  combo.conversionFactor !== undefined
+                    ? String(combo.conversionFactor)
+                    : "1",
+                barcode: (combo as any).barcode || null,
+                reorderLevel: combo.reorderLevel || null,
+                isBreakPack: combo.isBreakPack ?? false,
+                isBreakPackOfId: combo.isBreakPackOfId || null,
+                isActive: combo.isActive ?? true,
                 productId: numProductId,
-              } as any,
-              { transaction },
-            );
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .returning();
 
-            if (
-              typeof (combination as any).setValues === "function" &&
-              variantValueIds.length > 0
-            ) {
-              await (combination as any).setValues(variantValueIds, {
-                transaction,
-              });
-            } else if (
-              typeof (combination as any).addValues === "function" &&
-              variantValueIds.length > 0
-            ) {
-              await (combination as any).addValues(variantValueIds, {
-                transaction,
-              });
+            if (!created.barcode) {
+              const generatedBarcode = getBarcode(created.id);
+              await tx
+                .update(productCombinations)
+                .set({ barcode: generatedBarcode, updatedAt: new Date() })
+                .where(eq(productCombinations.id, created.id));
+              created.barcode = generatedBarcode;
             }
+
+            savedCombinationId = created.id;
           }
 
-          await Inventory.findOrCreate({
-            where: { combinationId: combination.id },
-            defaults: {
-              combinationId: combination.id,
-              quantity: 0,
-            },
-            transaction,
+          // Insert combinationValues
+          for (const vvId of variantValueIds) {
+            await tx.insert(combinationValues).values({
+              combinationId: savedCombinationId,
+              variantValueId: vvId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+
+          // Ensure inventory record exists
+          const existingInv = await tx.query.inventories.findFirst({
+            where: (tbl, { eq }) =>
+              eq(tbl.combinationId, savedCombinationId),
           });
+          if (!existingInv) {
+            await tx.insert(inventories).values({
+              combinationId: savedCombinationId,
+              quantity: "0",
+              averagePrice: "0",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
         }
 
-        await productServerService.syncCombinationNames(
-          numProductId,
-          transaction,
-        );
-        await productServerService.rebuildProductSearchText(
-          numProductId,
-          transaction,
-        );
+        await productServerService.syncCombinationNames(numProductId, tx);
+        await productServerService.rebuildProductSearchText(numProductId, tx);
 
         return {
           success: true,
@@ -631,144 +493,76 @@ export const productCombinationServerService = {
     }
   },
 
-  // delete: async (id: number | string) => {
-  //   const numId = Number(id);
-  //   return await sequelize.transaction(async (transaction) => {
-  //     const combination = await ProductCombination.findByPk(numId, {
-  //       include: [
-  //         {
-  //           model: Inventory,
-  //           as: "inventory",
-  //         },
-  //       ],
-  //       transaction,
-  //     });
-
-  //     if (!combination) {
-  //       throw new Error(`Combination with ID ${numId} not found`);
-  //     }
-
-  //     if (
-  //       (combination as any).inventory &&
-  //       Number((combination as any).inventory.quantity) > 0
-  //     ) {
-  //       throw new Error("Combination has inventory");
-  //     }
-
-  //     const breakPack = await ProductCombination.findAll({
-  //       where: {
-  //         isBreakPackOfId: numId,
-  //       },
-  //       transaction,
-  //     });
-
-  //     if (breakPack.length > 0) {
-  //       throw new Error(
-  //         "Combination has break pack. Please remove break pack before deleting this combination",
-  //       );
-  //     }
-
-  //     await combination.destroy({ transaction });
-  //     return true;
-  //   });
-  // },
-
-  search: async (query: SearchProductCombinationsInput) => {
+  search: async (
+    query: SearchProductCombinationsInput,
+  ): Promise<SearchProductResult[]> => {
     const { search, noBreakPacks = null, limit = 50 } = query;
     const tsQuery = buildTsQuery(search);
 
-    const words = (search || "")
-      .trim()
-      .toLowerCase()
-      .replace(/['"#]/g, "")
-      .split(/[\s,;&|!():*\-]+/)
-      .filter((w) => w.length > 0 && w !== "-");
+    const noBreakPacksCondition =
+      noBreakPacks === true || noBreakPacks === "true"
+        ? sql`AND pc."isBreakPack" = false`
+        : sql``;
 
-    const noBreakPacksVal =
-      noBreakPacks === true || noBreakPacks === "true" ? true : null;
-
-    const replacements: Record<string, any> = {
-      tsQuery: tsQuery || "a",
-      limit: limit || 50,
-      noBreakPacks: noBreakPacksVal,
-    };
-
-    let wordClause = "";
-    if (words.length > 0) {
-      const conditions = words.map((w, i) => {
-        const paramKey = `word${i}`;
-        replacements[paramKey] = `%${w}%`;
-        return `(p.name ILIKE :${paramKey} OR p.description ILIKE :${paramKey} OR pc.name ILIKE :${paramKey} OR pc.sku ILIKE :${paramKey})`;
-      });
-      wordClause = `OR (${conditions.join(" AND ")})`;
-    } else {
-      replacements.likeQuery = `%${search || ""}%`;
-      wordClause = `OR (p.name ILIKE :likeQuery OR p.description ILIKE :likeQuery OR pc.name ILIKE :likeQuery OR pc.sku ILIKE :likeQuery)`;
-    }
-
-    const results = await sequelize.query(
-      `
-SELECT
-  p.id,
-  p.name,
-  p.description,
-  p."categoryId",
-  
-  COALESCE(
-    json_agg(
-      DISTINCT jsonb_build_object(
-        'id', pc.id,
-        'productId', pc."productId",
-        'name', pc.name,
-        'sku', pc.sku,
-        'unit', pc.unit,
-        'price', pc.price,
-        'inventory', inv."Inventory"
-      )
-    ) FILTER (WHERE pc.id IS NOT NULL),
-    '[]'
-  ) AS "combinations"
-FROM "Products" p
-LEFT JOIN "ProductCombinations" pc
-  ON pc."productId" = p.id
-  AND pc."deletedAt" IS NULL
-  AND (
-    :noBreakPacks IS NULL
-    OR pc."isBreakPack" = false
-  )
-
-LEFT JOIN LATERAL (
-  SELECT
-    jsonb_build_object(
-      'id', i.id,
-      'quantity', i.quantity,
-      'averagePrice', i."averagePrice",
-      'combinationId', i."combinationId"
-    ) AS "Inventory"
-  FROM "Inventories" i
-  WHERE i."combinationId" = pc.id
-    AND i."deletedAt" IS NULL
-  LIMIT 1
-) inv ON true
-
-WHERE
-  p."deletedAt" IS NULL
-  AND (
-    (p.search_text IS NOT NULL AND p.search_text @@ to_tsquery('simple', :tsQuery))
-    ${wordClause}
-  )
-
-GROUP BY p.id, p.name
-ORDER BY p.name
-LIMIT :limit;
-`,
-      {
-        replacements,
-        type: QueryTypes.SELECT,
-      },
-    );
-
-    return results;
+    const results = await db.execute(sql`
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p."categoryId",
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id', pc.id,
+              'productId', pc."productId",
+              'name', pc.name,
+              'sku', pc.sku,
+              'unit', pc.unit,
+              'price', pc.price,
+              'inventory', inv."Inventory",
+              'product', jsonb_build_object(
+                'id', p.id,
+                'name', p.name,
+                'categoryId', p."categoryId"
+              )
+            )
+          ) FILTER (WHERE pc.id IS NOT NULL),
+          '[]'::json
+        ) AS "combinations"
+      FROM "Products" p
+      LEFT JOIN "ProductCombinations" pc
+        ON pc."productId" = p.id
+        AND pc."deletedAt" IS NULL
+        ${noBreakPacksCondition}
+      LEFT JOIN LATERAL (
+        SELECT
+          jsonb_build_object(
+            'id', i.id,
+            'combinationId', i."combinationId",
+            'quantity', i.quantity,
+            'averagePrice', i."averagePrice"
+          ) AS "Inventory"
+        FROM "Inventories" i
+        WHERE i."combinationId" = pc.id
+          AND i."deletedAt" IS NULL
+        LIMIT 1
+      ) inv ON true
+      WHERE
+        p."deletedAt" IS NULL
+        ${tsQuery
+        ? sql`AND (
+                p.search_text @@ to_tsquery('simple', ${tsQuery})
+                OR p.name ILIKE ${`%${search}%`}
+                OR pc.name ILIKE ${`%${search}%`}
+                OR pc.sku ILIKE ${`%${search}%`}
+              )`
+        : sql``
+      }
+      GROUP BY p.id, p.name, p.description, p."categoryId"
+      ORDER BY p.name ASC
+      LIMIT ${limit}
+    `);
+    return results.rows as unknown as SearchProductResult[];
   },
 
   searchSuggestion: async (
@@ -793,70 +587,64 @@ LIMIT :limit;
     const wordsForQuery = queryWords.length > 0 ? queryWords : words;
 
     let tsQuery = words.map((w) => `${w}:*`).join(" & ");
-    const ilikeConditionsOr = wordsForQuery
-      .map((_, i) => `p.search_text::text ILIKE :word${i}`)
-      .join(" OR ");
-
-    const replacements: Record<string, any> = { tsQuery };
-    wordsForQuery.forEach((w, i) => {
-      replacements[`word${i}`] = `%${w}%`;
-    });
+    const ilikeSqlList = wordsForQuery.map(
+      (w) => sql`p.search_text::text ILIKE ${`%${w}%`}`,
+    );
+    const ilikeOr =
+      ilikeSqlList.length > 0
+        ? sql`OR (${sql.join(ilikeSqlList, sql` OR `)})`
+        : sql``;
 
     let results: any[] = [];
     try {
-      results = await sequelize.query(
-        `
-SELECT
-  p.id,
-  p.name,
-  p.description,
-  p."categoryId",
-  COALESCE(
-    json_agg(
-      DISTINCT jsonb_build_object(
-        'id', pc.id,
-        'productId', pc."productId",
-        'name', pc.name,
-        'sku', pc.sku,
-        'unit', pc.unit,
-        'price', pc.price,
-        'inventory', inv."Inventory"
-      )
-    ) FILTER (WHERE pc.id IS NOT NULL),
-    '[]'
-  ) AS "combinations",
-  ts_rank(p.search_text, to_tsquery('simple', :tsQuery)) as rank
-FROM "Products" p
-LEFT JOIN "ProductCombinations" pc
-  ON pc."productId" = p.id
-  AND pc."deletedAt" IS NULL
-LEFT JOIN LATERAL (
-  SELECT
-    jsonb_build_object(
-      'id', i.id,
-      'quantity', i.quantity,
-      'averagePrice', i."averagePrice"
-    ) AS "Inventory"
-  FROM "Inventories" i
-  WHERE i."combinationId" = pc.id
-    AND i."deletedAt" IS NULL
-  LIMIT 1
-) inv ON true
-WHERE
-  p."deletedAt" IS NULL
-  AND (
-    (p.search_text IS NOT NULL AND p.search_text @@ to_tsquery('simple', :tsQuery))
-    ${ilikeConditionsOr ? `OR (${ilikeConditionsOr})` : ""}
-  )
-GROUP BY p.id, p.name, rank
-ORDER BY rank DESC
-LIMIT 100;
-`,
-        {
-          replacements,
-          type: QueryTypes.SELECT,
-        },
-      );
+      const qRes = await db.execute(sql`
+        SELECT
+          p.id,
+          p.name,
+          p.description,
+          p."categoryId",
+          COALESCE(
+            json_agg(
+              DISTINCT jsonb_build_object(
+                'id', pc.id,
+                'productId', pc."productId",
+                'name', pc.name,
+                'sku', pc.sku,
+                'unit', pc.unit,
+                'price', pc.price,
+                'inventory', inv."Inventory"
+              )
+            ) FILTER (WHERE pc.id IS NOT NULL),
+            '[]'
+          ) AS "combinations",
+          ts_rank(p.search_text, to_tsquery('simple', ${tsQuery})) as rank
+        FROM "Products" p
+        LEFT JOIN "ProductCombinations" pc
+          ON pc."productId" = p.id
+          AND pc."deletedAt" IS NULL
+        LEFT JOIN LATERAL (
+          SELECT
+            jsonb_build_object(
+              'id', i.id,
+              'quantity', i.quantity,
+              'averagePrice', i."averagePrice"
+            ) AS "Inventory"
+          FROM "Inventories" i
+          WHERE i."combinationId" = pc.id
+            AND i."deletedAt" IS NULL
+          LIMIT 1
+        ) inv ON true
+        WHERE
+          p."deletedAt" IS NULL
+          AND (
+            (p.search_text IS NOT NULL AND p.search_text @@ to_tsquery('simple', ${tsQuery}))
+            ${ilikeOr}
+          )
+        GROUP BY p.id, p.name, rank
+        ORDER BY rank DESC
+        LIMIT 100;
+      `);
+      results = (qRes.rows as any[]) || [];
     } catch {
       results = [];
     }
@@ -864,62 +652,55 @@ LIMIT 100;
     if (results.length === 0) {
       try {
         tsQuery = wordsForQuery.map((w) => `${w}:*`).join(" | ");
-        replacements.tsQuery = tsQuery;
-
-        results = await sequelize.query(
-          `
-SELECT
-  p.id,
-  p.name,
-  p.description,
-  p."categoryId",
-  COALESCE(
-    json_agg(
-      DISTINCT jsonb_build_object(
-        'id', pc.id,
-        'productId', pc."productId",
-        'name', pc.name,
-        'sku', pc.sku,
-        'unit', pc.unit,
-        'price', pc.price,
-        'inventory', inv."Inventory"
-      )
-    ) FILTER (WHERE pc.id IS NOT NULL),
-    '[]'
-  ) AS "combinations",
-  ts_rank(p.search_text, to_tsquery('simple', :tsQuery)) as rank
-FROM "Products" p
-LEFT JOIN "ProductCombinations" pc
-  ON pc."productId" = p.id
-  AND pc."deletedAt" IS NULL
-  AND pc."isBreakPack" = false
-LEFT JOIN LATERAL (
-  SELECT
-    jsonb_build_object(
-      'id', i.id,
-      'quantity', i.quantity,
-      'averagePrice', i."averagePrice"
-    ) AS "Inventory"
-  FROM "Inventories" i
-  WHERE i."combinationId" = pc.id
-    AND i."deletedAt" IS NULL
-  LIMIT 1
-) inv ON true
-WHERE
-  p."deletedAt" IS NULL
-  AND (
-    (p.search_text IS NOT NULL AND p.search_text @@ to_tsquery('simple', :tsQuery))
-    ${ilikeConditionsOr ? `OR (${ilikeConditionsOr})` : ""}
-  )
-GROUP BY p.id, p.name, rank
-ORDER BY rank DESC
-LIMIT 20;
-`,
-          {
-            replacements,
-            type: QueryTypes.SELECT,
-          },
-        );
+        const qRes = await db.execute(sql`
+          SELECT
+            p.id,
+            p.name,
+            p.description,
+            p."categoryId",
+            COALESCE(
+              json_agg(
+                DISTINCT jsonb_build_object(
+                  'id', pc.id,
+                  'productId', pc."productId",
+                  'name', pc.name,
+                  'sku', pc.sku,
+                  'unit', pc.unit,
+                  'price', pc.price,
+                  'inventory', inv."Inventory"
+                )
+              ) FILTER (WHERE pc.id IS NOT NULL),
+              '[]'
+            ) AS "combinations",
+            ts_rank(p.search_text, to_tsquery('simple', ${tsQuery})) as rank
+          FROM "Products" p
+          LEFT JOIN "ProductCombinations" pc
+            ON pc."productId" = p.id
+            AND pc."deletedAt" IS NULL
+            AND pc."isBreakPack" = false
+          LEFT JOIN LATERAL (
+            SELECT
+              jsonb_build_object(
+                'id', i.id,
+                'quantity', i.quantity,
+                'averagePrice', i."averagePrice"
+              ) AS "Inventory"
+            FROM "Inventories" i
+            WHERE i."combinationId" = pc.id
+              AND i."deletedAt" IS NULL
+            LIMIT 1
+          ) inv ON true
+          WHERE
+            p."deletedAt" IS NULL
+            AND (
+              (p.search_text IS NOT NULL AND p.search_text @@ to_tsquery('simple', ${tsQuery}))
+              ${ilikeOr}
+            )
+          GROUP BY p.id, p.name, rank
+          ORDER BY rank DESC
+          LIMIT 20;
+        `);
+        results = (qRes.rows as any[]) || [];
       } catch {
         results = [];
       }
@@ -952,7 +733,7 @@ LIMIT 20;
           const comboNameText = String(combo.name || "").toLowerCase();
           const comboNameWords = comboNameText
             .split(/[\s,;&|!():*]+/)
-            .filter((w) => w.length > 0 && w !== "-");
+            .filter((w: string) => w.length > 0 && w !== "-");
 
           const qw = flattenTokens(words);
           const cw = flattenTokens(comboNameWords);
@@ -1016,18 +797,22 @@ LIMIT 20;
       throw new Error("Quantity must be a whole number");
     }
 
-    return await sequelize.transaction(async (transaction) => {
-      const fromInventory = await ProductCombination.findByPk(numFromId, {
-        include: [
-          { model: Inventory, as: "inventory" },
-          { model: Product, as: "product" },
-        ],
-        transaction,
+    return await db.transaction(async (tx) => {
+      const fromInventory = await tx.query.productCombinations.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, numFromId), isNull(tbl.deletedAt)),
+        with: {
+          inventory: true,
+          product: true,
+        },
       });
 
-      const toInventory = await ProductCombination.findByPk(numToId, {
-        include: [{ model: Inventory, as: "inventory" }],
-        transaction,
+      const toInventory = await tx.query.productCombinations.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, numToId), isNull(tbl.deletedAt)),
+        with: {
+          inventory: true,
+        },
       });
 
       if (!fromInventory || !toInventory) {
@@ -1080,17 +865,20 @@ LIMIT 20;
         throw new Error("Not enough inventory");
       }
 
-      const breakPackRecord = await BreakPack.create(
-        {
+      const [breakPackRecord] = await tx
+        .insert(breakPacks)
+        .values({
           fromCombinationId: numFromId,
           toCombinationId: numToId,
-          quantity: numQty,
-          conversionFactor: conversionRate,
+          quantity: String(numQty),
+          conversionFactor: String(conversionRate),
           type,
           createdBy: userId,
-        },
-        { transaction },
-      );
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
       // Decrease from source
       await inventoryServerService.inventoryDecrease(
         {
@@ -1100,7 +888,7 @@ LIMIT 20;
         `${type}_OUT`,
         breakPackRecord.id,
         "BREAK_PACK",
-        transaction,
+        tx,
         userId,
       );
 
@@ -1114,23 +902,32 @@ LIMIT 20;
         `${type}_IN`,
         breakPackRecord.id,
         "BREAK_PACK",
-        transaction,
+        tx,
         userId,
       );
 
-      await fromInventory.reload({
-        include: [
-          { model: Inventory, as: "inventory" },
-          { model: Product, as: "product" },
-        ],
-        transaction,
-      });
-      await toInventory.reload({
-        include: [{ model: Inventory, as: "inventory" }],
-        transaction,
+      const updatedFrom = await tx.query.productCombinations.findFirst({
+        where: (tbl, { eq }) => eq(tbl.id, numFromId),
+        with: {
+          inventory: true,
+          product: true,
+        },
       });
 
-      return { type, fromInventory, toInventory, totalQuantity, averagePrice };
+      const updatedTo = await tx.query.productCombinations.findFirst({
+        where: (tbl, { eq }) => eq(tbl.id, numToId),
+        with: {
+          inventory: true,
+        },
+      });
+
+      return {
+        type,
+        fromInventory: updatedFrom,
+        toInventory: updatedTo,
+        totalQuantity,
+        averagePrice,
+      };
     });
   },
 
@@ -1141,10 +938,9 @@ LIMIT 20;
     const validatedData = stockAdjustmentInputSchema.parse(payload);
     const { combinationId, newQuantity, reason, notes } = validatedData;
 
-    return await sequelize.transaction(async (transaction) => {
-      const inventory = await Inventory.findOne({
-        where: { combinationId },
-        transaction,
+    return await db.transaction(async (tx) => {
+      const inventory = await tx.query.inventories.findFirst({
+        where: (tbl, { eq }) => eq(tbl.combinationId, combinationId),
       });
 
       if (!inventory) throw new Error("Combination not found");
@@ -1152,20 +948,22 @@ LIMIT 20;
       const systemQuantity = Number(inventory.quantity || 0);
       const difference = newQuantity - systemQuantity;
 
-      const adjustment = await StockAdjustment.create(
-        {
+      const [adjustment] = await tx
+        .insert(stockAdjustments)
+        .values({
           referenceNo:
             "REF" + Math.random().toString(36).substring(2, 9).toUpperCase(),
           combinationId,
-          systemQuantity,
-          newQuantity,
-          difference,
+          systemQuantity: String(systemQuantity),
+          newQuantity: String(newQuantity),
+          difference: String(difference),
           reason,
           notes: notes || null,
           createdBy: userId,
-        },
-        { transaction },
-      );
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
 
       if (difference > 0) {
         await inventoryServerService.inventoryIncrease(
@@ -1177,7 +975,7 @@ LIMIT 20;
           "ADJUSTMENT_IN",
           adjustment.id,
           "STOCK_ADJUSTMENT",
-          transaction,
+          tx,
           userId,
         );
       } else if (difference < 0) {
@@ -1189,7 +987,7 @@ LIMIT 20;
           "ADJUSTMENT_OUT",
           adjustment.id,
           "STOCK_ADJUSTMENT",
-          transaction,
+          tx,
           userId,
         );
       }
@@ -1198,79 +996,63 @@ LIMIT 20;
     });
   },
 
-  // bulkUpdateSKU: async () => {
-  //   return await sequelize.transaction(async (transaction) => {
-  //     const products = await Product.findAll({
-  //       include: [
-  //         {
-  //           model: ProductCombination,
-  //           as: "combinations",
-  //           include: [{ model: VariantValue, as: "values" }],
-  //         },
-  //         {
-  //           model: VariantType,
-  //           as: "variants",
-  //           include: [{ model: VariantValue, as: "values" }],
-  //         },
-  //       ],
-  //       transaction,
-  //     });
-
-  //     for (const product of products) {
-  //       if ((product as any).combinations) {
-  //         await productCombinationServerService.updateByProductId(
-  //           product.id,
-  //           (product as any).combinations,
-  //           0,
-  //         );
-  //       }
-  //     }
-  //     return true;
-  //   });
-  // },
-
   getByIds: async (list: (number | string)[]) => {
-    const result: any[] = [];
-    for (const id of list) {
-      const combo = await ProductCombination.findByPk(Number(id), {
-        include: [
-          ...getIncludes,
-          { model: PriceHistory, as: "priceHistories" },
-        ],
-      });
-      if (combo) {
-        result.push(combo);
-      }
-    }
-    return result;
+    const numIds = list.map((id) => Number(id));
+    if (numIds.length === 0) return [];
+
+    const combos = await db.query.productCombinations.findMany({
+      where: (tbl, { inArray, and, isNull }) =>
+        and(inArray(tbl.id, numIds), isNull(tbl.deletedAt)),
+      with: {
+        product: true,
+        inventory: true,
+        priceHistories: true,
+        combinationValues: {
+          with: { value: true },
+        },
+      },
+    });
+
+    return combos.map((c: any) => ({
+      ...c,
+      values: (c.combinationValues || [])
+        .map((cv: any) => cv.value)
+        .filter(Boolean),
+    }));
   },
 
   updatePrices: async (list: UpdatePriceItem[], userId: number = 1) => {
-    return await sequelize.transaction(async (transaction) => {
+    return await db.transaction(async (tx) => {
       for (const item of list) {
-        const combo = await ProductCombination.findByPk(Number(item.id), {
-          transaction,
+        const numId = Number(item.id);
+        const combo = await tx.query.productCombinations.findFirst({
+          where: (tbl, { eq, and, isNull }) =>
+            and(eq(tbl.id, numId), isNull(tbl.deletedAt)),
         });
+
         if (!combo) {
           throw new Error("combo not found");
         }
-        const fromPrice = normalize(combo.price ?? 0);
+
+        const fromPrice = normalize(Number(combo.price ?? 0));
         const toPrice = normalize(item.newPrice);
 
         if (fromPrice !== toPrice && toPrice > 0) {
-          await combo.update({ price: toPrice }, { transaction });
+          await tx
+            .update(productCombinations)
+            .set({ price: String(toPrice), updatedAt: new Date() })
+            .where(eq(productCombinations.id, numId));
 
-          await PriceHistory.create(
-            {
-              productId: combo.productId,
-              combinationId: combo.id,
-              fromPrice,
-              toPrice,
-              changedBy: userId,
-              changedAt: new Date(),
-            },
-            { transaction },
-          );
+          await tx.insert(priceHistories).values({
+            productId: combo.productId,
+            combinationId: combo.id,
+            fromPrice: String(fromPrice),
+            toPrice: String(toPrice),
+            changedBy: userId,
+            changedAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
         }
       }
       return true;
@@ -1284,7 +1066,7 @@ export function buildTsQuery(search?: string | null): string {
   const words = search
     .trim()
     .toLowerCase()
-    .replace(/['"#]/g, "") // Remove all quotes to prevent tsquery syntax errors
+    .replace(/['"#]/g, "")
     .split(/[\s,;&|!():*\-]+/)
     .filter((word) => word.length > 0 && word !== "-");
 
@@ -1335,103 +1117,25 @@ function validateCombinations(combinations: any[], product: any) {
   }
 }
 
-async function validateVariants(payload: any, product: any) {
-  if (payload.isBreakPackOfId) {
-    const parentCombination = await ProductCombination.findByPk(
-      payload.isBreakPackOfId,
-      {
-        include: [
-          {
-            model: VariantValue,
-            as: "values",
-            through: { attributes: [] },
-          },
-        ],
-      },
-    );
-    if (!parentCombination) {
-      throw new Error("Parent combination not found");
-    }
-    if (Number(parentCombination.productId) !== Number(product.id)) {
-      throw new Error("Parent combination is not of the same product");
-    }
-
-    const variants = product.variants || [];
-    if (variants.length > 1) {
-      const isPrimary = variants.find((v: any) => v.isBreakpackFilter);
-      if (!isPrimary) {
-        throw new Error("Product must have a primary variant");
-      }
-      const primaryofParent = ((parentCombination as any).values || []).find(
-        (v: any) => v.variantTypeId === isPrimary.id,
-      );
-      const primaryofChild = (payload.values || []).find(
-        (v: any) => v.variantTypeId === isPrimary.id,
-      );
-      if (
-        !primaryofParent ||
-        !primaryofChild ||
-        primaryofParent.id !== primaryofChild.id
-      ) {
-        throw new Error(
-          "Parent combination values are not the same as break pack values",
-        );
-      }
-    } else {
-      const parentValues = (parentCombination as any).values || [];
-      const payloadValues = payload.values || [];
-      if (parentValues.length > 1 && payloadValues.length > 1) {
-        if (parentValues[0].id !== payloadValues[0].id) {
-          throw new Error(
-            "Parent combination values are not the same as break pack values",
-          );
-        }
-      }
-    }
-  }
-}
-
 async function getVariantValueIds(
   productId: number,
   values: any[] = [],
-  transaction?: any,
+  tx: any,
 ) {
   if (!values || values.length === 0) return [];
   const variantValueMap: Record<string, any> = {};
 
-  const variants = await VariantType.findAll({
-    where: { productId },
-    include: [
-      {
-        model: VariantValue,
-        as: "values",
-      },
-    ],
-    transaction,
+  const variants = await tx.query.variantTypes.findMany({
+    where: (tbl: any, { eq }: any) => eq(tbl.productId, productId),
+    with: {
+      values: true,
+    },
   });
 
   for (const variant of variants) {
-    const [variantType] = await VariantType.findOrCreate({
-      where: { name: variant.name, productId },
-      defaults: { name: variant.name, productId },
-      transaction,
-    });
-
-    const variantValues = (variant as any).values || [];
-    for (const valueName of variantValues) {
-      const [variantValue] = await VariantValue.findOrCreate({
-        where: {
-          value: valueName.value,
-          variantTypeId: variantType.id,
-        },
-        defaults: {
-          value: valueName.value,
-          variantTypeId: variantType.id,
-        },
-        transaction,
-      });
-
-      variantValueMap[`${variant.id}:${valueName.value}`] = variantValue;
+    const vValues = variant.values || [];
+    for (const vVal of vValues) {
+      variantValueMap[`${variant.id}:${vVal.value}`] = vVal;
     }
   }
 

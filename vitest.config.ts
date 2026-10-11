@@ -6,16 +6,8 @@ import { defineConfig } from "vitest/config";
 // Preload .env.test before any test runs
 dotenv.config({ path: path.resolve(__dirname, "./.env.test") });
 
-export default defineConfig({
+const sharedConfig = {
   plugins: [react()],
-  test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: [],
-    testTimeout: 30000,
-    hookTimeout: 30000,
-    fileParallelism: false,
-  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -24,5 +16,44 @@ export default defineConfig({
         "./node_modules/server-only/empty.js",
       ),
     },
+  },
+};
+
+export default defineConfig({
+  ...sharedConfig,
+  test: {
+    globals: true,
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    fileParallelism: false,
+    projects: [
+      {
+        ...sharedConfig,
+        test: {
+          name: "unit",
+          include: ["tests/unit/*.test.ts"],
+          environment: "node",
+          globals: true,
+        },
+      },
+      {
+        ...sharedConfig,
+        test: {
+          name: "components",
+          include: ["tests/unit/components/**/*.test.tsx"],
+          environment: "jsdom",
+          globals: true,
+        },
+      },
+      {
+        ...sharedConfig,
+        test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          environment: "node",
+          globals: true,
+        },
+      },
+    ],
   },
 });

@@ -1,6 +1,6 @@
 import InventoryMovementsClientWidget from "@/components/widgets/InventoryMovementsClientWidget";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
-import { PAGINATION } from "@/types/definitions";
+import { PAGINATION } from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";

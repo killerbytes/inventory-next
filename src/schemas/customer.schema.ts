@@ -1,31 +1,38 @@
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { customers } from "@/server/db/schema/customers";
 import z from "zod";
 
-export const CustomerBaseSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters."),
-  address: z.string().optional().nullable(),
-  contact: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("Please enter a valid email address.")
-    .or(z.literal("").transform(() => null))
-    .optional()
-    .nullable(),
-  notes: z.string().optional().nullable(),
-  isActive: z.boolean().optional(),
-});
+export const CustomerBaseSchema = createInsertSchema(customers, {
+  name: (schema) => schema.min(2, "Name must be at least 2 characters."),
+  email: () =>
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Please enter a valid email address.")
+      .or(z.literal("").transform(() => null))
+      .optional()
+      .nullable(),
+  isActive: () => z.boolean().optional(),
+})
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
+  })
+  .extend({
+    contact: z.string().optional().nullable(),
+  });
 
 export const CustomerInputSchema = CustomerBaseSchema.strict();
 export const CustomerUpdateSchema = CustomerInputSchema.partial();
-export const CustomerSchema = CustomerBaseSchema.extend({
-  id: z.coerce.number(),
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
-  deletedAt: z.coerce.date().optional().nullable(),
+export const CustomerSelectSchema = createSelectSchema(customers);
+export const CustomerSchema = CustomerSelectSchema.extend({
+  contact: z.string().optional().nullable(),
 });
 
 export type CustomerInput = z.infer<typeof CustomerInputSchema>;
 export type CustomerUpdateInput = z.infer<typeof CustomerUpdateSchema>;
 export type CustomerData = z.infer<typeof CustomerSchema>;
+

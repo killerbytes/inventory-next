@@ -1,8 +1,7 @@
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import { paymentServerService } from "@/server/services/paymentServer.service";
-import { PaymentApplication } from "@/server/models";
-import sequelize from "@/server/db/sequelize";
+import { db, pool } from "@/server/db/drizzle";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
   createCategory,
@@ -125,13 +124,15 @@ describe("Payment Service (Integration)", () => {
       ],
     } as any, 1);
 
-    const applications = await PaymentApplication.findAll({ where: { paymentId: payment.id } });
+    const applications = await db.query.paymentApplications.findMany({
+      where: (tbl, { eq }) => eq(tbl.paymentId, payment.id),
+    });
     expect(applications.length).toBeGreaterThan(0);
 
     // Set application updatedAt to July 31st 10:00:00 Manila time
-    await sequelize.query(
-      `UPDATE "PaymentApplications" SET "updatedAt" = '2026-07-31 10:00:00+08' WHERE id = :id`,
-      { replacements: { id: applications[0].id } },
+    await pool.query(
+      `UPDATE "PaymentApplications" SET "updatedAt" = '2026-07-31 10:00:00+08' WHERE id = $1`,
+      [applications[0].id],
     );
 
     // Query for July 2026
