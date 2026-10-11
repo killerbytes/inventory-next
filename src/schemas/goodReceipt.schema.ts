@@ -87,7 +87,7 @@ export const GoodReceiptUpdateSchema = z.object({
   goodReceiptLines: z.array(GoodReceiptLineUpdateSchema).optional(),
 });
 
-const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
+export const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
   id: z.number().optional(),
   goodReceiptId: z.coerce.number().optional(),
   totalAmount: z.coerce.number().optional(),

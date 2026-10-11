@@ -1,8 +1,8 @@
 import InvoicesClientWidget from "@/components/widgets/InvoicesClientWidget";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import { supplierServerService } from "@/server/services/supplierServer.service";
-import { Meta } from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
+import { Meta } from "@/types";
 
 export const dynamic = "force-dynamic";
 

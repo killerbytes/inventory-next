@@ -1,7 +1,7 @@
 import SuppliersWidget from "@/components/widgets/SuppliersWidget";
 import { SupplierData } from "@/schemas";
 import { supplierServerService } from "@/server/services/supplierServer.service";
-import { Pagination } from "@/constants";
+import { Pagination } from "@/types";
 
 export const metadata = {
   title: "Suppliers | Inventory System",

@@ -13,7 +13,6 @@ import { SupplierData } from "@/schemas/supplier.schema";
 import { useUIStore } from "@/stores/uiStore";
 import {
   INVOICE_STATUS,
-  Meta,
   PAGINATION,
   STATUS_COLOR,
 } from "@/constants";
@@ -37,6 +36,7 @@ import {
 import DateRangePicker from "../common/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import { format, parseISO } from "date-fns";
+import { Meta } from "@/types";
 
 const columnHelper = createColumnHelper<any>();
 

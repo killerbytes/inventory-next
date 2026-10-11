@@ -5,11 +5,10 @@ import {
   supplierServerService,
 } from "@/server/services";
 import {
-  GoodReceiptSummary,
-  Pagination,
   PAGINATION,
 } from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
+import { GoodReceiptSummary, Pagination } from "@/types";
 
 export const dynamic = "force-dynamic";
 

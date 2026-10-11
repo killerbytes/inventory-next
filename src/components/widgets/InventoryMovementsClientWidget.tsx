@@ -20,7 +20,6 @@ import {
   INVENTORY_MOVEMENT_REFERENCE_TYPE,
   INVENTORY_MOVEMENT_TYPE_COLOR,
   INVENTORY_MOVEMENT_TYPE_OPTIONS,
-  Meta,
   UNIT_COLOR,
 } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -34,6 +33,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "../ui/input-group";
+import { Meta } from "@/types";
 
 const columnHelper = createColumnHelper<any>();
 

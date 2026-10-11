@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import NumberInput from "@/components/common/NumberInput";
-import { MODE_OF_PAYMENT } from "@/constants";
+import { MODE_OF_PAYMENT, MODE_OF_PAYMENT_OPTIONS } from "@/constants";
 import { formatCurrency } from "@/lib/utils";
 import { createInvoicePaymentAction } from "@/server/actions/payment.actions";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useUIStore } from "@/stores/uiStore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 export interface AddInvoicePaymentModalProps {
   invoice: any;
@@ -33,7 +34,7 @@ function AddInvoicePaymentModalContent({
     format(new Date(), "yyyy-MM-dd")
   );
   const [referenceNo, setReferenceNo] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string>(MODE_OF_PAYMENT.BANK);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(MODE_OF_PAYMENT.BANK);
   const [amount, setAmount] = useState<number>(remainingBalance);
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -112,17 +113,22 @@ function AddInvoicePaymentModalContent({
           {/* Payment Method */}
           <div className="space-y-1.5">
             <Label htmlFor="paymentMethod">Payment Method *</Label>
-            <select
-              id="paymentMethod"
-              className="w-full h-10 px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            <Select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onValueChange={(e) => setPaymentMethod(e)}
+              items={MODE_OF_PAYMENT_OPTIONS}
             >
-              <option value={MODE_OF_PAYMENT.BANK}>Bank Transfer</option>
-              <option value={MODE_OF_PAYMENT.CHECK}>Check</option>
-              <option value={MODE_OF_PAYMENT.CASH}>Cash</option>
-              <option value={MODE_OF_PAYMENT.EWALLET}>E-Wallet</option>
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                {MODE_OF_PAYMENT_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Reference Number */}
@@ -168,7 +174,7 @@ function AddInvoicePaymentModalContent({
           </div>
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
+        <DialogFooter className="flex items-center justify-between sm:justify-between">
           <Button variant="outline" type="button" onClick={() => setAddInvoicePaymentModalOpen(false)} disabled={isPending}>
             Cancel
           </Button>

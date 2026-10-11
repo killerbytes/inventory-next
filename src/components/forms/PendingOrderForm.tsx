@@ -8,16 +8,14 @@ import ProductLookupInput from "@/components/forms/ProductLookupInput";
 
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
-import { GoodReceiptInputSchema, GoodReceiptLineInputSchema, ProductCombinationSchema, SupplierData } from "@/schemas";
-import { goodReceiptItemDefault, UNIT_COLOR } from "@/constants";
+import { GoodReceiptInputSchema, GoodReceiptLineWithCombination, GoodReceiptModalForm, SupplierData } from "@/schemas";
+import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
 import React from "react";
 import {
   Controller,
-  useFieldArray,
   UseFormReturn,
-  useWatch,
 } from "react-hook-form";
 import { Autocomplete, AutocompleteValue } from "../common/Autocomplete";
 import ColorBadge from "../common/ColorBadge";
@@ -29,17 +27,7 @@ import z from "zod";
 
 
 
-const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
-  combination: ProductCombinationSchema.nullable(),
-});
 
-const GoodReceiptFormSchema = GoodReceiptInputSchema.extend({
-  goodReceiptLines: z.array(GoodReceiptLineWithCombination),
-});
-export type GoodReceiptForm = z.infer<typeof GoodReceiptFormSchema>;
-export type GoodReceiptLineWithCombination = z.infer<
-  typeof GoodReceiptLineWithCombination
->;
 
 const columnHelper = createColumnHelper<GoodReceiptLineWithCombination>();
 
@@ -49,7 +37,7 @@ export default function PendingOrderForm({
   fields,
   remove
 }: {
-  form: UseFormReturn<GoodReceiptForm>;
+  form: UseFormReturn<GoodReceiptModalForm>;
   suppliers: SupplierData[];
   fields: GoodReceiptLineWithCombination[];
   remove: (index: number) => void;

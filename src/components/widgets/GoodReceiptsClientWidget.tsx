@@ -6,10 +6,8 @@ import { formatCurrency, formatDateTime, mappedStatusHistory } from "@/lib/utils
 import { GoodReceiptData, SupplierData } from "@/schemas";
 import { useUIStore } from "@/stores/uiStore";
 import {
-  GoodReceiptSummary,
   ORDER_STATUS,
   ORDER_STATUS_OPTIONS,
-  Pagination,
   PAGINATION,
   STATUS_COLOR,
 } from "@/constants";
@@ -34,6 +32,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import React, { useMemo } from "react";
+import { GoodReceiptSummary, Pagination } from "@/types";
 
 const columnHelper = createColumnHelper<GoodReceiptData>();
 

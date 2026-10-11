@@ -251,7 +251,7 @@ export function compareFieldValues(
     return { isMatch, isDateDiff: false, normDump, normDb };
   }
 
-  return { isMatch, isDateDiff, normDump, normDb };
+  return { isMatch: normDump === normDb, isDateDiff: false, normDump, normDb };
 }
 
 /**

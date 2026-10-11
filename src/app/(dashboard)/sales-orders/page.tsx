@@ -1,8 +1,9 @@
 import SalesOrdersClientWidget from "@/components/widgets/SalesOrdersClientWidget";
 import { CustomerData, SalesOrderData } from "@/schemas";
 import { customerServerService, salesServerService } from "@/server/services";
-import { Pagination, PAGINATION, SalesOrderSummary } from "@/constants";
+import { PAGINATION } from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
+import { Pagination, SalesOrderSummary } from "@/types";
 
 export const dynamic = "force-dynamic";
 

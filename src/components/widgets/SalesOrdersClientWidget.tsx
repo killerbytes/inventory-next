@@ -15,8 +15,6 @@ import {
   MODE_OF_PAYMENT_COLOR,
   ORDER_STATUS,
   ORDER_STATUS_OPTIONS,
-  Pagination,
-  SalesOrderSummary,
   STATUS_COLOR,
 } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -36,6 +34,7 @@ import {
 import SummaryCard from "../common/SummaryCard";
 
 import ColumnSort, { FilterProps } from "@/components/common/ColumnSort";
+import { Pagination, SalesOrderSummary } from "@/types";
 
 const columnHelper = createColumnHelper<SalesOrderData>();
 
