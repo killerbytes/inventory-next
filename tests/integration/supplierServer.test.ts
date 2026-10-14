@@ -83,4 +83,8 @@ describe("Supplier Service (Integration)", () => {
     }
   });
 
+  it("should return empty array for non-existent product in getByProductId", async () => {
+    const history = await supplierServerService.getByProductId(999999);
+    expect(history).toEqual([]);
+  });
 });

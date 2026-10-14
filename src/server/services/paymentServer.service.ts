@@ -86,7 +86,10 @@ export const paymentServerService = {
       const offset = (page - 1) * limit;
       const { startBound, endBound } = getDateBounds(startDate, endDate);
 
-      const conditions: any[] = [isNull(paymentApplications.deletedAt)];
+      const conditions: any[] = [
+        isNull(paymentApplications.deletedAt),
+        isNull(payments.deletedAt),
+      ];
 
       if (startBound) {
         conditions.push(gte(paymentApplications.updatedAt, startBound));
@@ -95,10 +98,14 @@ export const paymentServerService = {
         conditions.push(lte(paymentApplications.updatedAt, endBound));
       }
 
-      let invoiceJoinCondition = eq(paymentApplications.invoiceId, invoices.id);
+      let invoiceJoinCondition = and(
+        eq(paymentApplications.invoiceId, invoices.id),
+        isNull(invoices.deletedAt),
+      );
       if (q) {
         invoiceJoinCondition = and(
           eq(paymentApplications.invoiceId, invoices.id),
+          isNull(invoices.deletedAt),
           ilike(invoices.invoiceNumber, `%${q}%`),
         ) as any;
       }
@@ -120,7 +127,13 @@ export const paymentServerService = {
           count: sql<number>`count(distinct ${paymentApplications.id})::int`,
         })
         .from(paymentApplications)
-        .leftJoin(payments, eq(paymentApplications.paymentId, payments.id))
+        .innerJoin(
+          payments,
+          and(
+            eq(paymentApplications.paymentId, payments.id),
+            isNull(payments.deletedAt),
+          ),
+        )
         .leftJoin(suppliers, eq(payments.supplierId, suppliers.id))
         .leftJoin(users, eq(payments.changedBy, users.id))
         .innerJoin(invoices, invoiceJoinCondition)
@@ -137,7 +150,13 @@ export const paymentServerService = {
           invoice: invoices,
         })
         .from(paymentApplications)
-        .leftJoin(payments, eq(paymentApplications.paymentId, payments.id))
+        .innerJoin(
+          payments,
+          and(
+            eq(paymentApplications.paymentId, payments.id),
+            isNull(payments.deletedAt),
+          ),
+        )
         .leftJoin(suppliers, eq(payments.supplierId, suppliers.id))
         .leftJoin(users, eq(payments.changedBy, users.id))
         .innerJoin(invoices, invoiceJoinCondition)

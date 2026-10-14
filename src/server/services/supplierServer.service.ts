@@ -98,14 +98,16 @@ export const supplierServerService = {
 
   getByProductId: async (productId: number | string) => {
     const combos = await db.query.productCombinations.findMany({
-      where: (tbl, { eq }) => eq(tbl.productId, Number(productId)),
+      where: (tbl, { eq, and, isNull }) =>
+        and(eq(tbl.productId, Number(productId)), isNull(tbl.deletedAt)),
       columns: { id: true },
     });
     if (combos.length === 0) return [];
     const comboIds = combos.map((c) => c.id);
 
     const lines = await db.query.goodReceiptLines.findMany({
-      where: (tbl, { inArray, and }) => inArray(tbl.combinationId, comboIds),
+      where: (tbl, { inArray, and, isNull }) =>
+        and(inArray(tbl.combinationId, comboIds), isNull(tbl.deletedAt)),
       with: {
         goodReceipt: {
           with: {
@@ -125,17 +127,25 @@ export const supplierServerService = {
       orderBy: (tbl, { desc }) => [desc(tbl.createdAt)],
     });
 
-    return lines.map((line: any) => ({
-      ...line,
-      combination: line.combination
-        ? {
-            ...line.combination,
-            values: (line.combination.combinationValues || [])
-              .map((cv: any) => cv.value)
-              .filter(Boolean),
-          }
-        : null,
-    }));
+    return lines
+      .filter(
+        (line: any) =>
+          !line.deletedAt &&
+          line.goodReceipt &&
+          !line.goodReceipt.deletedAt &&
+          line.goodReceipt.status !== "VOID",
+      )
+      .map((line: any) => ({
+        ...line,
+        combination: line.combination
+          ? {
+              ...line.combination,
+              values: (line.combination.combinationValues || [])
+                .map((cv: any) => cv.value)
+                .filter(Boolean),
+            }
+          : null,
+      }));
   },
 
   create: async (data: SupplierInput) => {

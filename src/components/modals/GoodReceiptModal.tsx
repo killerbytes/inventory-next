@@ -26,13 +26,13 @@ import { toast } from "sonner";
 import { ScrollArea } from "../ui/scroll-area";
 import { formatCurrency } from "@/lib/utils";
 
-const goodReceiptDefault: GoodReceiptModalForm = {
+const getGoodReceiptDefault = (): GoodReceiptModalForm => ({
   referenceNo: "",
   receiptDate: new Date(),
   goodReceiptLines: [goodReceiptItemDefault],
   supplierId: 0,
   internalNotes: "",
-};
+});
 
 function GoodReceiptModalContent({
   suppliers = [],
@@ -46,7 +46,7 @@ function GoodReceiptModalContent({
 
   const form = useForm<GoodReceiptModalForm>({
     resolver: zodResolver(GoodReceiptFormSchema),
-    defaultValues: goodReceiptDefault,
+    defaultValues: getGoodReceiptDefault(),
   });
 
 
@@ -92,10 +92,10 @@ function GoodReceiptModalContent({
         if (stored) {
           form.reset(stored);
         } else {
-          form.reset(goodReceiptDefault);
+          form.reset(getGoodReceiptDefault());
         }
       } catch {
-        form.reset(goodReceiptDefault);
+        form.reset(getGoodReceiptDefault());
       }
     }
   }, [editingGoodReceipt, form]);

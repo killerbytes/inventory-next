@@ -6,7 +6,7 @@ export const BreakPackBaseSchema = createInsertSchema(breakPacks, {
   fromCombinationId: () => z.coerce.number().positive(),
   toCombinationId: () => z.coerce.number().positive(),
   quantity: () =>
-    z
+    z.coerce
       .number({ invalid_type_error: "Quantity must be a number" })
       .int("Quantity must be a whole number")
       .positive(),

@@ -9,7 +9,7 @@ import {
   salesOrderItems,
   stockAdjustments,
 } from "@/server/db/schema";
-import { PAGINATION } from "@/constants";
+import { PAGINATION, INVENTORY_MOVEMENT_REFERENCE_TYPE, ORDER_STATUS } from "@/constants";
 import {
   eq,
   and,
@@ -20,6 +20,7 @@ import {
   lte,
   ilike,
   or,
+  inArray,
   notInArray,
   sql,
 } from "drizzle-orm";
@@ -107,6 +108,7 @@ export const reportsServerService = {
       eq(salesOrders.status, "RECEIVED"),
       isNull(salesOrders.deletedAt),
       isNull(salesOrderItems.deletedAt),
+      isNull(productCombinations.deletedAt),
     ];
     if (startBound) {
       orderConditions.push(gte(salesOrders.orderDate, startBound));
@@ -187,12 +189,22 @@ export const reportsServerService = {
         totalQuantity: sql<number>`sum(${salesOrderItems.quantity})::numeric`.as(
           "totalQuantity",
         ),
-        totalProfit: sql<number>`sum((${salesOrderItems.purchasePrice} - coalesce(${inventories.averagePrice}, 0)) * ${salesOrderItems.quantity})::numeric`.as(
+        totalProfit: sql<number>`sum((${salesOrderItems.purchasePrice} - coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0)) * ${salesOrderItems.quantity})::numeric`.as(
           "totalProfit",
         ),
       })
       .from(salesOrderItems)
-      .innerJoin(salesOrders, eq(salesOrderItems.salesOrderId, salesOrders.id))
+      .innerJoin(
+        salesOrders,
+        and(
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+          isNull(salesOrders.deletedAt),
+          inArray(salesOrders.status, [
+            ORDER_STATUS.RECEIVED,
+            ORDER_STATUS.COMPLETED,
+          ]),
+        ),
+      )
       .leftJoin(
         productCombinations,
         eq(salesOrderItems.combinationId, productCombinations.id),
@@ -200,6 +212,17 @@ export const reportsServerService = {
       .leftJoin(
         inventories,
         eq(productCombinations.id, inventories.combinationId),
+      )
+      .leftJoin(
+        inventoryMovements,
+        and(
+          eq(inventoryMovements.referenceId, salesOrders.id),
+          eq(inventoryMovements.combinationId, salesOrderItems.combinationId),
+          eq(
+            inventoryMovements.referenceType,
+            INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
+          ),
+        ),
       )
       .where(isNull(salesOrderItems.deletedAt))
       .groupBy(
@@ -215,6 +238,17 @@ export const reportsServerService = {
         count: sql<number>`count(distinct ${salesOrderItems.combinationId})::int`,
       })
       .from(salesOrderItems)
+      .innerJoin(
+        salesOrders,
+        and(
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+          isNull(salesOrders.deletedAt),
+          inArray(salesOrders.status, [
+            ORDER_STATUS.RECEIVED,
+            ORDER_STATUS.COMPLETED,
+          ]),
+        ),
+      )
       .where(isNull(salesOrderItems.deletedAt));
     const total = countQuery[0]?.count ?? 0;
 
@@ -365,19 +399,37 @@ export const reportsServerService = {
 
   getProfitSummary: async () => {
     const orders = await db.query.salesOrders.findMany({
-      where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+      where: (tbl, { and, isNull, inArray }) =>
+        and(
+          isNull(tbl.deletedAt),
+          inArray(tbl.status, [
+            ORDER_STATUS.RECEIVED,
+            ORDER_STATUS.COMPLETED,
+          ]),
+        ),
       with: {
-        salesOrderItems: true,
+        salesOrderItems: {
+          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
+        },
       },
     });
 
-    const totalSales = orders.reduce(
+    const validOrders = orders.filter(
+      (o: any) =>
+        !o.deletedAt &&
+        (o.status === ORDER_STATUS.RECEIVED ||
+          o.status === ORDER_STATUS.COMPLETED),
+    );
+
+    const totalSales = validOrders.reduce(
       (acc, o) => acc + Number(o.totalAmount || 0),
       0,
     );
     let totalCost = 0;
-    for (const order of orders) {
-      const items = order.salesOrderItems || [];
+    for (const order of validOrders) {
+      const items = (order.salesOrderItems || []).filter(
+        (item: any) => !item.deletedAt,
+      );
       for (const item of items) {
         const qty = Number(item.quantity || 0);
         const origPrice = Number(item.originalPrice || item.purchasePrice || 0);

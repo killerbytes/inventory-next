@@ -279,8 +279,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     expect(movements2[1].type).toBe("IN");
     expect(Number(movements2[1].quantity)).toBe(20);
     expect(costPerUnit).toBe(166.1667);
-    expect(Number(movements2[1].costPerUnit)).toBe(costPerUnit);
-    expect(Number(movements2[1].totalCost)).toBe(costPerUnit * 20);
+    expect(normalize(Number(movements2[1].costPerUnit))).toBe(costPerUnit);
+    expect(Number(movements2[1].totalCost)).toBeCloseTo(costPerUnit * 20, 1);
     expect(movements2[1].referenceId).toBe(2);
     expect(movements2[1].referenceType).toBe("GOOD_RECEIPT");
 
@@ -327,8 +327,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     expect(movements3[2].type).toBe("IN");
     expect(Number(movements3[2].quantity)).toBe(30);
     expect(costPerUnit2).toBe(233.0833);
-    expect(Number(movements3[2].costPerUnit)).toBe(costPerUnit2);
-    expect(Number(movements3[2].totalCost)).toBe(costPerUnit2 * 30);
+    expect(normalize(Number(movements3[2].costPerUnit))).toBe(costPerUnit2);
+    expect(Number(movements3[2].totalCost)).toBeCloseTo(costPerUnit2 * 30, 1);
     expect(movements3[2].referenceId).toBe(3);
     expect(movements3[2].referenceType).toBe("GOOD_RECEIPT");
 
@@ -336,7 +336,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
       where: (tbl, { eq }) => eq(tbl.combinationId, combination1.id),
     });
     expect(Number(inv?.quantity)).toBe(60);
-    expect(Number(inv?.averagePrice)).toBe(costPerUnit2);
+    expect(normalize(Number(inv?.averagePrice))).toBe(costPerUnit2);
 
     await salesServerService.create(
       {
@@ -372,8 +372,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     expect(movements4[3].combinationId).toBe(combination1.id);
     expect(movements4[3].type).toBe("OUT");
     expect(Number(movements4[3].quantity)).toBe(-10);
-    expect(Number(movements4[3].costPerUnit)).toBe(233.0833);
-    expect(Number(movements4[3].totalCost)).toBe(-233.0833 * 10);
+    expect(normalize(Number(movements4[3].costPerUnit))).toBe(233.0833);
+    expect(Number(movements4[3].totalCost)).toBeCloseTo(-233.0833 * 10, 1);
 
     await salesServerService.cancelOrder(1, "Test", user0.id);
     const salesOrder2 = await salesServerService.get(1);
@@ -432,8 +432,8 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
     expect(movements6[5].combinationId).toBe(combination1.id);
     expect(movements6[5].type).toBe("IN");
     expect(costPerUnit3).toBe(214.0714);
-    expect(Number(movements6[5].costPerUnit)).toBe(214.0714);
-    expect(Number(movements6[5].totalCost)).toBe(214.0714 * 10);
+    expect(normalize(Number(movements6[5].costPerUnit))).toBe(214.0714);
+    expect(Number(movements6[5].totalCost)).toBeCloseTo(214.0714 * 10, 1);
   });
 
   it("should list reorder levels", async () => {

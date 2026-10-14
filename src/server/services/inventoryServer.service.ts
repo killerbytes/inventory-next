@@ -72,6 +72,32 @@ function getDateBounds(
   return { startBound, endBound };
 }
 
+export interface MovingAverageCostParams {
+  existingQuantity: number;
+  existingAveragePrice: number;
+  incomingQuantity: number;
+  incomingUnitCost: number;
+}
+
+export function calculateMovingAverageCost(params: MovingAverageCostParams): number {
+  const existingQty = Number(params.existingQuantity || 0);
+  const existingPrice = Number(params.existingAveragePrice || 0);
+  const incomingQty = Number(params.incomingQuantity || 0);
+  const incomingCost = Number(params.incomingUnitCost || 0);
+
+  if (incomingQty <= 0) {
+    return existingPrice;
+  }
+
+  if (existingQty <= 0) {
+    return truncateQty(incomingCost);
+  }
+
+  const totalQty = existingQty + incomingQty;
+  const totalValue = existingQty * existingPrice + incomingQty * incomingCost;
+  return truncateQty(totalValue / totalQty);
+}
+
 export const inventoryServerService = {
   getPriceHistory: async (params: GetPriceHistoryInput = {}) => {
     const {
@@ -94,7 +120,12 @@ export const inventoryServerService = {
       const matchingCombos = db
         .select({ id: productCombinations.id })
         .from(productCombinations)
-        .where(ilike(productCombinations.name, `%${q}%`));
+        .where(
+          and(
+            ilike(productCombinations.name, `%${q}%`),
+            isNull(productCombinations.deletedAt),
+          ),
+        );
       conditions.push(inArray(priceHistories.combinationId, matchingCombos));
     }
 
@@ -169,7 +200,12 @@ export const inventoryServerService = {
       const matchingCombos = db
         .select({ id: productCombinations.id })
         .from(productCombinations)
-        .where(ilike(productCombinations.name, `%${q}%`));
+        .where(
+          and(
+            ilike(productCombinations.name, `%${q}%`),
+            isNull(productCombinations.deletedAt),
+          ),
+        );
       conditions.push(inArray(inventoryMovements.combinationId, matchingCombos));
     } else if (ids && ids.length > 0) {
       conditions.push(inArray(inventoryMovements.combinationId, ids));
@@ -279,7 +315,13 @@ export const inventoryServerService = {
   },
 
   inventoryIncrease: async (
-    item: { combinationId: number; quantity: number; averagePrice?: number },
+    item: {
+      combinationId: number;
+      quantity: number;
+      averagePrice?: number;
+      costPerUnit?: number;
+      totalCost?: number;
+    },
     type: string,
     referenceId: number | null = null,
     referenceType: string | null = null,
@@ -292,7 +334,10 @@ export const inventoryServerService = {
       item.averagePrice !== undefined
         ? truncateQty(item.averagePrice)
         : undefined;
-
+    const customCostPerUnit =
+      item.costPerUnit !== undefined
+        ? truncateQty(item.costPerUnit)
+        : undefined;
 
     // Native Drizzle ORM execution
     const runInDrizzle = async (tx: typeof db) => {
@@ -333,15 +378,22 @@ export const inventoryServerService = {
       }
 
       const costPerUnit =
-        averagePrice !== undefined
-          ? averagePrice
-          : Number(finalInventory?.averagePrice || 0);
+        customCostPerUnit !== undefined
+          ? customCostPerUnit
+          : averagePrice !== undefined
+            ? averagePrice
+            : Number(finalInventory?.averagePrice || 0);
+
+      const movementTotalCost =
+        item.totalCost !== undefined
+          ? truncateQty(item.totalCost)
+          : truncateQty(quantity * costPerUnit);
 
       await tx.insert(inventoryMovements).values({
         type,
         quantity: String(quantity),
         costPerUnit: String(costPerUnit),
-        totalCost: String(truncateQty(quantity * costPerUnit)),
+        totalCost: String(movementTotalCost),
         referenceType,
         referenceId,
         userId,
@@ -492,20 +544,32 @@ export const inventoryServerService = {
       .from(inventories)
       .innerJoin(
         productCombinations,
-        eq(inventories.combinationId, productCombinations.id),
+        and(
+          eq(inventories.combinationId, productCombinations.id),
+          isNull(productCombinations.deletedAt),
+        ),
       )
       .innerJoin(
         salesOrderItems,
-        eq(productCombinations.id, salesOrderItems.combinationId),
+        and(
+          eq(productCombinations.id, salesOrderItems.combinationId),
+          isNull(salesOrderItems.deletedAt),
+        ),
       )
       .innerJoin(
         salesOrders,
         and(
           eq(salesOrderItems.salesOrderId, salesOrders.id),
           eq(salesOrders.status, "RECEIVED"),
+          isNull(salesOrders.deletedAt),
         ),
       )
-      .where(sql`${inventories.quantity} < ${productCombinations.reorderLevel}`)
+      .where(
+        and(
+          isNull(inventories.deletedAt),
+          sql`${inventories.quantity} < ${productCombinations.reorderLevel}`,
+        ),
+      )
       .groupBy(inventories.id, productCombinations.id);
 
     const rows = await baseQuery

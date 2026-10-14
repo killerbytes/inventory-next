@@ -27,6 +27,7 @@ If you are asked to write or modify code, YOU MUST STOP and output the following
 - **Efficiency:** Skip apologies, greetings, and meta-commentary. Focus entirely on code, architectural rationale, and execution logs.
 - **Documentation:** Provide high-signal TSDoc/JSDoc on complex algorithms, public service contracts, and domain business rules. Comments must explain "Why", not "What". Avoid redundant comments on self-explanatory typed functions.
 - **Clickable Links:** Always format clickable markdown links for all mentioned files, functions, and symbols using the `file://` scheme (e.g., `[filename](file:///path/to/file)`).
+- **Terminal Symbols & Formatting:** Never use LaTeX math expressions (e.g., `$\rightarrow$`, `\times`, `\approx`) in markdown responses. Always output literal Unicode symbols (e.g., `→`, `×`, `≈`, `✓`, `✗`) or ASCII equivalents (`->`) to ensure proper rendering across CLI and terminal environments.
 
 ---
 

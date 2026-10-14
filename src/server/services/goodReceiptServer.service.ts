@@ -254,7 +254,7 @@ const processReceivedOrder = async (
       {
         combinationId,
         quantity: qty,
-        averagePrice: normalize(averagePrice),
+        averagePrice: normalize(averagePrice, 6),
       },
       INVENTORY_MOVEMENT_TYPE.IN,
       goodReceipt.id,

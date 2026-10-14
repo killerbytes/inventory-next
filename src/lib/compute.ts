@@ -38,13 +38,17 @@ export function normalize(
 }
 
 /**
- * Truncates a floating-point quantity to a fixed precision without rounding up (default 6 places).
+ * Truncates a floating-point quantity to a fixed precision without rounding up (default 6 places),
+ * using an epsilon buffer to eliminate IEEE-754 binary floating-point representation artifacts.
  */
 export function truncateQty(
   value: number | string,
   precision: number = 6,
 ): number {
   const num = Number(value || 0);
+  if (isNaN(num) || num === 0) return 0;
   const factor = 10 ** precision;
-  return Math.trunc(num * factor) / factor;
+  // Epsilon offset prevents numbers like 1.14 (stored as 1.1399999999999999) from truncating downwards
+  const epsilon = (num >= 0 ? 1 : -1) * 1e-11;
+  return Math.trunc(num * factor + epsilon) / factor;
 }

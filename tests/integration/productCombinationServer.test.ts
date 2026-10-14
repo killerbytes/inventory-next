@@ -240,6 +240,43 @@ describe("Product Combination Service (Integration)", () => {
       const combo: any = await productCombinationServerService.getByProductId(1);
       expect(Number(combo.combinations[0].inventory.quantity)).toBe(0);
       expect(Number(combo.combinations[1].inventory.quantity)).toBe(200);
+      expect(Number(combo.combinations[1].inventory.averagePrice)).toBe(1);
+    });
+
+    it("should compute moving weighted average when breaking pack into existing stock with different cost", async () => {
+      const { inventories } = await import("@/server/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // 1st break: 1 BOX into 100 PCS
+      await productCombinationServerService.breakPack(
+        {
+          fromCombinationId: 1,
+          quantity: 1,
+          toCombinationId: 2,
+        },
+        1
+      );
+
+      // Simulate pre-existing stock having a higher cost basis (e.g. 5.00/pc)
+      await db
+        .update(inventories)
+        .set({ averagePrice: "5.00" })
+        .where(eq(inventories.combinationId, 2));
+
+      // 2nd break: break the second BOX (100 PCS at batch cost 1.00/pc)
+      // Blended cost: (100 * 5.00 + 100 * 1.00) / 200 = 600 / 200 = 3.00
+      await productCombinationServerService.breakPack(
+        {
+          fromCombinationId: 1,
+          quantity: 1,
+          toCombinationId: 2,
+        },
+        1
+      );
+
+      const combo: any = await productCombinationServerService.getByProductId(1);
+      expect(Number(combo.combinations[1].inventory.quantity)).toBe(200);
+      expect(Number(combo.combinations[1].inventory.averagePrice)).toBe(3);
     });
 
     it("should repack from PCS to BOX", async () => {

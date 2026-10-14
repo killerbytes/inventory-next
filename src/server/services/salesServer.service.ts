@@ -373,6 +373,7 @@ const getSummary = async (
       ORDER_STATUS.RECEIVED,
       ORDER_STATUS.COMPLETED,
     ]),
+    isNull(salesOrders.deletedAt),
   ];
   if (startBound) {
     costConditions.push(gte(salesOrders.orderDate, startBound));
@@ -805,7 +806,9 @@ export const salesServerService = {
         where: (tbl: any, { eq, and, isNull }: any) =>
           and(eq(tbl.id, id), isNull(tbl.deletedAt)),
         with: {
-          salesOrderItems: true,
+          salesOrderItems: {
+            where: (tbl: any, { isNull }: any) => isNull(tbl.deletedAt),
+          },
         },
       });
 
@@ -884,7 +887,9 @@ export const salesServerService = {
         where: (tbl: any, { eq, and, isNull }: any) =>
           and(eq(tbl.id, id), isNull(tbl.deletedAt)),
         with: {
-          salesOrderItems: true,
+          salesOrderItems: {
+            where: (tbl: any, { isNull }: any) => isNull(tbl.deletedAt),
+          },
           returnTransactions: true,
         },
       });
@@ -966,7 +971,9 @@ export const salesServerService = {
         where: (tbl: any, { eq, and, isNull }: any) =>
           and(eq(tbl.id, referenceId), isNull(tbl.deletedAt)),
         with: {
-          salesOrderItems: true,
+          salesOrderItems: {
+            where: (tbl: any, { isNull }: any) => isNull(tbl.deletedAt),
+          },
         },
       });
 

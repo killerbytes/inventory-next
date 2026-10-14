@@ -29,7 +29,10 @@ import {
 } from "drizzle-orm";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
-import { inventoryServerService } from "./inventoryServer.service";
+import {
+  inventoryServerService,
+  calculateMovingAverageCost,
+} from "./inventoryServer.service";
 import { productServerService } from "./productServer.service";
 export interface SearchProductCombinationInventory {
   id: number;
@@ -856,8 +859,20 @@ export const productCombinationServerService = {
       totalQuantity = truncateQty(totalQuantity);
       const fromAvgPrice = Number(fromInventory.inventory?.averagePrice || 0);
       const totalCost = fromAvgPrice * numQty;
-      averagePrice =
+      const batchUnitCost =
         totalQuantity > 0 ? truncateQty(totalCost / totalQuantity) : 0;
+
+      const existingTargetQty = Number(toInventory.inventory?.quantity || 0);
+      const existingTargetAvgPrice = Number(
+        toInventory.inventory?.averagePrice || 0,
+      );
+
+      averagePrice = calculateMovingAverageCost({
+        existingQuantity: existingTargetQty,
+        existingAveragePrice: existingTargetAvgPrice,
+        incomingQuantity: totalQuantity,
+        incomingUnitCost: batchUnitCost,
+      });
 
       const currentSourceQty = Number(fromInventory.inventory?.quantity || 0);
 
@@ -898,6 +913,8 @@ export const productCombinationServerService = {
           combinationId: numToId,
           quantity: totalQuantity,
           averagePrice,
+          costPerUnit: batchUnitCost,
+          totalCost,
         },
         `${type}_IN`,
         breakPackRecord.id,
