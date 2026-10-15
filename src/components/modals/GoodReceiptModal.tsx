@@ -181,9 +181,7 @@ function GoodReceiptModalContent({
         />
       )}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <ScrollArea className="h-[40vh]">
-          <PendingOrderForm form={form as any} suppliers={suppliers} fields={fields} remove={remove} />
-        </ScrollArea>
+        <PendingOrderForm form={form as any} suppliers={suppliers} fields={fields} remove={remove} />
 
         <div className="flex justify-between">
           <Button
@@ -270,7 +268,7 @@ export default function GoodReceiptModal({
       description={description}
       isOpen={isGoodReceiptModalOpen}
       onClose={() => setGoodReceiptModalOpen(false)}
-      size="lg"
+      size="xl"
     >
       <GoodReceiptModalContent suppliers={suppliers} />
     </Modal>

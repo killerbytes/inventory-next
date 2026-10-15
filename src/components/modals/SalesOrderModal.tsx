@@ -22,7 +22,7 @@ import {
 } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import React, { useEffect, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
+import { ScrollArea } from "../ui/scroll-area";
 
 export {
   SalesOrderFormSchema,
@@ -376,6 +377,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     name: "salesOrderItems",
   });
 
+  const salesOrderTotal = footerValues.reduce((acc, item) => {
+    return acc + (item?.quantity || 0) * (item?.combination?.price || 0);
+  }, 0);
+
   return (
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -472,40 +477,45 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             <Textarea {...field} aria-invalid={fieldState.invalid} />
           )}
         />
-        {/* TODO: make this scrollable */}
-        <Controller
-          control={form.control}
-          name="salesOrderItems"
-          render={() => (
-            <Field>
-              <DataTable
-                data={fields}
-                columns={columns}
-                renderFooter={() => (
-                  <FormTableFooter
-                    values={footerValues.map((v) => ({
-                      purchasePrice: v?.combination?.price || 0,
-                      quantity: v?.quantity || 0,
-                      discount: Number(v?.discount || 0),
-                    }))}
-                    onAdd={() =>
-                      append({
-                        combinationId: 0,
-                        quantity: 1,
-                        discount: 0,
-                        discountNote: "",
-                        combination: null,
-                      })
-                    }
-                  />
-                )}
-              />
-              <FieldError>
-                {form.formState.errors.salesOrderItems?.message}
-              </FieldError>
-            </Field>
-          )}
-        />
+        <ScrollArea className="h-[40vh]">
+
+          <Controller
+            control={form.control}
+            name="salesOrderItems"
+            render={() => (
+              <Field>
+                <DataTable
+                  data={fields}
+                  columns={columns}
+                />
+                <FieldError>
+                  {form.formState.errors.salesOrderItems?.message}
+                </FieldError>
+              </Field>
+            )}
+          />
+        </ScrollArea>
+        <div className="flex justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => append({
+              combinationId: 0,
+              quantity: 1,
+              discount: 0,
+              discountNote: "",
+              combination: null,
+            })}
+          >
+            <Plus />
+          </Button>
+          <span className="font-semibold text-2xl">
+            {formatCurrency(salesOrderTotal || 0)}
+          </span>
+
+        </div>
+
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
           <Button

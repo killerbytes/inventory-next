@@ -24,6 +24,7 @@ import { Field, FieldError } from "../ui/field";
 import { Textarea } from "../ui/textarea";
 import FormField from "./FormField";
 import z from "zod";
+import { ScrollArea } from "../ui/scroll-area";
 
 
 
@@ -311,29 +312,26 @@ export default function PendingOrderForm({
           />
         )}
       />
-      <Controller
-        control={form.control}
-        name="goodReceiptLines"
-        render={() => (
-          <Field>
-            <DataTable
-              data={fields}
-              columns={columns}
-            // renderFooter={() => (
-            //   <FormTableFooter
-            //     values={footerValues}
-            //     onAdd={() => append(goodReceiptItemDefault)}
-            //   />
-            // )}
-            />
+      <ScrollArea className="h-[40vh]">
+        <Controller
+          control={form.control}
+          name="goodReceiptLines"
+          render={() => (
+            <Field>
+              <DataTable
+                data={fields}
+                columns={columns}
+              />
 
-            <FieldError>
-              {errors?.goodReceiptLines?.root?.message ||
-                errors?.goodReceiptLines?.message}
-            </FieldError>
-          </Field>
-        )}
-      />
+              <FieldError>
+                {errors?.goodReceiptLines?.root?.message ||
+                  errors?.goodReceiptLines?.message}
+              </FieldError>
+            </Field>
+          )}
+        />
+      </ScrollArea>
+
     </div>
   );
 }
