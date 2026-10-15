@@ -91,6 +91,12 @@ export default function SalesOrdersClientWidget({
 
   const columns = useMemo(
     () => [
+      columnHelper.accessor("id", {
+        header: "ID",
+        meta: {
+          className: 'text-xs'
+        }
+      }),
       columnHelper.accessor("salesOrderNumber", {
         header: ({ column }) => (
           <ColumnSort

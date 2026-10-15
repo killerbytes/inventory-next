@@ -99,6 +99,18 @@ export default function GoodReceiptsClientWidget({
           <span className=" text-xs">{row.original.id}</span>
         ),
       }),
+      columnHelper.accessor("referenceNo", {
+        header: ({ column }) => (
+          <ColumnSort
+            column={column as any}
+            filter={filters}
+            handleFilterChange={handleFilterChange}
+            sortKey="referenceNo"
+          >
+            Reference
+          </ColumnSort>
+        ),
+      }),
       columnHelper.accessor((row) => row.supplier?.name, {
         id: "supplier.name",
         header: ({ column }) => (
@@ -162,18 +174,7 @@ export default function GoodReceiptsClientWidget({
         },
         cell: ({ row }) => formatDateTime(row.original.receiptDate),
       }),
-      columnHelper.accessor("referenceNo", {
-        header: ({ column }) => (
-          <ColumnSort
-            column={column as any}
-            filter={filters}
-            handleFilterChange={handleFilterChange}
-            sortKey="referenceNo"
-          >
-            Reference
-          </ColumnSort>
-        ),
-      }),
+
       columnHelper.accessor("totalAmount", {
         header: ({ column }) => (
           <ColumnSort
