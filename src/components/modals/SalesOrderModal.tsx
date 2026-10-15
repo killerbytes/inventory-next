@@ -173,14 +173,6 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           className: "text-right w-36",
         },
         cell: ({ row }) => {
-          const combination = form.watch(
-            `salesOrderItems.${row.index}.combination`,
-          );
-          const availableStock =
-            combination?.inventory?.quantity !== undefined &&
-              combination?.inventory?.quantity !== null
-              ? Number(combination.inventory.quantity)
-              : undefined;
           const quantityError =
             errors.salesOrderItems?.[row.index]?.quantity?.message;
 
@@ -204,11 +196,6 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                 )}
               />
               <div className="flex flex-col items-end text-[11px] leading-tight">
-                {availableStock !== undefined && (
-                  <span className="text-muted-foreground whitespace-nowrap">
-                    Avail: {availableStock}
-                  </span>
-                )}
                 {quantityError && (
                   <span className="text-rose-600 font-medium whitespace-nowrap text-right">
                     {quantityError}
