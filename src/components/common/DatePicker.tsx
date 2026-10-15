@@ -51,12 +51,16 @@ export default function DatePicker({
       <PopoverContent className={cn("w-auto p-0", className)} align={align}>
         <Calendar
           mode="single"
+          required
+          autoFocus
           disabled={disabled}
           selected={value ? new Date(value) : undefined}
-          onSelect={(date) => {
+          defaultMonth={value ? new Date(value) : undefined}
+          onSelect={(date, triggerDate) => {
             setOpen(false);
-            if (date) {
-              onChange(date.toISOString());
+            const selectedDate = date || triggerDate;
+            if (selectedDate) {
+              onChange(selectedDate.toISOString());
             }
           }}
         />

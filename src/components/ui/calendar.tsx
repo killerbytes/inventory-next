@@ -196,6 +196,7 @@ function CalendarDayButton({
 
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       data-day={day.date.toLocaleDateString(locale?.code)}
@@ -214,6 +215,13 @@ function CalendarDayButton({
         className
       )}
       {...props}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.currentTarget.click();
+        }
+        props.onKeyDown?.(e);
+      }}
     />
   )
 }
