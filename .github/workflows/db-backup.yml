@@ -41,31 +41,37 @@ jobs:
       - name: Dump PostgreSQL Database
         env:
           PGHOST: ${{ secrets.DB_HOST }}
-          PGPORT: ${{ secrets.DB_PORT || '5432' }}
+          PGPORT: ${{ secrets.DB_PORT }}
           PGUSER: ${{ secrets.DB_USERNAME }}
           PGPASSWORD: ${{ secrets.DB_PASSWORD }}
           PGDATABASE: ${{ secrets.DB_NAME }}
           PGSSLMODE: require
         run: |
+          PORT="${PGPORT:-5432}"
           if [ "${{ github.event.inputs.data_only }}" = "true" ]; then
-            pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" \
+            pg_dump -h "$PGHOST" -p "$PORT" -U "$PGUSER" \
               --data-only --no-owner --no-acl "$PGDATABASE" | gzip > "${{ steps.vars.outputs.backup_file }}.gz"
             echo "backup_file=${{ steps.vars.outputs.backup_file }}.gz" >> $GITHUB_OUTPUT
           else
-            pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" \
+            pg_dump -h "$PGHOST" -p "$PORT" -U "$PGUSER" \
               --no-owner --no-acl --clean --if-exists -Fc "$PGDATABASE" -f "${{ steps.vars.outputs.backup_file }}"
           fi
           ls -lh ${{ steps.vars.outputs.backup_file }}*
 
       - name: Upload to Backblaze B2 (if configured)
-        if: ${{ secrets.B2_BUCKET != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-005' }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT }}
           BUCKET: ${{ secrets.B2_BUCKET }}
         run: |
+          if [ -z "$BUCKET" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "Backblaze B2 credentials not configured. Skipping cloud upload."
+            exit 0
+          fi
+          REGION="${AWS_DEFAULT_REGION:-us-east-005}"
+          export AWS_DEFAULT_REGION="$REGION"
           FILE=$(ls ${{ steps.vars.outputs.backup_file }}*)
           echo "Uploading $FILE to s3://$BUCKET/"
           if [ -n "$ENDPOINT_URL" ]; then
