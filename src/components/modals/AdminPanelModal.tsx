@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { triggerBackupAction } from "@/server/actions/backup.actions";
 import { useUIStore } from "@/stores/uiStore";
 import { Database, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
@@ -15,11 +16,12 @@ function AdminPanelModalContent() {
   const handleBackup = async () => {
     setIsBackingUp(true);
     try {
-      const res = await fetch("/api/admin/backup", { method: "POST" });
-      if (!res.ok) throw new Error("Backup failed");
-      toast.success("Database backup generated successfully!");
-    } catch {
-      toast.error("Database backup routine failed.");
+      const res = await triggerBackupAction();
+      toast.success(
+        res.message || "Database backup workflow triggered successfully!"
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Database backup routine failed.");
     } finally {
       setIsBackingUp(false);
     }
@@ -28,11 +30,7 @@ function AdminPanelModalContent() {
   const handleSyncGSheet = async () => {
     setIsSyncingGSheet(true);
     try {
-      const res = await fetch("/api/admin/gsheet-sync", { method: "POST" });
-      if (!res.ok) throw new Error("Sync failed");
-      toast.success("Google Sheets synchronized successfully!");
-    } catch {
-      toast.error("Google Sheets sync failed.");
+      toast.info("Google Sheets synchronization is currently not configured.");
     } finally {
       setIsSyncingGSheet(false);
     }

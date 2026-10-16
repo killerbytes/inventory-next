@@ -1,0 +1,83 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Runs daily at 18:00 UTC (02:00 AM UTC+8 / Manila Time)
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+    inputs:
+      data_only:
+        description: "Data-only backup (true/false)"
+        required: false
+        default: "false"
+
+jobs:
+  backup:
+    name: Run Database Backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Generate Timestamp and File Names
+        id: vars
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%d-%H%M%S")
+          SUFFIX="full"
+          if [ "${{ github.event.inputs.data_only }}" = "true" ]; then
+            SUFFIX="data-only"
+          fi
+          BACKUP_FILE="backup-${SUFFIX}-${TIMESTAMP}.dump"
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "backup_file=${BACKUP_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Dump PostgreSQL Database
+        env:
+          PGHOST: ${{ secrets.DB_HOST }}
+          PGPORT: ${{ secrets.DB_PORT || '5432' }}
+          PGUSER: ${{ secrets.DB_USERNAME }}
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+          PGDATABASE: ${{ secrets.DB_NAME }}
+          PGSSLMODE: require
+        run: |
+          if [ "${{ github.event.inputs.data_only }}" = "true" ]; then
+            pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" \
+              --data-only --no-owner --no-acl "$PGDATABASE" | gzip > "${{ steps.vars.outputs.backup_file }}.gz"
+            echo "backup_file=${{ steps.vars.outputs.backup_file }}.gz" >> $GITHUB_OUTPUT
+          else
+            pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" \
+              --no-owner --no-acl --clean --if-exists -Fc "$PGDATABASE" -f "${{ steps.vars.outputs.backup_file }}"
+          fi
+          ls -lh ${{ steps.vars.outputs.backup_file }}*
+
+      - name: Upload to Backblaze B2 (if configured)
+        if: ${{ secrets.B2_BUCKET != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-005' }}
+          ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT }}
+          BUCKET: ${{ secrets.B2_BUCKET }}
+        run: |
+          FILE=$(ls ${{ steps.vars.outputs.backup_file }}*)
+          echo "Uploading $FILE to s3://$BUCKET/"
+          if [ -n "$ENDPOINT_URL" ]; then
+            aws s3 cp "$FILE" "s3://$BUCKET/" --endpoint-url "$ENDPOINT_URL"
+          else
+            aws s3 cp "$FILE" "s3://$BUCKET/"
+          fi
+          echo "Upload to B2 complete."
+
+      - name: Upload Backup as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.vars.outputs.timestamp }}
+          path: ${{ steps.vars.outputs.backup_file }}*
+          retention-days: 14
