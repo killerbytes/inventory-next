@@ -38,6 +38,21 @@ export interface GetPriceHistoryInput {
   order?: "ASC" | "DESC";
 }
 
+export interface InventoryMovementsSummary {
+  inbound: {
+    quantity: number;
+    value: number;
+  };
+  outbound: {
+    quantity: number;
+    value: number;
+  };
+  net: {
+    quantity: number;
+    value: number;
+  };
+}
+
 export interface GetMovementsInput {
   ids?: number[];
   limit?: number;
@@ -48,6 +63,7 @@ export interface GetMovementsInput {
   order?: "ASC" | "DESC";
   startDate?: string | Date | null;
   endDate?: string | Date | null;
+  includeSummary?: boolean;
 }
 
 
@@ -179,6 +195,7 @@ export const inventoryServerService = {
       order = "DESC",
       startDate,
       endDate,
+      includeSummary = false,
     } = params;
 
     const offset = (page - 1) * limit;
@@ -271,27 +288,42 @@ export const inventoryServerService = {
       };
     });
 
-    let totalAmount = 0;
-    let totalQuantity = 0;
+    let summary: InventoryMovementsSummary | undefined;
 
-    try {
-      const sumConditions = [
-        ...(conditions.length ? conditions : []),
-        ne(inventoryMovements.type, INVENTORY_MOVEMENT_TYPE.ADJUSTMENT_OUT),
-      ];
+    if (includeSummary) {
+      try {
+        const [sumResult] = await db
+          .select({
+            inboundQuantity: sql<string>`COALESCE(SUM(CASE WHEN ${inventoryMovements.quantity} > 0 THEN ${inventoryMovements.quantity} ELSE 0 END), 0)`,
+            inboundValue: sql<string>`COALESCE(SUM(CASE WHEN ${inventoryMovements.totalCost} > 0 THEN ${inventoryMovements.totalCost} ELSE 0 END), 0)`,
+            outboundQuantity: sql<string>`COALESCE(SUM(CASE WHEN ${inventoryMovements.quantity} < 0 THEN ABS(${inventoryMovements.quantity}) ELSE 0 END), 0)`,
+            outboundValue: sql<string>`COALESCE(SUM(CASE WHEN ${inventoryMovements.totalCost} < 0 THEN ABS(${inventoryMovements.totalCost}) ELSE 0 END), 0)`,
+          })
+          .from(inventoryMovements)
+          .where(whereClause);
 
-      const [sumResult] = await db
-        .select({
-          totalCost: sql<string>`COALESCE(SUM(${inventoryMovements.totalCost}), 0)`,
-          quantity: sql<string>`COALESCE(SUM(${inventoryMovements.quantity}), 0)`,
-        })
-        .from(inventoryMovements)
-        .where(and(...sumConditions));
+        const inboundQty = Number(sumResult?.inboundQuantity || 0);
+        const inboundVal = Number(sumResult?.inboundValue || 0);
+        const outboundQty = Number(sumResult?.outboundQuantity || 0);
+        const outboundVal = Number(sumResult?.outboundValue || 0);
 
-      totalAmount = Number(sumResult?.totalCost || 0);
-      totalQuantity = Number(sumResult?.quantity || 0);
-    } catch {
-      // Fallback
+        summary = {
+          inbound: {
+            quantity: inboundQty,
+            value: inboundVal,
+          },
+          outbound: {
+            quantity: outboundQty,
+            value: outboundVal,
+          },
+          net: {
+            quantity: truncateQty(inboundQty - outboundQty),
+            value: truncateQty(inboundVal - outboundVal),
+          },
+        };
+      } catch {
+        // Fallback
+      }
     }
 
     return {
@@ -301,16 +333,7 @@ export const inventoryServerService = {
         totalPages: Math.ceil(total / limit),
         currentPage: page,
       },
-      summary: {
-        totalValue: {
-          label: "Total Amount",
-          value: totalAmount,
-        },
-        totalQuantity: {
-          label: "Total Quantity",
-          value: totalQuantity,
-        },
-      },
+      summary,
     };
   },
 

@@ -45,7 +45,7 @@ describe("Inventory Movements & Parity Integration Tests", () => {
     combination = combos.combinations[0];
   });
 
-  it("should exclude ADJUSTMENT_OUT from totalAmount and totalQuantity in getMovements summary", async () => {
+  it("should accurately return inbound, outbound, and net breakdowns in getMovements summary when includeSummary is true", async () => {
     // 1. Create an IN movement (qty: 10, totalCost: 1000)
     await db.insert(inventoryMovements).values({
       combinationId: combination.id,
@@ -59,13 +59,13 @@ describe("Inventory Movements & Parity Integration Tests", () => {
       updatedAt: new Date(),
     });
 
-    // 2. Create an ADJUSTMENT_OUT movement (qty: 3, totalCost: 300)
+    // 2. Create an ADJUSTMENT_OUT movement (qty: -3, totalCost: -300 as written by inventoryDecrease)
     await db.insert(inventoryMovements).values({
       combinationId: combination.id,
       userId: user.id,
       type: INVENTORY_MOVEMENT_TYPE.ADJUSTMENT_OUT,
-      quantity: "3",
-      totalCost: "300",
+      quantity: "-3",
+      totalCost: "-300",
       referenceType: "STOCK_ADJUSTMENT",
       referenceId: 102,
       createdAt: new Date(),
@@ -73,15 +73,19 @@ describe("Inventory Movements & Parity Integration Tests", () => {
     });
 
     // Act
-    const result = await inventoryServerService.getMovements();
+    const result = await inventoryServerService.getMovements({ includeSummary: true });
 
     // Assert: rows contain both movements
     expect(result.data.length).toBe(2);
     expect(result.meta.total).toBe(2);
 
-    // Assert summary: ADJUSTMENT_OUT must be excluded from totals for warehouse volume parity
-    expect(Number(result.summary.totalQuantity.value)).toBe(10);
-    expect(Number(result.summary.totalValue.value)).toBe(1000);
+    // Assert summary: Inbound, Outbound, and Net breakdowns
+    expect(result.summary?.inbound.quantity).toBe(10);
+    expect(result.summary?.inbound.value).toBe(1000);
+    expect(result.summary?.outbound.quantity).toBe(3);
+    expect(result.summary?.outbound.value).toBe(300);
+    expect(result.summary?.net.quantity).toBe(7);
+    expect(result.summary?.net.value).toBe(700);
 
     // Assert that updatedAt and cost fields are present for alignment with inventory-react
     expect(result.data[0].updatedAt).toBeDefined();

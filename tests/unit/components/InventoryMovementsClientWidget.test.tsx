@@ -108,8 +108,9 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
           initialMovements={sampleMovements}
           meta={{ total: 2, totalPages: 1, currentPage: 1 }}
           summary={{
-            totalValue: { label: "Total Amount", value: 500 },
-            totalQuantity: { label: "Total Quantity", value: 40 },
+            inbound: { quantity: 50, value: 625 },
+            outbound: { quantity: 10, value: 125 },
+            net: { quantity: 40, value: 500 },
           }}
         />,
       );
@@ -124,9 +125,15 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
     expect(text).toContain("Quantity");
     expect(text).toContain("Reference");
 
-    // Values formatted
+    // Values formatted in table
     expect(text).toContain("₱12.50");
     expect(text).toContain("₱625.00");
+
+    // Summary cards parity
+    expect(text).toContain("Inbound");
+    expect(text).toContain("Outbound");
+    expect(text).toContain("Net Stock Change");
+    expect(text).toContain("Total Audited Records");
   });
 
   it("renders dynamic reference hyperlinks to Good Receipts and Sales Orders", async () => {

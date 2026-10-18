@@ -1,5 +1,8 @@
 import InventoryMovementsClientWidget from "@/components/widgets/InventoryMovementsClientWidget";
-import { inventoryServerService } from "@/server/services/inventoryServer.service";
+import {
+  inventoryServerService,
+  InventoryMovementsSummary,
+} from "@/server/services/inventoryServer.service";
 import { PAGINATION } from "@/constants";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 
@@ -28,10 +31,7 @@ export default async function MovementsPage({
     totalPages: 0,
     currentPage: page,
   };
-  let summary = {
-    totalValue: { label: "Total Amount", value: 0 },
-    totalQuantity: { label: "Total Quantity", value: 0 },
-  };
+  let summary: InventoryMovementsSummary | undefined;
 
   try {
     const result = await inventoryServerService.getMovements({
@@ -41,6 +41,7 @@ export default async function MovementsPage({
       q,
       startDate,
       endDate,
+      includeSummary: true,
     });
     rows = result.data || [];
     meta = result.meta;

@@ -34,16 +34,14 @@ import {
   InputGroupInput,
 } from "../ui/input-group";
 import { Meta } from "@/types";
+import { InventoryMovementsSummary } from "@/server/services/inventoryServer.service";
 
 const columnHelper = createColumnHelper<any>();
 
 interface InventoryMovementsClientWidgetProps {
   initialMovements: any[];
   meta?: Meta;
-  summary?: {
-    totalValue?: { label: string; value: number };
-    totalQuantity?: { label: string; value: number };
-  };
+  summary?: InventoryMovementsSummary;
   startDate?: string;
   endDate?: string;
 }
@@ -229,14 +227,55 @@ export default function InventoryMovementsClientWidget({
       />
 
       {summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <SummaryCard
-            label={summary.totalQuantity?.label || "Total Movement Volume"}
-            value={Number(summary.totalQuantity?.value || 0).toLocaleString()}
+            label="Inbound Volume"
+            value={
+              <div className="flex flex-col">
+                <span className="text-emerald-600 font-semibold">
+                  +{Number(summary.inbound.quantity).toLocaleString()} units
+                </span>
+                <span className="text-xs font-normal text-muted-foreground mt-0.5">
+                  {formatCurrency(summary.inbound.value)}
+                </span>
+              </div>
+            }
           />
           <SummaryCard
-            label={summary.totalValue?.label || "Total Movement Value"}
-            value={formatCurrency(summary.totalValue?.value || 0)}
+            label="Outbound Volume"
+            value={
+              <div className="flex flex-col">
+                <span className="text-rose-600 font-semibold">
+                  -{Number(summary.outbound.quantity).toLocaleString()} units
+                </span>
+                <span className="text-xs font-normal text-muted-foreground mt-0.5">
+                  {formatCurrency(summary.outbound.value)}
+                </span>
+              </div>
+            }
+          />
+          <SummaryCard
+            label="Net Stock Change"
+            value={
+              <div className="flex flex-col">
+                <span
+                  className={
+                    summary.net.quantity > 0
+                      ? "text-emerald-600 font-semibold"
+                      : summary.net.quantity < 0
+                        ? "text-rose-600 font-semibold"
+                        : "text-foreground font-semibold"
+                  }
+                >
+                  {summary.net.quantity > 0 ? "+" : ""}
+                  {Number(summary.net.quantity).toLocaleString()} units
+                </span>
+                <span className="text-xs font-normal text-muted-foreground mt-0.5">
+                  {summary.net.value > 0 ? "+" : ""}
+                  {formatCurrency(summary.net.value)}
+                </span>
+              </div>
+            }
           />
           <SummaryCard
             label="Total Audited Records"
