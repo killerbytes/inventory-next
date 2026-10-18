@@ -42,7 +42,6 @@ export default async function SalesOrdersPage({
       endDate,
       status: params.status === "ALL" ? undefined : params.status,
       search: params.q,
-      q: params.q,
       limit,
       page,
       sort: params.sort,
@@ -64,12 +63,12 @@ export default async function SalesOrdersPage({
   } catch (error) { }
   return (
     <SalesOrdersClientWidget
-      initialRows={JSON.parse(JSON.stringify(initialRows))}
+      initialRows={initialRows}
       initialPagination={initialPagination}
       initialSummary={initialSummary}
       startDate={startDate}
       endDate={endDate}
-      customers={JSON.parse(JSON.stringify(customers))}
+      customers={customers}
     />
   );
 }

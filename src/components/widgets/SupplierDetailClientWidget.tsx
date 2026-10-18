@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { SupplierData } from "@/schemas";
+import { Pagination } from "@/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
   ArrowLeft,
@@ -24,11 +25,13 @@ const columnHelper = createColumnHelper<any>();
 interface SupplierDetailClientWidgetProps {
   supplier: SupplierData;
   receipts: any[];
+  initialPagination: Pagination;
 }
 
 export default function SupplierDetailClientWidget({
   supplier,
   receipts = [],
+  initialPagination,
 }: SupplierDetailClientWidgetProps) {
   const router = useRouter();
 
@@ -91,8 +94,7 @@ export default function SupplierDetailClientWidget({
   );
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
+    <div className="space-y-6 mx-auto">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -109,7 +111,6 @@ export default function SupplierDetailClientWidget({
         </div>
       </div>
 
-      {/* Supplier Profile Info Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -148,7 +149,6 @@ export default function SupplierDetailClientWidget({
         </CardContent>
       </Card>
 
-      {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -158,7 +158,7 @@ export default function SupplierDetailClientWidget({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold ">
-              {receipts.length} Shipments
+              {initialPagination?.total ?? receipts.length} Shipments
             </div>
           </CardContent>
         </Card>
@@ -177,16 +177,15 @@ export default function SupplierDetailClientWidget({
         </Card>
       </div>
 
-      {/* Shipment History Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PackageCheck className="h-5 w-5 text-indigo-600" />
-            Shipment Receipts History ({receipts.length})
+            Shipment Receipts History ({initialPagination?.total ?? receipts.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={receipts} paginate={false} />
+          <DataTable columns={columns} data={receipts} paginate={true} paginationMeta={initialPagination} />
         </CardContent>
       </Card>
     </div>

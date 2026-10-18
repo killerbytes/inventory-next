@@ -22,14 +22,24 @@ export const getInitials = (name: string) => {
   return initials;
 };
 
-export const formatCurrency = (value: number) => {
-  if (Number(value) === 0) return "-";
+export const formatCurrency = (value: number | string) => {
+  const num = Number(value);
+  if (!num || isNaN(num) || num === 0) return "-";
+
+  const absNum = Math.abs(num);
+  let maxDecimals = 2;
+  if (absNum < 0.0001) {
+    maxDecimals = 6;
+  } else if (absNum < 0.01 || !Number.isInteger(Math.round(num * 1e6) / 10000)) {
+    maxDecimals = 4;
+  }
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "PHP",
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+    maximumFractionDigits: maxDecimals,
+  }).format(num);
 };
 
 export const formatDate = (value?: string | Date | null) => {

@@ -217,6 +217,7 @@ async function simulateProduct(productId) {
     } else {
       events.push({
         id: lbp.id,
+        salesOrderItemId: lbp.id,
         type: "SALES_ORDER",
         createdAt: new Date(lbp.createdAt || 0),
         combinationId: lbp.combinationId,
@@ -264,6 +265,7 @@ async function simulateProduct(productId) {
   }
 
   const salesOrderUpdates = [];
+  const breakPackUpdates = [];
 
   for (const ev of events) {
     if (ev.type === "GOOD_RECEIPT") {
@@ -304,6 +306,15 @@ async function simulateProduct(productId) {
       to.quantity = truncateQty(to.quantity + targetQty);
       to.averagePrice = newTargetAvg;
       to.totalCost = truncateQty(to.quantity * to.averagePrice);
+
+      breakPackUpdates.push({
+        breakPackId: ev.id,
+        fromAvgPrice: from.averagePrice,
+        sourceQty,
+        batchUnitCost,
+        targetQty,
+        totalCostTransferred,
+      });
     } else if (ev.type === "RE_PACK") {
       const from = stateMap.get(ev.fromCombinationId);
       const to = stateMap.get(ev.toCombinationId);
@@ -330,6 +341,15 @@ async function simulateProduct(productId) {
       to.quantity = truncateQty(to.quantity + targetQty);
       to.averagePrice = newTargetAvg;
       to.totalCost = truncateQty(to.quantity * to.averagePrice);
+
+      breakPackUpdates.push({
+        breakPackId: ev.id,
+        fromAvgPrice: from.averagePrice,
+        sourceQty,
+        batchUnitCost,
+        targetQty,
+        totalCostTransferred,
+      });
     } else if (ev.type === "SALES_ORDER") {
       const state = stateMap.get(ev.combinationId);
       if (!state) continue;
@@ -438,6 +458,7 @@ async function simulateProduct(productId) {
     combinationDrifts,
     salesOrderDrifts,
     salesOrderUpdates,
+    breakPackUpdates,
     totalProfitImpact: truncateQty(totalProfitImpact),
   };
 }
@@ -525,6 +546,22 @@ async function main() {
                 [String(so.recalculatedCostPrice), String(-1 * so.quantity * so.recalculatedCostPrice), so.salesOrderItemId],
               );
             }
+          }
+
+          // Update InventoryMovements (BreakPack IN & OUT costs)
+          for (const bp of (sim.breakPackUpdates || [])) {
+            await client.query(
+              `UPDATE "InventoryMovements" 
+               SET "costPerUnit" = $1, "totalCost" = $2 
+               WHERE "referenceId" = $3 AND "referenceType" = 'BREAK_PACK' AND quantity < 0`,
+              [String(bp.fromAvgPrice), String(-1 * bp.totalCostTransferred), bp.breakPackId],
+            );
+            await client.query(
+              `UPDATE "InventoryMovements" 
+               SET "costPerUnit" = $1, "totalCost" = $2 
+               WHERE "referenceId" = $3 AND "referenceType" = 'BREAK_PACK' AND quantity > 0`,
+              [String(bp.batchUnitCost), String(bp.totalCostTransferred), bp.breakPackId],
+            );
           }
 
           await client.query("COMMIT");

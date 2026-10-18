@@ -92,7 +92,6 @@ export default function BreakPacksWidget({
       columnHelper.accessor("createdAt", {
         header: "Date Created",
         cell: ({ row }) => {
-          console.log(row.original);
           if (!row.original.createdAt) {
             return ""
           }

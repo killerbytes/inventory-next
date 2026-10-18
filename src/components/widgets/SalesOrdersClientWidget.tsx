@@ -18,9 +18,9 @@ import {
   STATUS_COLOR,
 } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus, Search, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
 import ColorBadge from "../common/ColorBadge";
@@ -35,6 +35,8 @@ import SummaryCard from "../common/SummaryCard";
 
 import ColumnSort, { FilterProps } from "@/components/common/ColumnSort";
 import { Pagination, SalesOrderSummary } from "@/types";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
+import useDebounce from "@/hooks/useDebounce";
 
 const columnHelper = createColumnHelper<SalesOrderData>();
 
@@ -69,6 +71,24 @@ export default function SalesOrdersClientWidget({
     order: "DESC",
   });
   const router = useRouter();
+
+  const [searchQuery, setSearchQuery] = useState(filters.q || "");
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    setSearchQuery(filters.q || "");
+  }, [filters.q]);
+
+  useEffect(() => {
+    if (debouncedQuery !== (filters.q || "")) {
+      setFilters((prev) => ({
+        ...prev,
+        q: debouncedQuery,
+        page: 1,
+      }));
+    }
+  }, [debouncedQuery, filters.q, setFilters]);
+
 
   const handleFilterChange = React.useCallback(
     (newFilter: FilterProps) => {
@@ -263,6 +283,26 @@ export default function SalesOrdersClientWidget({
           }}
         />
 
+        <InputGroup className="w-100">
+          <InputGroupInput
+            placeholder="Search by ID, Order #"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              aria-label="Clear search"
+              title="Clear search"
+              size="icon-xs"
+              onClick={() => {
+                setSearchQuery("");
+                setFilters((prev) => ({ ...prev, q: "", page: 1 }));
+              }}
+            >
+              {searchQuery ? <X /> : <Search />}
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
         <Select
           value={filters.status}
           onValueChange={(value) =>

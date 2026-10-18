@@ -22,6 +22,9 @@ interface DateRangePickerProps {
   placeholder?: string;
   disabled?: (date: Date) => boolean;
   numberOfMonths?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  commitOnClose?: boolean;
 }
 
 export default function DateRangePicker({
@@ -31,28 +34,68 @@ export default function DateRangePicker({
   placeholder = "Pick a date range",
   disabled,
   numberOfMonths = 2,
+  open: controlledOpen,
+  onOpenChange,
+  commitOnClose = false,
 }: DateRangePickerProps) {
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  const [draftRange, setDraftRange] = React.useState<DateRange | undefined>(value);
+
+  React.useEffect(() => {
+    if (!open) {
+      setDraftRange(value);
+    }
+  }, [value, open]);
+
+  const isRangeEqual = (a?: DateRange, b?: DateRange) => {
+    const aFrom = a?.from ? a.from.getTime() : null;
+    const aTo = a?.to ? a.to.getTime() : null;
+    const bFrom = b?.from ? b.from.getTime() : null;
+    const bTo = b?.to ? b.to.getTime() : null;
+    return aFrom === bFrom && aTo === bTo;
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && commitOnClose) {
+      if (!isRangeEqual(draftRange, value)) {
+        onChange(draftRange || { from: undefined, to: undefined });
+      }
+    }
+    if (nextOpen && commitOnClose) {
+      setDraftRange(value);
+    }
+    if (!isControlled) {
+      setInternalOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  };
 
   const handleSelect = (selectedRange: DateRange | undefined) => {
-    if (!selectedRange) {
-      onChange({ from: undefined, to: undefined });
-      return;
+    const newRange = selectedRange
+      ? { from: selectedRange.from, to: selectedRange.to }
+      : { from: undefined, to: undefined };
+
+    setDraftRange(newRange);
+
+    if (!commitOnClose) {
+      onChange(newRange);
     }
-    const { from, to } = selectedRange;
-    onChange({
-      from,
-      to,
-    });
   };
 
   const clearSelection = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onChange({ from: undefined, to: undefined });
+    const emptyRange = { from: undefined, to: undefined };
+    setDraftRange(emptyRange);
+    onChange(emptyRange);
   };
 
+  const activeRange = commitOnClose && open ? draftRange : value;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
           <Button
@@ -60,24 +103,24 @@ export default function DateRangePicker({
             variant="outline"
             className={cn(
               "justify-start text-left font-normal group",
-              !value?.from && "text-muted-foreground",
+              !activeRange?.from && "text-muted-foreground",
               className,
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {value?.from ? (
-              value.to ? (
+            {activeRange?.from ? (
+              activeRange.to ? (
                 <>
-                  {format(value.from, "LLL dd, y")} -{" "}
-                  {format(value.to, "LLL dd, y")}
+                  {format(activeRange.from, "LLL dd, y")} -{" "}
+                  {format(activeRange.to, "LLL dd, y")}
                 </>
               ) : (
-                format(value.from, "LLL dd, y")
+                format(activeRange.from, "LLL dd, y")
               )
             ) : (
               <span>{placeholder}</span>
             )}
-            {value?.from && (
+            {activeRange?.from && (
               <span
                 className="ml-auto text-muted-foreground hover:text-foreground cursor-pointer"
                 onClick={clearSelection}
@@ -91,10 +134,10 @@ export default function DateRangePicker({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="range"
-          defaultMonth={value?.from || new Date()}
+          defaultMonth={activeRange?.from || value?.from || new Date()}
           selected={{
-            from: value?.from ? startOfDay(value.from) : undefined,
-            to: value?.to ? endOfDay(value.to) : undefined,
+            from: activeRange?.from ? startOfDay(activeRange.from) : undefined,
+            to: activeRange?.to ? endOfDay(activeRange.to) : undefined,
           }}
           onSelect={handleSelect}
           numberOfMonths={numberOfMonths}

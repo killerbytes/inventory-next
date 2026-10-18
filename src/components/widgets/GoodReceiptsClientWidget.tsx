@@ -1,6 +1,7 @@
 "use client";
 
 import GoodReceiptModal from "@/components/modals/GoodReceiptModal";
+import useDebounce from "@/hooks/useDebounce";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatCurrency, formatDateTime, mappedStatusHistory } from "@/lib/utils";
 import { GoodReceiptData, SupplierData } from "@/schemas";
@@ -13,7 +14,7 @@ import {
 } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DateRange } from "react-day-picker";
@@ -31,8 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { GoodReceiptSummary, Pagination } from "@/types";
+import { Input } from "../ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
 
 const columnHelper = createColumnHelper<GoodReceiptData>();
 
@@ -63,6 +66,23 @@ export default function GoodReceiptsClientWidget({
     order: "DESC",
   });
   const router = useRouter();
+
+  const [searchQuery, setSearchQuery] = useState(filters.q || "");
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    setSearchQuery(filters.q || "");
+  }, [filters.q]);
+
+  useEffect(() => {
+    if (debouncedQuery !== (filters.q || "")) {
+      setFilters((prev) => ({
+        ...prev,
+        q: debouncedQuery,
+        page: 1,
+      }));
+    }
+  }, [debouncedQuery, filters.q, setFilters]);
 
   const handleFilterChange = React.useCallback(
     (newFilter: FilterProps) => {
@@ -237,6 +257,7 @@ export default function GoodReceiptsClientWidget({
       <div className="flex flex-col md:flex-row gap-4 items-center">
         <DateRangePicker
           value={dateRange}
+          commitOnClose
           onChange={(range) => {
             setFilters((prev) => ({
               ...prev,
@@ -248,6 +269,29 @@ export default function GoodReceiptsClientWidget({
             }));
           }}
         />
+
+
+        <InputGroup className="w-100">
+          <InputGroupInput
+            placeholder="Search by ID, Reference"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              aria-label="Clear search"
+              title="Clear search"
+              size="icon-xs"
+              onClick={() => {
+                setSearchQuery("");
+                setFilters((prev) => ({ ...prev, q: "", page: 1 }));
+              }}
+            >
+              {searchQuery ? <X /> : <Search />}
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+
 
         <Select
           value={filters.status}

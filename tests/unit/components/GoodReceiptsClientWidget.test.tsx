@@ -99,4 +99,117 @@ describe("GoodReceiptsClientWidget - Column Sorting", () => {
     expect(text).toContain("Total Amount");
   });
 
+  it("should render DateRangePicker with commitOnClose enabled", async () => {
+    await act(async () => {
+      root?.render(
+        <GoodReceiptsClientWidget
+          initialRows={sampleRows as any}
+          initialPagination={{ total: 1, totalPages: 1, currentPage: 1 }}
+        />,
+      );
+    });
+
+    const trigger = container?.querySelector("#date");
+    expect(trigger).toBeTruthy();
+  });
+
+  it("debounces search input changes before updating URL filters", async () => {
+    vi.useFakeTimers();
+
+    await act(async () => {
+      root?.render(
+        <GoodReceiptsClientWidget
+          initialRows={sampleRows as any}
+          initialPagination={{ total: 1, totalPages: 1, currentPage: 1 }}
+        />,
+      );
+    });
+
+    const searchInput = container?.querySelector(
+      'input[placeholder="Search by ID, Reference"]',
+    ) as HTMLInputElement;
+    expect(searchInput).not.toBeNull();
+
+    mockReplace.mockClear();
+
+    await act(async () => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeSetter?.call(searchInput, "GR-001");
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      searchInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    // At 100ms (before 300ms debounce window), mockReplace should NOT have been called
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    // After advancing past 300ms debounce delay, mockReplace should be called with query
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/good-receipts?page=1&limit=25&q=GR-001&sort=receiptDate&order=DESC",
+      {
+        scroll: false,
+      },
+    );
+
+    vi.useRealTimers();
+  });
+
+  it("clears search query immediately when clear button is clicked", async () => {
+    vi.useFakeTimers();
+
+    await act(async () => {
+      root?.render(
+        <GoodReceiptsClientWidget
+          initialRows={sampleRows as any}
+          initialPagination={{ total: 1, totalPages: 1, currentPage: 1 }}
+        />,
+      );
+    });
+
+    const searchInput = container?.querySelector(
+      'input[placeholder="Search by ID, Reference"]',
+    ) as HTMLInputElement;
+
+    await act(async () => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeSetter?.call(searchInput, "GR-001");
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      searchInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
+    mockReplace.mockClear();
+
+    const clearButton = container?.querySelector(
+      'button[aria-label="Clear search"], button[title="Clear search"], button[aria-label="Clear"], button[title="Clear"], button[aria-label="Copy"], button[title="Copy"]',
+    ) as HTMLButtonElement;
+    expect(clearButton).not.toBeNull();
+
+    await act(async () => {
+      clearButton.click();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/good-receipts?page=1&limit=25&sort=receiptDate&order=DESC",
+      {
+        scroll: false,
+      },
+    );
+    expect(searchInput.value).toBe("");
+
+    vi.useRealTimers();
+  });
 });

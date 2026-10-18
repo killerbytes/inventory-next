@@ -549,6 +549,8 @@ export const inventoryReplayServerService = {
       } else {
         events.push({
           id: lbp.id,
+          movementId: lbp.id,
+          salesOrderItemId: lbp.id,
           type: "SALES_ORDER",
           createdAt: lbp.createdAt ? new Date(lbp.createdAt) : new Date(0),
           combinationId: lbp.combinationId,

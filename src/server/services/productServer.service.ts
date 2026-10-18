@@ -69,7 +69,6 @@ export const productServerService = {
         },
       },
     });
-    console.log("result", JSON.stringify(result, null, 2));
     if (!result) return null;
 
     const formattedCombinations = (result.combinations || []).map(

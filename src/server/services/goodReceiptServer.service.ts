@@ -45,6 +45,7 @@ export interface ListGoodReceiptsParams {
   endDate?: string | null;
   supplierId?: string | number | null;
   search?: string | null;
+  q?: string | null;
   status?: string | null;
   limit?: number;
   offset?: number;
@@ -451,7 +452,6 @@ export const goodReceiptServerService = {
         .offset(offset);
 
       const sortedIds = sortedReceipts.map((r) => r.id);
-      console.log(sortedIds);
       if (sortedIds.length > 0) {
         const fetchedRows = await db.query.goodReceipts.findMany({
           where: inArray(goodReceipts.id, sortedIds),
@@ -1045,16 +1045,26 @@ export const goodReceiptServerService = {
     };
   },
 
-  getBySupplierId: async (id: number, params: any = {}) => {
+  getBySupplierId: async (id: number, params: ListGoodReceiptsParams = {}) => {
+    const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
+    const page =
+      Number(params.page) ||
+      (params.offset !== undefined
+        ? Math.floor(params.offset / limit) + 1
+        : PAGINATION.PAGE);
+    const offset =
+      params.offset !== undefined
+        ? Number(params.offset)
+        : (page - 1) * limit;
+
     const {
       startDate,
       endDate,
       status,
       sort,
-      q,
-      limit = PAGINATION.PAGE_SIZE,
-      page = PAGINATION.PAGE,
+      search,
     } = params;
+    const q = params.q ?? search;
 
     const conditions = [
       eq(goodReceipts.supplierId, id),
@@ -1077,7 +1087,6 @@ export const goodReceiptServerService = {
     }
 
     const whereClause = and(...conditions);
-    const offset = (page - 1) * limit;
 
     const [countResult] = await db
       .select({ total: count(goodReceipts.id) })
@@ -1181,12 +1190,7 @@ export const goodReceiptServerService = {
 
     return {
       data: enrichedRows,
-      summary: {
-        totalAmount,
-        totalReturnAmount,
-        totalExchangeAmount,
-      },
-      meta: {
+      pagination: {
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: page,

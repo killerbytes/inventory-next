@@ -470,7 +470,7 @@ export const salesServerService = {
         ? Number(params.offset)
         : (page - 1) * limit;
 
-    const search = params.q ?? params.search;
+    const search = params.search;
     const conditions: any[] = [isNull(salesOrders.deletedAt)];
 
     const { startBound, endBound } = getDateBounds(startDate, endDate);
@@ -725,7 +725,6 @@ export const salesServerService = {
         );
 
         const totalAmount = getTotalAmount(processedItems);
-        console.log(213, totalAmount);
         let salesOrderNumber = data.salesOrderNumber;
         if (!salesOrderNumber) {
           const currentYearMonth = format(new Date(), "yyyy-MM");
@@ -787,7 +786,6 @@ export const salesServerService = {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        console.log(333);
         if (status === ORDER_STATUS.RECEIVED) {
           await processReceivedOrder(data, order, tx, userId, true);
         }
