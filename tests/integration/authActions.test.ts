@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { loginAction } from "@/server/actions/auth.actions";
+import { loginAction, logoutAction } from "@/server/actions/auth.actions";
 import { changePasswordAction } from "@/server/actions/user.actions";
 import { setTestSession } from "@/server/auth/session";
 import { db } from "@/server/db/drizzle";
@@ -131,6 +131,22 @@ describe("Auth & Password Actions (Integration)", () => {
         newPassword,
       }),
     ).rejects.toThrow(/Incorrect current password|Invalid/i);
+  });
+
+  it("should successfully execute logoutAction and return success", async () => {
+    // Arrange
+    setTestSession({
+      id: 1,
+      username: "sessionuser",
+      name: "Session User",
+      role: "USER",
+    });
+
+    // Act
+    const result = await logoutAction();
+
+    // Assert
+    expect(result.success).toBe(true);
   });
 });
 

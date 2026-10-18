@@ -8,10 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/utils";
+import { logoutAction } from "@/server/actions/auth.actions";
 import { useAuthStore } from "@/stores/authStore";
 import { useUIStore } from "@/stores/uiStore";
 import { ChevronUp, Cog, KeyRound, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import AdminPanelModal from "../modals/AdminPanelModal";
 import ChangePasswordModal from "../modals/ChangePasswordModal";
 
@@ -22,18 +24,16 @@ export default function UserDropdown() {
 
   const handleLogout = async () => {
     try {
-      const res = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) {
-        throw new Error("Logout failed. Please try again.");
+      const res = await logoutAction();
+      if (!res.success) {
+        toast.error(res.error || "Logout failed. Please try again.");
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      toast.error(error?.message || "Logout failed. Please try again.");
     } finally {
       logout();
       router.push("/login");
+      router.refresh();
     }
   };
 

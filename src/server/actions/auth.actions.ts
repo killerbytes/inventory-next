@@ -2,7 +2,7 @@
 
 import bcrypt from "bcrypt";
 import { eq, and, isNull } from "drizzle-orm";
-import { setSessionCookie } from "@/server/auth/session";
+import { setSessionCookie, clearSessionCookie } from "@/server/auth/session";
 import { db } from "@/server/db/drizzle";
 import { users } from "@/server/db/schema/users";
 
@@ -14,6 +14,11 @@ export interface LoginResult {
     username: string;
     role: string;
   };
+  error?: string;
+}
+
+export interface LogoutResult {
+  success: boolean;
   error?: string;
 }
 
@@ -63,5 +68,22 @@ export async function loginAction(credentials: {
     success: true,
     user: sessionUser,
   };
+}
+
+/**
+ * Server action to invalidate and clear the authenticated user session cookie.
+ */
+export async function logoutAction(): Promise<LogoutResult> {
+  try {
+    await clearSessionCookie();
+    return {
+      success: true,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || "Failed to logout",
+    };
+  }
 }
 
