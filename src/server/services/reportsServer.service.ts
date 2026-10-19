@@ -32,17 +32,6 @@ import {
 import { getDateBounds } from "./dateFilter";
 
 export const reportsServerService = {
-  getPriceHistory: async () => {
-    return await db.query.priceHistories.findMany({
-      with: {
-        combination: {
-          with: { product: true },
-        },
-        user: true,
-      },
-      orderBy: (tbl, { desc }) => [desc(tbl.id)],
-    });
-  },
 
   getBreakPacks: async (
     params: { limit?: number; page?: number; offset?: number } = {},
@@ -178,33 +167,75 @@ export const reportsServerService = {
   },
 
   getProfitProducts: async (params: any = {}) => {
-    const { limit = 50, page = 1 } = params;
-    const offset = (page - 1) * limit;
+    const {
+      limit = PAGINATION.PAGE_SIZE,
+      page = PAGINATION.PAGE,
+      startDate = null,
+      endDate = null,
+      sort = "profit",
+      order = "DESC",
+    } = params;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
+
+    const orderConditions: any[] = [
+      eq(salesOrderItems.salesOrderId, salesOrders.id),
+      isNull(salesOrders.deletedAt),
+      inArray(salesOrders.status, [
+        ORDER_STATUS.RECEIVED,
+        ORDER_STATUS.COMPLETED,
+      ]),
+    ];
+    if (startBound) {
+      orderConditions.push(gte(salesOrders.orderDate, startBound));
+    }
+    if (endBound) {
+      orderConditions.push(lte(salesOrders.orderDate, endBound));
+    }
+
+    const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
+    let orderExpression: any = orderDir(
+      sql`sum(${salesOrderItems.totalAmount} - (${salesOrderItems.quantity} * coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0)))`,
+    );
+    if (sort === "revenue") {
+      orderExpression = orderDir(sql`sum(${salesOrderItems.totalAmount})`);
+    } else if (sort === "quantity") {
+      orderExpression = orderDir(sql`sum(${salesOrderItems.quantity})`);
+    } else if (sort === "name") {
+      orderExpression = orderDir(
+        sql`coalesce(${productCombinations.name}, max(${salesOrderItems.nameSnapshot}))`,
+      );
+    }
 
     const baseQuery = db
       .select({
         combinationId: salesOrderItems.combinationId,
-        nameSnapshot: salesOrderItems.nameSnapshot,
-        unit: salesOrderItems.unit,
-        totalQuantity: sql<number>`sum(${salesOrderItems.quantity})::numeric`.as(
+        productId: productCombinations.productId,
+        nameSnapshot: sql<string>`coalesce(${productCombinations.name}, max(${salesOrderItems.nameSnapshot}))`.as(
+          "nameSnapshot",
+        ),
+        skuSnapshot: sql<string>`coalesce(${productCombinations.sku}, max(${salesOrderItems.skuSnapshot}))`.as(
+          "skuSnapshot",
+        ),
+        unit: sql<string>`coalesce(${productCombinations.unit}, max(${salesOrderItems.unit}))`.as(
+          "unit",
+        ),
+        totalQuantity: sql<number>`coalesce(sum(${salesOrderItems.quantity}), 0)::numeric`.as(
           "totalQuantity",
         ),
-        totalProfit: sql<number>`sum((${salesOrderItems.purchasePrice} - coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0)) * ${salesOrderItems.quantity})::numeric`.as(
+        totalRevenue: sql<number>`coalesce(sum(${salesOrderItems.totalAmount}), 0)::numeric`.as(
+          "totalRevenue",
+        ),
+        totalCost: sql<number>`coalesce(sum(${salesOrderItems.quantity} * coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0)), 0)::numeric`.as(
+          "totalCost",
+        ),
+        totalProfit: sql<number>`coalesce(sum(${salesOrderItems.totalAmount} - (${salesOrderItems.quantity} * coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0))), 0)::numeric`.as(
           "totalProfit",
         ),
       })
       .from(salesOrderItems)
-      .innerJoin(
-        salesOrders,
-        and(
-          eq(salesOrderItems.salesOrderId, salesOrders.id),
-          isNull(salesOrders.deletedAt),
-          inArray(salesOrders.status, [
-            ORDER_STATUS.RECEIVED,
-            ORDER_STATUS.COMPLETED,
-          ]),
-        ),
-      )
+      .innerJoin(salesOrders, and(...orderConditions))
       .leftJoin(
         productCombinations,
         eq(salesOrderItems.combinationId, productCombinations.id),
@@ -227,36 +258,53 @@ export const reportsServerService = {
       .where(isNull(salesOrderItems.deletedAt))
       .groupBy(
         salesOrderItems.combinationId,
-        salesOrderItems.nameSnapshot,
-        salesOrderItems.unit,
+        productCombinations.id,
+        productCombinations.productId,
+        productCombinations.name,
+        productCombinations.sku,
+        productCombinations.unit,
       );
 
-    const rows = await baseQuery.limit(limit).offset(offset);
+    const rows = await baseQuery
+      .orderBy(orderExpression)
+      .limit(Number(limit))
+      .offset(offset);
 
     const countQuery = await db
       .select({
         count: sql<number>`count(distinct ${salesOrderItems.combinationId})::int`,
       })
       .from(salesOrderItems)
-      .innerJoin(
-        salesOrders,
-        and(
-          eq(salesOrderItems.salesOrderId, salesOrders.id),
-          isNull(salesOrders.deletedAt),
-          inArray(salesOrders.status, [
-            ORDER_STATUS.RECEIVED,
-            ORDER_STATUS.COMPLETED,
-          ]),
-        ),
-      )
+      .innerJoin(salesOrders, and(...orderConditions))
       .where(isNull(salesOrderItems.deletedAt));
     const total = countQuery[0]?.count ?? 0;
 
+    const data = rows.map((r) => {
+      const totalRevenue = Number(r.totalRevenue || 0);
+      const totalCost = Number(r.totalCost || 0);
+      const totalProfit = Number(r.totalProfit || 0);
+      const marginPercentage =
+        totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
+
+      return {
+        combinationId: r.combinationId,
+        productId: r.productId,
+        nameSnapshot: r.nameSnapshot,
+        skuSnapshot: r.skuSnapshot,
+        unit: r.unit,
+        totalQuantity: Number(r.totalQuantity || 0),
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        marginPercentage,
+      };
+    });
+
     return {
-      data: rows,
+      data,
       meta: {
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / Number(limit)),
         currentPage: Number(page),
       },
     };
@@ -364,83 +412,85 @@ export const reportsServerService = {
     };
   },
 
-  getInventoryValue: async () => {
-    const [res] = await db
-      .select({
-        totalValue: sql<string>`coalesce(sum(${inventories.quantity} * ${inventories.averagePrice}), 0)`,
-      })
-      .from(inventories)
-      .where(isNull(inventories.deletedAt));
-
-    return {
-      totalValue: parseFloat(res?.totalValue ?? "0") || 0,
-    };
-  },
-
-  getInventoryValueFromMovements: async () => {
-    const [res] = await db
-      .select({
-        totalValue: sql<string>`coalesce(sum(${inventoryMovements.totalCost}), 0)`,
-      })
-      .from(inventoryMovements);
-
-    return {
-      totalValue: parseFloat(res?.totalValue ?? "0") || 0,
-    };
-  },
 
   getReorderLevels: async (params: GetReordersLevelsInput = {}) => {
     return await inventoryServerService.getReordersLevels(params);
   },
 
-  getNoSales: async (params: any = {}) => {
-    return await reportsServerService.noSaleProducts(params);
-  },
+  getProfitSummary: async (
+    params: { startDate?: string | null; endDate?: string | null } = {},
+  ) => {
+    const { startDate = null, endDate = null } = params;
+    const { startBound, endBound } = getDateBounds(startDate, endDate);
 
-  getProfitSummary: async () => {
-    const orders = await db.query.salesOrders.findMany({
-      where: (tbl, { and, isNull, inArray }) =>
-        and(
-          isNull(tbl.deletedAt),
-          inArray(tbl.status, [
-            ORDER_STATUS.RECEIVED,
-            ORDER_STATUS.COMPLETED,
-          ]),
-        ),
-      with: {
-        salesOrderItems: {
-          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
-        },
-      },
-    });
-
-    const validOrders = orders.filter(
-      (o: any) =>
-        !o.deletedAt &&
-        (o.status === ORDER_STATUS.RECEIVED ||
-          o.status === ORDER_STATUS.COMPLETED),
-    );
-
-    const totalSales = validOrders.reduce(
-      (acc, o) => acc + Number(o.totalAmount || 0),
-      0,
-    );
-    let totalCost = 0;
-    for (const order of validOrders) {
-      const items = (order.salesOrderItems || []).filter(
-        (item: any) => !item.deletedAt,
-      );
-      for (const item of items) {
-        const qty = Number(item.quantity || 0);
-        const origPrice = Number(item.originalPrice || item.purchasePrice || 0);
-        totalCost += qty * origPrice;
-      }
+    const orderConditions: any[] = [
+      isNull(salesOrders.deletedAt),
+      inArray(salesOrders.status, [
+        ORDER_STATUS.RECEIVED,
+        ORDER_STATUS.COMPLETED,
+      ]),
+    ];
+    if (startBound) {
+      orderConditions.push(gte(salesOrders.orderDate, startBound));
     }
-    const netProfit = totalSales - totalCost;
+    if (endBound) {
+      orderConditions.push(lte(salesOrders.orderDate, endBound));
+    }
+
+    const [salesResult] = await db
+      .select({
+        totalSales: sql<string>`coalesce(sum(${salesOrders.totalAmount}), 0)`,
+      })
+      .from(salesOrders)
+      .where(and(...orderConditions));
+
+    const itemConditions: any[] = [
+      isNull(salesOrderItems.deletedAt),
+      isNull(salesOrders.deletedAt),
+      inArray(salesOrders.status, [
+        ORDER_STATUS.RECEIVED,
+        ORDER_STATUS.COMPLETED,
+      ]),
+    ];
+    if (startBound) {
+      itemConditions.push(gte(salesOrders.orderDate, startBound));
+    }
+    if (endBound) {
+      itemConditions.push(lte(salesOrders.orderDate, endBound));
+    }
+
+    const [costResult] = await db
+      .select({
+        totalCost: sql<string>`coalesce(sum(${salesOrderItems.quantity} * coalesce(${inventoryMovements.costPerUnit}, ${inventories.averagePrice}, 0)), 0)`,
+      })
+      .from(salesOrderItems)
+      .innerJoin(
+        salesOrders,
+        eq(salesOrderItems.salesOrderId, salesOrders.id),
+      )
+      .leftJoin(
+        inventories,
+        eq(salesOrderItems.combinationId, inventories.combinationId),
+      )
+      .leftJoin(
+        inventoryMovements,
+        and(
+          eq(inventoryMovements.referenceId, salesOrders.id),
+          eq(inventoryMovements.combinationId, salesOrderItems.combinationId),
+          eq(
+            inventoryMovements.referenceType,
+            INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
+          ),
+        ),
+      )
+      .where(and(...itemConditions));
+    const totalSales = Number(salesResult?.totalSales || 0);
+    const estimatedCost = Number(costResult?.totalCost || 0);
+    const netProfit = totalSales - estimatedCost;
 
     return {
       totalSales,
-      estimatedCost: totalCost,
+      estimatedCost,
       netProfit,
       marginPercentage:
         totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : "0.0",

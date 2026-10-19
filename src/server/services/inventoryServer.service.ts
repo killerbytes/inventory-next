@@ -31,6 +31,7 @@ export interface GetReordersLevelsInput {
 
 export interface GetPriceHistoryInput {
   productId?: number | string;
+  combinationId?: number | string;
   limit?: number;
   page?: number;
   q?: string | null;
@@ -118,6 +119,7 @@ export const inventoryServerService = {
   getPriceHistory: async (params: GetPriceHistoryInput = {}) => {
     const {
       productId,
+      combinationId,
       limit = 50,
       page = 1,
       q = null,
@@ -131,19 +133,22 @@ export const inventoryServerService = {
     if (productId) {
       conditions.push(eq(priceHistories.productId, Number(productId)));
     }
-
-    if (q) {
-      const matchingCombos = db
-        .select({ id: productCombinations.id })
-        .from(productCombinations)
-        .where(
-          and(
-            ilike(productCombinations.name, `%${q}%`),
-            isNull(productCombinations.deletedAt),
-          ),
-        );
-      conditions.push(inArray(priceHistories.combinationId, matchingCombos));
+    if (combinationId) {
+      conditions.push(eq(priceHistories.combinationId, Number(combinationId)));
     }
+
+    // if (q) {
+    //   const matchingCombos = db
+    //     .select({ id: productCombinations.id })
+    //     .from(productCombinations)
+    //     .where(
+    //       and(
+    //         ilike(productCombinations.name, `%${q}%`),
+    //         isNull(productCombinations.deletedAt),
+    //       ),
+    //     );
+    //   conditions.push(inArray(priceHistories.combinationId, matchingCombos));
+    // }
 
     const whereClause = conditions.length ? and(...conditions) : undefined;
 

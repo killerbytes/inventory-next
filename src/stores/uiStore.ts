@@ -71,6 +71,12 @@ interface UIState {
   setAdminPanelModalOpen: (open: boolean) => void;
   isAddInvoicePaymentModalOpen: boolean;
   setAddInvoicePaymentModalOpen: (open: boolean) => void;
+  isPriceModalOpen: boolean;
+  editingPriceCombination?: ProductCombinationData | null;
+  setPriceModalOpen: (
+    open: boolean,
+    combination?: ProductCombinationData | null,
+  ) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -133,4 +139,8 @@ export const useUIStore = create<UIState>((set) => ({
   setAdminPanelModalOpen: (open) => set({ isAdminPanelModalOpen: open }),
   isAddInvoicePaymentModalOpen: false,
   setAddInvoicePaymentModalOpen: (open) => set({ isAddInvoicePaymentModalOpen: open }),
+  isPriceModalOpen: false,
+  editingPriceCombination: null,
+  setPriceModalOpen: (open, combination = null) =>
+    set({ isPriceModalOpen: open, editingPriceCombination: combination }),
 }));

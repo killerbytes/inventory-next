@@ -5,6 +5,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import BarcodePrinterModal from "@/components/modals/BarcodePrinterModal";
 import BreakPackModal from "@/components/modals/BreakPackModal";
 import CombinationModal from "@/components/modals/CombinationModal";
+import PriceManagerModal from "@/components/modals/PriceManagerModal";
 import StockAdjustmentModal from "@/components/modals/StockAdjustmentModal";
 import VariantsModal from "@/components/modals/VariantsModal";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import { INVENTORY_MOVEMENT_TYPE_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
   Activity,
+  Banknote,
   Boxes,
   ClipboardList,
   CornerDownRight,
@@ -81,6 +83,7 @@ export default function ProductDetailClientWidget({
     setProductModalOpen,
     setBreakPackModalOpen,
     setStockAdjustmentModalOpen,
+    setPriceModalOpen,
   } = useUIStore();
 
   const activeTab = useMemo(() => {
@@ -214,6 +217,21 @@ export default function ProductDetailClientWidget({
           return (
             <div className="flex gap-2 justify-end">
               <PermissionGuard
+                permission={PERMISSIONS.MANAGE_PRICE}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setPriceModalOpen(true, rowOriginal);
+                  }}
+                >
+                  <Banknote className="h-4 w-4" />
+                </Button>
+              </PermissionGuard>
+
+              <PermissionGuard
                 permission={PERMISSIONS.MANAGE_STOCK_ADJUSTMENTS}
               >
                 <Button
@@ -248,61 +266,7 @@ export default function ProductDetailClientWidget({
     [],
   );
 
-  const priceHistoryColumns = useMemo(
-    () => [
-      columnHelper.accessor("combination.name", {
-        header: "Name",
-        meta: { className: "w-2/4 min-w-[180px]" },
-        cell: (info) => {
-          const combo = info.row.original.combination;
-          return (
-            <div className="flex gap-2 items-center">
-              <ColorBadge colorMap={UNIT_COLOR}>
-                {String(combo?.unit)}
-              </ColorBadge>
-              <span>{combo?.name}</span>
-            </div>
-          );
-        },
-      }),
-      columnHelper.accessor("fromPrice", {
-        header: "From",
-        meta: {
-          className: "",
-        },
-        cell: (info) => formatCurrency(info.getValue() || 0),
-      }),
-      columnHelper.accessor("toPrice", {
-        header: "To",
-        meta: {
-          className: " font-semibold",
-        },
-        cell: (info) => {
-          const from = Number(info.row.original.fromPrice || 0);
-          const to = Number(info.getValue() || 0);
-          const isIncrease = to >= from;
-          return (
-            <span className={isIncrease ? "text-emerald-600" : "text-rose-600"}>
-              {formatCurrency(to)}
-            </span>
-          );
-        },
-      }),
-      columnHelper.accessor("changedAt", {
-        header: "Changed Date",
-        meta: {
-          className: "text-xs text-muted-foreground",
-        },
 
-        cell: (info) => formatDateTime(info.getValue()),
-      }),
-      columnHelper.accessor("user", {
-        header: "User",
-        cell: (info) => info.row.original.user?.username,
-      }),
-    ],
-    [],
-  );
 
   const supplierHistoryColumns = useMemo(
     () => [
@@ -591,9 +555,6 @@ export default function ProductDetailClientWidget({
           <TabsTrigger value="combinations">
             <Boxes /> Combinations ({combinations.length})
           </TabsTrigger>
-          <TabsTrigger value="price_history">
-            <History /> Price History
-          </TabsTrigger>
           <TabsTrigger value="supplier_history">
             <TrendingUp /> Supplier History
           </TabsTrigger>
@@ -629,23 +590,6 @@ export default function ProductDetailClientWidget({
           </Card>
         </TabsContent>
 
-        <TabsContent value="price_history">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Price Change History Log</CardTitle>
-              <CardAction>
-                {VariantSelect}
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={priceHistoryColumns}
-                data={filteredPriceHistory}
-                emptyMessage="No historical price changes recorded for this item."
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="supplier_history">
           <Card>
@@ -692,6 +636,7 @@ export default function ProductDetailClientWidget({
       <BreakPackModal product={product} />
       <StockAdjustmentModal />
       <BarcodePrinterModal combinations={product.combinations} />
+      <PriceManagerModal />
     </div>
   );
 }

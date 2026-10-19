@@ -65,3 +65,13 @@ export type ProductCombinationUpdate = z.infer<
 >;
 export type ProductCombinationData = z.infer<typeof ProductCombinationSchema>;
 
+export const updateCombinationPriceSchema = z.object({
+  combinationId: z.coerce.number().positive(),
+  price: z.coerce.number().positive("Price must be greater than 0"),
+});
+
+export type UpdateCombinationPriceInput = z.infer<
+  typeof updateCombinationPriceSchema
+>;
+
+

@@ -27,7 +27,7 @@ export default async function NoSalesPage({
   };
 
   try {
-    const response = await reportsServerService.getNoSales({
+    const response = await reportsServerService.noSaleProducts({
       page,
       limit,
       sort,

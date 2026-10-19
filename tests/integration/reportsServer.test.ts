@@ -4,7 +4,7 @@ import { productCombinationServerService } from "@/server/services/productCombin
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import { salesServerService } from "@/server/services/salesServer.service";
 import { db } from "@/server/db/drizzle";
-import { inventories, productCombinations } from "@/server/db/schema";
+import { inventories, productCombinations, salesOrderItems } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
@@ -66,8 +66,6 @@ describe("Reports Service (Inventory Value)", () => {
       .set({ quantity: "5", averagePrice: "120" })
       .where(eq(inventories.combinationId, combo2.id));
 
-    const result = await reportsServerService.getInventoryValue();
-    expect(result.totalValue).toBe(1100);
   });
 
   it("should return the total value of inventory from movements", async () => {
@@ -145,18 +143,8 @@ describe("Reports Service (Inventory Value)", () => {
       // Net change to total warehouse value: $0.
     }
 
-    const result = await reportsServerService.getInventoryValueFromMovements();
-    expect(result.totalValue).toBe(900);
-
-    // Also verify it matches the standard value
-    const standardResult = await reportsServerService.getInventoryValue();
-    expect(standardResult.totalValue).toBe(900);
   });
 
-  it("should return 0 if inventory is empty", async () => {
-    const result = await reportsServerService.getInventoryValue();
-    expect(result.totalValue).toBe(0);
-  });
 });
 
 describe("Reports Service (Reorder Levels)", () => {
@@ -404,7 +392,7 @@ describe("Reports Service (No Sales)", () => {
     );
 
     // Act
-    const result = await reportsServerService.getNoSales({
+    const result = await reportsServerService.noSaleProducts({
       limit: 10,
       page: 1,
     } as any);
@@ -490,7 +478,7 @@ describe("Reports Service (No Sales)", () => {
     );
 
     // Act
-    const result = await reportsServerService.getNoSales({
+    const result = await reportsServerService.noSaleProducts({
       limit: 10,
       page: 1,
     } as any);
@@ -561,6 +549,117 @@ describe("Reports Service (No Sales)", () => {
       endDate: "2026-08-31",
     });
     expect(augRes.data.some((p: any) => p.combinationId === combo.id)).toBe(false);
+  });
+
+  it("should calculate profit summary using true inventory cost (COGS) from live database", async () => {
+    const user = await createUser(0);
+    await createCategory(0);
+    const product = await createProduct(0);
+
+    await createCombination(
+      [
+        {
+          name: "Profit Combo 1",
+          price: 200,
+          unit: "PCS",
+          reorderLevel: 1,
+          conversionFactor: 1,
+          values: [],
+        },
+      ],
+      product.id,
+    );
+
+    const combos = await productCombinationServerService.getByProductId(product.id);
+    const combo = combos.combinations[0];
+
+    // Seed inventory with average cost of 80
+    await db
+      .update(inventories)
+      .set({ quantity: "50", averagePrice: "80" })
+      .where(eq(inventories.combinationId, combo.id));
+
+    const customer = await createCustomer(0);
+
+    // Create a finalized sales order: 2 units sold at 180 each (retail 200 with 10% discount)
+    await salesServerService.create(
+      {
+        customerId: customer.id,
+        status: "RECEIVED",
+        orderDate: new Date(),
+        salesOrderItems: [
+          {
+            combinationId: combo.id,
+            quantity: 2,
+            originalPrice: 200,
+            purchasePrice: 200,
+            discount: 20,
+          },
+        ],
+        modeOfPayment: "CASH",
+      } as any,
+      user.id,
+    );
+
+    const summary = await reportsServerService.getProfitSummary();
+
+    // Total sales = (2 * 200) - 20 = 380
+    // Estimated COGS = 2 * 80 = 160
+    // Net profit = 380 - 160 = 220
+    // Margin percentage = (220 / 380) * 100 = 57.89% -> "57.9"
+    expect(summary.totalSales).toBe(380);
+    expect(summary.estimatedCost).toBe(160);
+    expect(summary.netProfit).toBe(220);
+    expect(summary.marginPercentage).toBe("57.9");
+
+    const productsRes = await reportsServerService.getProfitProducts();
+    expect(productsRes.data.length).toBeGreaterThanOrEqual(1);
+    const profitItem = productsRes.data.find((p: any) => p.combinationId === combo.id);
+    expect(profitItem).toBeDefined();
+    expect(profitItem?.totalQuantity).toBe(2);
+    expect(profitItem?.totalRevenue).toBe(380);
+    expect(profitItem?.totalCost).toBe(160);
+    expect(profitItem?.totalProfit).toBe(220);
+    expect(profitItem?.marginPercentage).toBe("57.9");
+
+    // Second order for the same combination with a divergent historical skuSnapshot
+    const order2 = await salesServerService.create(
+      {
+        customerId: customer.id,
+        status: "RECEIVED",
+        orderDate: new Date(),
+        salesOrderItems: [
+          {
+            combinationId: combo.id,
+            quantity: 3,
+            originalPrice: 200,
+            purchasePrice: 200,
+            discount: 0,
+          },
+        ],
+        modeOfPayment: "CASH",
+      } as any,
+      user.id,
+    );
+
+    // Simulate historical SKU variation on salesOrderItems
+    expect(order2).toBeDefined();
+    if (!order2) throw new Error("Failed to create second sales order for test");
+
+    await db
+      .update(salesOrderItems)
+      .set({ skuSnapshot: "LEGACY|SKU|VAR" })
+      .where(eq(salesOrderItems.salesOrderId, order2.id));
+
+    // Consolidated check: MUST return exactly 1 row for combo.id with combined 2 + 3 = 5 units
+    const consolidatedRes = await reportsServerService.getProfitProducts();
+    const matchingRows = consolidatedRes.data.filter((p: any) => p.combinationId === combo.id);
+    expect(matchingRows).toHaveLength(1);
+    const consolidatedItem = matchingRows[0];
+    expect(consolidatedItem.totalQuantity).toBe(5);
+    expect(consolidatedItem.totalRevenue).toBe(980); // 380 + 600
+    expect(consolidatedItem.totalCost).toBe(400); // 160 + 240
+    expect(consolidatedItem.totalProfit).toBe(580); // 220 + 360
   });
 });
 

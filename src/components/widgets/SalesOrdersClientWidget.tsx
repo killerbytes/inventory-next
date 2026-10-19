@@ -37,6 +37,7 @@ import ColumnSort, { FilterProps } from "@/components/common/ColumnSort";
 import { Pagination, SalesOrderSummary } from "@/types";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
 import useDebounce from "@/hooks/useDebounce";
+import { cx } from "class-variance-authority";
 
 const columnHelper = createColumnHelper<SalesOrderData>();
 
@@ -209,7 +210,7 @@ export default function SalesOrdersClientWidget({
         meta: {
           align: "right",
         },
-        cell: (info) => formatCurrency(info.getValue()),
+        cell: (info) => <div className={cx({ 'text-red-500 font-semibold': info.row.original.returnTransactions?.length > 0 })}>{formatCurrency(info.getValue())}</div>,
       }),
     ],
     [filters, handleFilterChange],

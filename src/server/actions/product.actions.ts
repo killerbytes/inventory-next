@@ -8,9 +8,15 @@ import {
   ProductUpdateSchema,
 } from "@/schemas/product.schema";
 import {
+  updateCombinationPriceSchema,
+  UpdateCombinationPriceInput,
+} from "@/schemas/productCombination.schema";
+import {
+  inventoryServerService,
   productCombinationServerService,
   productServerService,
 } from "@/server/services";
+import { GetPriceHistoryInput } from "@/server/services/inventoryServer.service";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
 
@@ -88,7 +94,7 @@ export const getCombinationsByIdsAction = createProtectedAction({
 });
 
 export const updatePricesAction = createProtectedAction({
-  permission: PERMISSIONS.MANAGE_COMBINATIONS,
+  permission: PERMISSIONS.MANAGE_PRICE,
   handler: async (
     { user },
     list: { id: number | string; newPrice: number }[],
@@ -102,3 +108,26 @@ export const updatePricesAction = createProtectedAction({
     return result;
   },
 });
+
+export const updateCombinationPriceAction = createProtectedAction({
+  permission: PERMISSIONS.MANAGE_PRICE,
+  schema: updateCombinationPriceSchema,
+  handler: async ({ user }, data: UpdateCombinationPriceInput) => {
+    const result = await productCombinationServerService.updatePrices(
+      [{ id: data.combinationId, newPrice: data.price }],
+      user.id,
+    );
+    revalidatePath("/products");
+    revalidatePath("/price-manager");
+    return result;
+  },
+});
+
+export const getPriceHistoryAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx, params: GetPriceHistoryInput = {}) => {
+    const result = await inventoryServerService.getPriceHistory(params);
+    return result ? JSON.parse(JSON.stringify(result)) : { data: [], meta: {} };
+  },
+});
+
