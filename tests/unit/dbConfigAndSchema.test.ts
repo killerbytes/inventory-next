@@ -96,4 +96,18 @@ describe("Database Configuration & Schema Parity (Unit)", () => {
       expect(parsed.searchText).toBe("'hammer':2 'steel':1");
     });
   });
+
+  describe("InventoryMovements Schema & Indexes", () => {
+    it("should define indexes for updatedAt, combinationId, and type for high-volume audit performance", async () => {
+      const { inventoryMovements } = await import("@/server/db/schema/inventoryMovements");
+      const { getTableConfig } = await import("drizzle-orm/pg-core");
+      const config = getTableConfig(inventoryMovements);
+      const indexNames = config.indexes.map((idx) => idx.config.name);
+
+      expect(indexNames).toContain("idx_inventory_movements_updated_at");
+      expect(indexNames).toContain("idx_inventory_movements_combination_id");
+      expect(indexNames).toContain("idx_inventory_movements_combo_id_id");
+      expect(indexNames).toContain("idx_inventory_movements_type");
+    });
+  });
 });

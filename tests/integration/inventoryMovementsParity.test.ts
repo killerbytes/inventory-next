@@ -87,6 +87,12 @@ describe("Inventory Movements & Parity Integration Tests", () => {
     expect(result.summary?.net.quantity).toBe(7);
     expect(result.summary?.net.value).toBe(700);
 
+    // Assert running balance computation for each historical row
+    const m1 = result.data.find((d: any) => d.type === INVENTORY_MOVEMENT_TYPE.IN);
+    const m2 = result.data.find((d: any) => d.type === INVENTORY_MOVEMENT_TYPE.ADJUSTMENT_OUT);
+    expect(m1?.runningBalance).toBe(10);
+    expect(m2?.runningBalance).toBe(7);
+
     // Assert that updatedAt and cost fields are present for alignment with inventory-react
     expect(result.data[0].updatedAt).toBeDefined();
     expect(result.data[0].totalCost).toBeDefined();

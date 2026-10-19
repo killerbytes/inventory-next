@@ -19,6 +19,11 @@ export async function setupDatabase(): Promise<void> {
     await pool.query(`
       ALTER TABLE "Products" ADD COLUMN IF NOT EXISTS search_text TSVECTOR DEFAULT ''::tsvector;
       CREATE INDEX IF NOT EXISTS idx_products_search_text ON "Products" USING GIN (search_text);
+      CREATE INDEX IF NOT EXISTS idx_inventory_movements_updated_at ON "InventoryMovements" ("updatedAt");
+      CREATE INDEX IF NOT EXISTS idx_inventory_movements_combination_id ON "InventoryMovements" ("combinationId");
+      CREATE INDEX IF NOT EXISTS idx_inventory_movements_combo_id_id ON "InventoryMovements" ("combinationId", id);
+      CREATE INDEX IF NOT EXISTS idx_inventory_movements_type ON "InventoryMovements" ("type");
+      CREATE INDEX IF NOT EXISTS idx_inventory_movements_reference ON "InventoryMovements" ("referenceType", "referenceId");
     `);
     isSchemaInitialized = true;
   }

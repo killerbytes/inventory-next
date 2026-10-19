@@ -35,7 +35,7 @@ If you are asked to write or modify code, YOU MUST STOP and output the following
 
 - **Read-Only / Review Requests:** Any user request containing words like `"review"`, `"analyze"`, `"check"`, `"explain"`, or `"compare"` MUST be executed in **STRICT READ-ONLY MODE**:
   - **Strict Prohibition:** You are STRICTLY FORBIDDEN from calling any file editing tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) or creating/modifying/deleting files.
-  - **Required Action:** Inspect files, output clear technical analysis and findings, present $\ge 2$ structured recommendations/options marking the best practice as `(Recommended)`, and WAIT for explicit user instruction or option selection.
+  - **Required Action:** Inspect files, output clear technical analysis and findings, present ≥ 2 structured recommendations/options marking the best practice as `(Recommended)`, and WAIT for explicit user instruction or option selection.
 - **Write / Refactoring Requests:** File mutations are ONLY permitted when the prompt contains explicit write directives (`"fix"`, `"implement"`, `"proceed"`, or explicit approval of an Option):
   - **Required Action:** Output Pre-Flight Checklist (`### Thought Process` + `### TDD Plan`), write failing tests first, modify code, and verify.
 

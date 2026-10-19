@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import useDebounce from "@/hooks/useDebounce";
+import DebouncedSearchInput from "@/components/common/DebouncedSearchInput";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import {
@@ -24,15 +24,10 @@ import {
 } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
-import { ClipboardList, SearchIcon } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useTransition } from "react";
 import { DateRange } from "react-day-picker";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "../ui/input-group";
 import { Meta } from "@/types";
 import { InventoryMovementsSummary } from "@/server/services/inventoryServer.service";
 
@@ -53,31 +48,33 @@ export default function InventoryMovementsClientWidget({
   startDate,
   endDate,
 }: InventoryMovementsClientWidgetProps) {
-  const { filters, setFilters } = useUrlFilters({
-    page: 1,
-    limit: 25,
-    status: "ALL",
-    q: "",
-    startDate,
-    endDate,
-  });
+  const defaultFilters = useMemo(
+    () => ({
+      page: 1,
+      limit: 25,
+      status: "ALL",
+      q: "",
+      startDate,
+      endDate,
+    }),
+    [startDate, endDate],
+  );
 
-  const [searchQuery, setSearchQuery] = useState(filters.q || "");
-  const debouncedQuery = useDebounce(searchQuery, 300);
+  const { filters, setFilters } = useUrlFilters(defaultFilters);
+  const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    setSearchQuery(filters.q || "");
-  }, [filters.q]);
-
-  useEffect(() => {
-    if (debouncedQuery !== (filters.q || "")) {
-      setFilters((prev) => ({
-        ...prev,
-        q: debouncedQuery,
-        page: 1,
-      }));
-    }
-  }, [debouncedQuery, filters.q, setFilters]);
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      startTransition(() => {
+        setFilters((prev) => ({
+          ...prev,
+          q: query,
+          page: 1,
+        }));
+      });
+    },
+    [setFilters],
+  );
 
   const dateRange: DateRange = useMemo(
     () => ({
@@ -126,9 +123,40 @@ export default function InventoryMovementsClientWidget({
           headerClassName: "text-right",
           className: "text-right",
         },
-        cell: ({ row }) => (
-          <span className="">{Number(row.original.quantity)}</span>
-        ),
+        cell: ({ row }) => {
+          const qty = Number(row.original.quantity ?? 0);
+          if (qty > 0) {
+            return (
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                +{qty.toLocaleString()}
+              </span>
+            );
+          }
+          if (qty < 0) {
+            return (
+              <span className="font-semibold text-rose-600 dark:text-rose-400">
+                {qty.toLocaleString()}
+              </span>
+            );
+          }
+          return <span className="text-muted-foreground">0</span>;
+        },
+      }),
+      columnHelper.accessor("runningBalance", {
+        header: "Balance",
+        meta: {
+          align: "right",
+          headerClassName: "text-right",
+          className: "text-right font-medium",
+        },
+        cell: ({ row }) => {
+          const balance = Number(row.original.runningBalance ?? 0);
+          return (
+            <span className="font-semibold text-foreground">
+              {balance.toLocaleString()}
+            </span>
+          );
+        },
       }),
       columnHelper.accessor("costPerUnit", {
         header: "Cost Per Unit",
@@ -150,11 +178,26 @@ export default function InventoryMovementsClientWidget({
           headerClassName: "text-right",
           className: "text-right",
         },
-        cell: ({ row }) => (
-          <span className="">
-            {formatCurrency(Number(row.original.totalCost || 0))}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const cost = Number(row.original.totalCost ?? 0);
+          if (cost > 0) {
+            return (
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                +{formatCurrency(cost)}
+              </span>
+            );
+          }
+          if (cost < 0) {
+            return (
+              <span className="font-medium text-rose-600 dark:text-rose-400">
+                -{formatCurrency(Math.abs(cost))}
+              </span>
+            );
+          }
+          return (
+            <span className="text-muted-foreground">{formatCurrency(0)}</span>
+          );
+        },
       }),
       columnHelper.accessor("referenceId", {
         header: "Reference",
@@ -299,16 +342,12 @@ export default function InventoryMovementsClientWidget({
           }}
         />
 
-        <InputGroup>
-          <InputGroupInput
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-        </InputGroup>
+        <DebouncedSearchInput
+          value={filters.q || ""}
+          onSearchChange={handleSearchChange}
+          placeholder="Search..."
+          isLoading={isPending}
+        />
 
         <div className="flex items-center gap-2 w-full md:w-auto">
           <Select

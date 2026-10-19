@@ -263,6 +263,40 @@ export const inventoryServerService = {
       },
     });
 
+    const runningBalances: Record<number, number> = {};
+    if (rows.length > 0) {
+      try {
+        const rowIds = rows.map((r) => r.id);
+        const comboIds = Array.from(
+          new Set(rows.map((r) => r.combinationId).filter(Boolean)),
+        );
+
+        const balanceResults = await db
+          .select({
+            id: sql<number>`ranked.id`,
+            balance: sql<string>`ranked.balance`,
+          })
+          .from(
+            sql`(
+              SELECT id,
+                     SUM(quantity) OVER (
+                       PARTITION BY "combinationId"
+                       ORDER BY id ASC
+                     ) as balance
+              FROM "InventoryMovements"
+              WHERE "combinationId" IN ${comboIds}
+            ) as ranked`,
+          )
+          .where(inArray(sql`ranked.id`, rowIds));
+
+        for (const b of balanceResults) {
+          runningBalances[Number(b.id)] = Number(b.balance);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
     const formattedRows = rows.map((row) => {
       const movement = { ...row } as any;
       let referenceDate = movement.updatedAt;
@@ -285,6 +319,7 @@ export const inventoryServerService = {
       return {
         ...movement,
         referenceDate,
+        runningBalance: runningBalances[movement.id] ?? 0,
       };
     });
 

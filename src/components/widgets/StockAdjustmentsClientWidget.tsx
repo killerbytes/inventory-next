@@ -22,6 +22,9 @@ export default function StockAdjustmentsClientWidget({
 
   const columns = useMemo(
     () => [
+      columnHelper.accessor("id", {
+        header: "Id",
+      }),
       columnHelper.accessor((row) => row.combination?.unit, {
         id: "combination.unit",
         header: "Unit / Item",
@@ -34,7 +37,7 @@ export default function StockAdjustmentsClientWidget({
                 href={`/products/${comb?.productId || 1}`}
                 className="text-primary hover:underline"
               >
-                {comb?.product?.name}
+                {comb?.name}
               </Link>
             </div>
           );
@@ -57,6 +60,34 @@ export default function StockAdjustmentsClientWidget({
             <div className="text-right  font-bold">
               {Number(row.original.systemQuantity)}
             </div>
+          );
+        },
+      }),
+      columnHelper.accessor("difference", {
+        header: () => <div className="text-right">Change</div>,
+        meta: {
+          align: "right",
+          headerClassName: "text-right",
+          className: "text-right",
+        },
+        cell: ({ row }) => {
+          const diff = Number(row.original.difference ?? 0);
+          if (diff > 0) {
+            return (
+              <div className="text-right font-bold text-emerald-600 dark:text-emerald-400">
+                +{diff.toLocaleString()}
+              </div>
+            );
+          }
+          if (diff < 0) {
+            return (
+              <div className="text-right font-bold text-rose-600 dark:text-rose-400">
+                {diff.toLocaleString()}
+              </div>
+            );
+          }
+          return (
+            <div className="text-right font-bold text-muted-foreground">0</div>
           );
         },
       }),

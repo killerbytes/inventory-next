@@ -78,6 +78,7 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
         product: { id: 5, name: "Widget Pro" },
       },
       user: { id: 1, name: "Admin User", username: "admin" },
+      runningBalance: 50,
     },
     {
       id: 2,
@@ -98,10 +99,11 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
         product: { id: 6, name: "Gadget" },
       },
       user: { id: 2, name: "Staff User", username: "staff" },
+      runningBalance: 40,
     },
   ];
 
-  it("renders all aligned columns including Cost Per Unit, Total Cost, and Updated At", async () => {
+  it("renders all aligned columns including Cost Per Unit, Total Cost, Balance, and directional styling", async () => {
     await act(async () => {
       root?.render(
         <InventoryMovementsClientWidget
@@ -123,11 +125,25 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
     expect(text).toContain("Total Cost");
     expect(text).toContain("Updated At");
     expect(text).toContain("Quantity");
+    expect(text).toContain("Balance");
     expect(text).toContain("Reference");
 
-    // Values formatted in table
+    // Values formatted in table with directional indicators
+    expect(text).toContain("+50");
+    expect(text).toContain("-10");
     expect(text).toContain("₱12.50");
-    expect(text).toContain("₱625.00");
+    expect(text).toContain("+₱625.00");
+    expect(text).toContain("-₱125.00");
+
+    // Running balance parity
+    expect(text).toContain("50");
+    expect(text).toContain("40");
+
+    // Directional CSS classes
+    const positiveQty = container?.querySelector(".text-emerald-600");
+    expect(positiveQty?.textContent).toContain("+50");
+    const negativeQty = container?.querySelector(".text-rose-600");
+    expect(negativeQty?.textContent).toContain("-10");
 
     // Summary cards parity
     expect(text).toContain("Inbound");
@@ -191,17 +207,30 @@ describe("InventoryMovementsClientWidget Alignment Tests", () => {
     expect(searchInput).not.toBeNull();
 
     await act(async () => {
-      // Simulate input event
-      searchInput.value = "Widget";
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeSetter?.call(searchInput, "Widget");
       searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-      const changeEvent = new Event("change", { bubbles: true });
-      searchInput.dispatchEvent(changeEvent);
+      searchInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    // Advance timers by 350ms to trigger debounce
+    // Before 300ms debounce completes, mockReplace should not be called
     await act(async () => {
-      vi.advanceTimersByTime(350);
+      vi.advanceTimersByTime(200);
     });
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    // Advance past 300ms debounce
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.stringContaining("q=Widget"),
+      expect.objectContaining({ scroll: false }),
+    );
 
     vi.useRealTimers();
   });
