@@ -121,7 +121,7 @@ export const SalesOrderItemWithCombinationSchema =
     combination: ProductCombinationSchema.partial()
       .extend({
         price: z.coerce.number().positive().nullish(),
-        inventory: InventorySchema.partial(),
+        inventory: InventorySchema.partial().nullish(),
       })
       .nullable(),
   });

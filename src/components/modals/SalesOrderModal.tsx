@@ -7,11 +7,13 @@ import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
 import { formatCurrency } from "@/lib/utils";
 import {
   CustomerData,
+  ProductCombinationData,
   SalesOrderForm,
   SalesOrderFormSchema,
   SalesOrderInput,
   SalesOrderItemWithCombination,
 } from "@/schemas";
+import { getCombinationsByIdsAction } from "@/server/actions/product.actions";
 import { createSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -54,8 +56,6 @@ export {
   type SalesOrderItemWithCombination,
 };
 
-// TODO: retreive the latest price when loading from drafts
-
 const columnHelper = createColumnHelper<SalesOrderItemWithCombination>();
 
 function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
@@ -92,19 +92,90 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     name: "salesOrderItems",
     keyName: "fieldId",
   });
-
   useEffect(() => {
-    try {
-      const storedDraft = loadDraft<SalesOrderInput>(
-        DRAFT_STORAGE_KEYS.SALES_ORDER,
-        ["orderDate", "deliveryDate", "dueDate"],
-      );
-      if (storedDraft) {
-        form.reset(storedDraft);
+    let isMounted = true;
+    async function loadAndSyncDraft() {
+      try {
+        const storedDraft = loadDraft<SalesOrderForm>(
+          DRAFT_STORAGE_KEYS.SALES_ORDER,
+          ["orderDate", "deliveryDate", "dueDate"],
+        );
+        if (!storedDraft) return;
+
+        const items = storedDraft.salesOrderItems || [];
+        const combinationIds = Array.from(
+          new Set(
+            items
+              .map((item) => Number(item.combinationId))
+              .filter((id) => !isNaN(id) && id > 0),
+          ),
+        );
+
+        if (combinationIds.length === 0) {
+          form.reset(storedDraft);
+          return;
+        }
+
+        try {
+          const latestCombos = await getCombinationsByIdsAction(combinationIds);
+          if (!isMounted) return;
+
+          const comboMap = new Map<number, ProductCombinationData>(
+            (latestCombos || []).map((combo: ProductCombinationData) => [Number(combo.id), combo]),
+          );
+
+          let hasRemovedCombinations = false;
+          const updatedItems = items.map((item) => {
+            const numId = Number(item.combinationId);
+            if (numId <= 0) return item;
+
+            const freshCombo = comboMap.get(numId);
+            if (freshCombo) {
+              return {
+                ...item,
+                combination: {
+                  ...freshCombo,
+                  price:
+                    freshCombo.price !== null && freshCombo.price !== undefined
+                      ? Number(freshCombo.price)
+                      : freshCombo.price,
+                },
+              };
+            }
+
+            hasRemovedCombinations = true;
+            return {
+              ...item,
+              combinationId: 0,
+              combination: null,
+            };
+          });
+
+          if (hasRemovedCombinations) {
+            toast.warning(
+              "One or more products in your saved draft are no longer available and were removed.",
+            );
+          }
+
+          form.reset({
+            ...storedDraft,
+            salesOrderItems: updatedItems,
+          });
+        } catch {
+          if (!isMounted) return;
+          form.reset(storedDraft);
+          toast.error("Failed to sync latest product data for draft.");
+        }
+      } catch {
+        toast.error("Failed to load draft.");
       }
-    } catch {
-      toast.error("Failed to load draft.");
     }
+
+    loadAndSyncDraft();
+
+    return () => {
+      isMounted = false;
+    };
   }, [form.reset]);
 
   const handleSaveDraft = async () => {
@@ -256,7 +327,6 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
                   }
                   onChange={(value) => {
                     field.onChange(value.id);
-
                     form.setValue(
                       `salesOrderItems.${row.index}.combination`,
                       value as any,

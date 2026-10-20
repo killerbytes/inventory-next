@@ -19,7 +19,10 @@ export const InventorySelectSchema = createSelectSchema(inventories).extend({
   quantity: z.coerce.number(),
   averagePrice: z.coerce.number().nullable(),
 });
-export const InventorySchema = InventorySelectSchema;
+export const InventorySchema = InventorySelectSchema.extend({
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
 
 export type InventoryInput = z.infer<typeof InventoryInputSchema>;
 export type InventoryUpdateInput = z.infer<typeof InventoryUpdateSchema>;

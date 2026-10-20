@@ -9,7 +9,10 @@ export const VariantValueBaseSchema = createInsertSchema(variantValues, {
 
 export const VariantValueInputSchema = VariantValueBaseSchema.strict();
 export const VariantValueSelectSchema = createSelectSchema(variantValues);
-export const VariantValueSchema = VariantValueBaseSchema;
+export const VariantValueSchema = VariantValueBaseSchema.extend({
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
 
 export type VariantValueInput = z.infer<typeof VariantValueInputSchema>;
 export type VariantValueData = z.infer<typeof VariantValueSchema>;

@@ -7,71 +7,55 @@ import {
   VariantValueSchema,
 } from "./variantValue.schema";
 
+// 1. Base Insert Schema (override Drizzle types where necessary)
 const insertProductCombination = createInsertSchema(productCombinations, {
-  productId: z.coerce.number().positive(),
-  conversionFactor: z.coerce.number().positive().optional().nullable(),
-  price: z.coerce.number().nonnegative().optional().nullable(),
-  isBreakPack: z.boolean().optional().nullable(),
-  isActive: z.boolean().optional().nullable(),
+  productId: z.number().positive(), // Removed coerce assuming JSON payload
+  conversionFactor: z.number().positive().nullish(), // Replaced .optional().nullable()
+  price: z.number().nonnegative().nullish(),
+  isBreakPack: z.boolean().nullish(),
+  isActive: z.boolean().nullish(),
 });
 
-export const ProductCombinationBaseSchema = z.object({
-  productId: insertProductCombination.shape.productId,
-  unit: insertProductCombination.shape.unit,
-  conversionFactor: insertProductCombination.shape.conversionFactor,
-  price: insertProductCombination.shape.price,
-  reorderLevel: insertProductCombination.shape.reorderLevel,
-  isBreakPack: insertProductCombination.shape.isBreakPack,
-  isBreakPackOfId: insertProductCombination.shape.isBreakPackOfId,
-  isActive: insertProductCombination.shape.isActive,
+// 2. Base Schema: Extend directly instead of mapping shapes
+export const ProductCombinationBaseSchema = insertProductCombination.extend({
   values: z.array(z.lazy(() => VariantValueInputSchema)).nullish(),
 });
 
-export const ProductCombinationInputSchema =
-  ProductCombinationBaseSchema.strict();
+// 3. Input Schema
+export const ProductCombinationInputSchema = ProductCombinationBaseSchema.strict();
 
-export const ProductCombinationUpdateSchema =
-  ProductCombinationBaseSchema.extend({
-    id: z.coerce.number().nullish(),
-    name: z.string().nullish(),
-    barcode: z.string().optional().nullable(),
-    isDeleted: z.boolean().optional().nullable(),
-  });
-
-export const ProductCombinationSelectSchema =
-  createSelectSchema(productCombinations);
-
-export const ProductCombinationSchema =
-  ProductCombinationSelectSchema.extend({
-    price: z.coerce.number().optional().nullable(),
-    conversionFactor: z.coerce.number().optional().nullable(),
-    inventory: z
-      .lazy(() => InventorySchema)
-      .optional()
-      .nullable(),
-    barcode: z.string().optional().nullable(),
-    values: z.array(z.lazy(() => VariantValueSchema)).nullish(),
-    subItem: z
-      .array(z.lazy(() => ProductCombinationBaseSchema))
-      .optional()
-      .nullable(),
-  });
-
-export type ProductCombinationInput = z.infer<
-  typeof ProductCombinationInputSchema
->;
-export type ProductCombinationUpdate = z.infer<
-  typeof ProductCombinationUpdateSchema
->;
-export type ProductCombinationData = z.infer<typeof ProductCombinationSchema>;
-
-export const updateCombinationPriceSchema = z.object({
-  combinationId: z.coerce.number().positive(),
-  price: z.coerce.number().positive("Price must be greater than 0"),
+// 4. Update Schema: Make all base fields partial, require ID
+export const ProductCombinationUpdateSchema = ProductCombinationBaseSchema.partial().extend({
+  id: z.number().nullish(), // An update usually requires a valid ID
+  name: z.string().nullish(),
+  barcode: z.string().nullish(),
+  isDeleted: z.boolean().nullish(),
 });
 
-export type UpdateCombinationPriceInput = z.infer<
-  typeof updateCombinationPriceSchema
->;
+// 5. Select Schemas
+export const ProductCombinationSelectSchema = createSelectSchema(productCombinations);
 
+export const ProductCombinationSchema = ProductCombinationSelectSchema.extend({
+  price: z.coerce.number().nullish(),
+  conversionFactor: z.coerce.number().nullish(),
+  inventory: z.lazy(() => InventorySchema).nullish(),
+  barcode: z.string().nullish(),
+  values: z.array(z.lazy(() => VariantValueSchema)).nullish(),
+  // Use z.lazy for recursive self-references
+  subItem: z.array(z.lazy(() => ProductCombinationBaseSchema)).nullish(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
 
+// 6. Type Exports
+export type ProductCombinationInput = z.infer<typeof ProductCombinationInputSchema>;
+export type ProductCombinationUpdate = z.infer<typeof ProductCombinationUpdateSchema>;
+export type ProductCombinationData = z.infer<typeof ProductCombinationSchema>;
+
+// 7. Specialized Endpoint Schemas
+export const updateCombinationPriceSchema = z.object({
+  combinationId: z.number().positive(),
+  price: z.number().positive("Price must be greater than 0"),
+});
+
+export type UpdateCombinationPriceInput = z.infer<typeof updateCombinationPriceSchema>;
