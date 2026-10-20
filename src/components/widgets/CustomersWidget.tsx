@@ -37,18 +37,20 @@ export default function CustomersWidget({
       }),
       columnHelper.accessor("email", {
         header: "Email",
-        cell: (info) => info.getValue() || "N/A",
+        cell: (info) => info.getValue() || "-",
       }),
       columnHelper.accessor("phone", {
         header: "Phone",
-        cell: (info) => info.getValue() || "N/A",
+        cell: (info) => (
+          <div className="text-xs whitespace-pre">{info.getValue()}</div>
+        ),
       }),
       columnHelper.accessor("address", {
         header: "Address",
         cell: (info) => (
-          <span className="text-muted-foreground">
-            {info.getValue() || "N/A"}
-          </span>
+          <div className="whitespace-pre text-xs">
+            {info.getValue() || "-"}
+          </div>
         ),
       }),
       columnHelper.display({

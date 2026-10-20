@@ -19,6 +19,7 @@ import React, { useTransition } from "react";
 import ConfirmDialog from "../common/ConfirmDialog";
 import Modal from "../common/Modal";
 import FormField from "../forms/FormField";
+import { Textarea } from "../ui/textarea";
 
 function CustomerModalContent() {
   const router = useRouter();
@@ -34,11 +35,9 @@ function CustomerModalContent() {
         address: editingCustomer?.address || "",
         phone: editingCustomer?.phone || "",
         email: editingCustomer?.email || "",
-        contact: editingCustomer?.contact || "",
       };
     }, [editingCustomer]),
   });
-
   const onSubmit = async (values: CustomerInput) => {
     startTransition(async () => {
       try {
@@ -77,14 +76,23 @@ function CustomerModalContent() {
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField form={form} name="name" label="Customer / Company Name" />
-        <FormField form={form} name="phone" label="Contact Number" />
+        <FormField
+          form={form}
+          name="phone"
+          label="Contact Number"
+          render={({ field, fieldState }) => (
+            <Textarea {...field} aria-invalid={fieldState.invalid} />
+          )}
+        />
         <FormField form={form} name="email" label="Email Address" />
         <FormField
           form={form}
           name="address"
           label="Delivery / Billing Address"
+          render={({ field, fieldState }) => (
+            <Textarea {...field} aria-invalid={fieldState.invalid} />
+          )}
         />
-        <FormField form={form} name="contact" label="Contact Name" />
         <DialogFooter className="justify-between!">
           <ConfirmDialog
             title={`Delete ${editingCustomer?.name}`}

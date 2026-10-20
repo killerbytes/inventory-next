@@ -21,9 +21,6 @@ export const CustomerBaseSchema = createInsertSchema(customers, {
     updatedAt: true,
     deletedAt: true,
   })
-  .extend({
-    contact: z.string().optional().nullable(),
-  });
 
 export const CustomerInputSchema = CustomerBaseSchema.strict();
 export const CustomerUpdateSchema = CustomerInputSchema.partial();
