@@ -986,6 +986,74 @@ export const salesServerService = {
         throw new Error("SalesOrder is not in a valid state");
       }
 
+      // Query prior return transactions for this sales order
+      const priorReturnTransactions = tx.query.returnTransactions?.findMany
+        ? await tx.query.returnTransactions.findMany({
+            where: (tbl: any, { eq, and }: any) =>
+              and(
+                eq(tbl.referenceId, referenceId),
+                eq(tbl.sourceType, ORDER_TYPE.SALE),
+              ),
+            with: {
+              returnItems: {
+                where: (tbl: any, { eq }: any) =>
+                  eq(tbl.type, RETURN_TYPE.RETURN_IN),
+              },
+            },
+          })
+        : [];
+
+      // Track batch returns per combination to prevent intra-batch over-returns
+      const batchReturnTotals = new Map<number, number>();
+
+      // Validate all returns before mutating state
+      for (const ret of returns) {
+        const returnQty = Number(ret.quantity);
+        if (returnQty <= 0) {
+          throw new Error("Return quantity must be greater than zero");
+        }
+
+        const orderItem = (salesOrder.salesOrderItems || []).find(
+          (item: any) =>
+            Number(item.combinationId) === Number(ret.combinationId),
+        );
+
+        if (!orderItem) {
+          throw new Error(
+            `Product combination ${ret.combinationId} not found in Sales Order`,
+          );
+        }
+
+        const priorReturnedQty = priorReturnTransactions.reduce(
+          (acc: number, cur: any) =>
+            acc +
+            (cur.returnItems || [])
+              .filter(
+                (ri: any) =>
+                  Number(ri.combinationId) === Number(ret.combinationId),
+              )
+              .reduce(
+                (sub: number, ri: any) => sub + Number(ri.quantity || 0),
+                0,
+              ),
+          0,
+        );
+
+        const currentBatchTotal =
+          (batchReturnTotals.get(Number(ret.combinationId)) || 0) + returnQty;
+
+        if (
+          priorReturnedQty + currentBatchTotal >
+          Number(orderItem.quantity)
+        ) {
+          throw new Error(
+            "Return quantity exceeds available returnable quantity",
+          );
+        }
+
+        batchReturnTotals.set(Number(ret.combinationId), currentBatchTotal);
+      }
+
       let totalReturnAmount = 0;
       let totalExchangeAmount = 0;
 

@@ -858,6 +858,61 @@ describe("Sales Order Service (Integration)", () => {
     ).rejects.toThrow("SalesOrder is not in a valid state");
   });
 
+  it("should enforce cumulative return limits across multiple return transactions in live db", async () => {
+    const order = await salesServerService.create(
+      {
+        ...getTestData(),
+        salesOrderNumber: "SO-CUMULATIVE-RET",
+        status: ORDER_STATUS.RECEIVED,
+        salesOrderItems: [
+          {
+            combinationId: 1,
+            quantity: 5,
+            originalPrice: 100,
+            purchasePrice: 100,
+          },
+        ],
+      } as any,
+      user0.id,
+    );
+
+    // Initial return of 3 units (within 5)
+    await salesServerService.returnExchange(
+      order.id,
+      [{ combinationId: 1, quantity: 3 }],
+      undefined,
+      "First partial return",
+    );
+
+    // Second return of 3 units should fail because 3 + 3 = 6 > 5
+    await expect(
+      salesServerService.returnExchange(
+        order.id,
+        [{ combinationId: 1, quantity: 3 }],
+        undefined,
+        "Second return exceeding remaining",
+      ),
+    ).rejects.toThrow("Return quantity exceeds available returnable quantity");
+
+    // Second return of remaining 2 units should succeed (total 5 of 5)
+    await salesServerService.returnExchange(
+      order.id,
+      [{ combinationId: 1, quantity: 2 }],
+      undefined,
+      "Second return completing full return",
+    );
+
+    // Third return should now fail because all 5 have been returned
+    await expect(
+      salesServerService.returnExchange(
+        order.id,
+        [{ combinationId: 1, quantity: 1 }],
+        undefined,
+        "Third return on exhausted line",
+      ),
+    ).rejects.toThrow("Return quantity exceeds available returnable quantity");
+  });
+
   it("should filter by orderDate with timezone and end-of-day boundary safety", async () => {
     // Arrange: Order on July 31st (inside July)
     const orderJuly = await salesServerService.create(

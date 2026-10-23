@@ -30,7 +30,7 @@ import { formatCurrency } from "@/lib/utils";
 import { SalesOrderData } from "@/schemas";
 import { cancelSalesOrderAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
-import { ORDER_STATUS, STATUS_COLOR, UNIT_COLOR } from "@/constants";
+import { ORDER_STATUS, RETURN_TYPE, STATUS_COLOR, UNIT_COLOR } from "@/constants";
 import { createColumnHelper, RowSelectionState } from "@tanstack/react-table";
 import {
   AlertCircle,
@@ -74,15 +74,50 @@ export default function SalesOrderDetailClientWidget({
     );
   }
 
-  const items = data.salesOrderItems || [];
+  const items = useMemo(() => {
+    const returnedMap = new Map<number, number>();
+    (data.returnTransactions || []).forEach((tx: any) => {
+      (tx.returnItems || []).forEach((ri: any) => {
+        if (ri.type === RETURN_TYPE.RETURN_IN) {
+          const comboId = Number(ri.combinationId);
+          returnedMap.set(
+            comboId,
+            (returnedMap.get(comboId) || 0) + Number(ri.quantity || 0),
+          );
+        }
+      });
+    });
+
+    return (data.salesOrderItems || []).map((item: any) => {
+      const comboId = Number(item.combinationId);
+      const returnedQuantity = returnedMap.get(comboId) || 0;
+      const originalQuantity = Number(item.quantity || 0);
+      const remainingReturnableQuantity = Math.max(
+        0,
+        originalQuantity - returnedQuantity,
+      );
+
+      return {
+        ...item,
+        deliveredQuantity: originalQuantity,
+        returnedQuantity,
+        remainingReturnableQuantity,
+      };
+    });
+  }, [data.salesOrderItems, data.returnTransactions]);
 
   const selectedReturns = useMemo(() => {
     return Object.keys(rowSelection)
       .filter((key) => rowSelection[key])
       .map((key) => {
         const i = items[Number(key)];
-        if (!i) return null;
-        return i;
+        if (!i || i.remainingReturnableQuantity <= 0) return null;
+        return {
+          ...i,
+          deliveredQuantity: i.deliveredQuantity,
+          remainingReturnableQuantity: i.remainingReturnableQuantity,
+          quantity: i.remainingReturnableQuantity,
+        };
       })
       .filter(Boolean);
   }, [rowSelection, items]);
@@ -118,25 +153,48 @@ export default function SalesOrderDetailClientWidget({
         ? [
           columnHelper.display({
             id: "select",
-            header: ({ table }: any) => (
-              <Checkbox
-                checked={
-                  table.getIsAllPageRowsSelected() ||
-                  (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) =>
-                  table.toggleAllPageRowsSelected(!!value)
-                }
-                aria-label="Select all"
-              />
-            ),
-            cell: ({ row }: any) => (
-              <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-              />
-            ),
+            header: ({ table }: any) => {
+              const rows = table.getRowModel().rows;
+              const selectableRows = rows.filter(
+                (r: any) => (r.original.remainingReturnableQuantity ?? 1) > 0,
+              );
+              const allSelected =
+                selectableRows.length > 0 &&
+                selectableRows.every((r: any) => r.getIsSelected());
+              const someSelected =
+                selectableRows.some((r: any) => r.getIsSelected()) &&
+                !allSelected;
+
+              return (
+                <Checkbox
+                  checked={
+                    allSelected
+                      ? true
+                      : someSelected
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={(value) => {
+                    selectableRows.forEach((r: any) =>
+                      r.toggleSelected(!!value),
+                    );
+                  }}
+                  aria-label="Select all returnable items"
+                />
+              );
+            },
+            cell: ({ row }: any) => {
+              const isExhausted =
+                (row.original.remainingReturnableQuantity ?? 1) <= 0;
+              return (
+                <Checkbox
+                  checked={row.getIsSelected()}
+                  disabled={isExhausted}
+                  onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  aria-label="Select row"
+                />
+              );
+            },
           }),
         ]
         : []),
@@ -150,7 +208,31 @@ export default function SalesOrderDetailClientWidget({
         meta: {
           align: "right",
         },
-        cell: ({ row }) => Number(row.original.quantity),
+        cell: ({ row }) => {
+          const qty = Number(row.original.quantity);
+          const returned = Number(row.original.returnedQuantity || 0);
+          if (returned >= qty) {
+            return (
+              <div className="flex flex-col items-end">
+                <span>{qty}</span>
+                <span className="text-[10px] text-rose-600 font-semibold uppercase">
+                  Fully Returned
+                </span>
+              </div>
+            );
+          }
+          if (returned > 0) {
+            return (
+              <div className="flex flex-col items-end">
+                <span>{qty}</span>
+                <span className="text-[10px] text-amber-600 font-medium">
+                  ({returned} ret / {qty - returned} left)
+                </span>
+              </div>
+            );
+          }
+          return qty;
+        },
       }),
       columnHelper.accessor("nameSnapshot", {
         header: "Product",

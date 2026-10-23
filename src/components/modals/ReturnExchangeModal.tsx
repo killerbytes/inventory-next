@@ -77,10 +77,23 @@ function ReturnExchangeModalContent({
   const normalizedReturns = useMemo(() => {
     return (initialReturns || [])
       .filter(Boolean)
-      .map((item: any) => ({
-        ...item,
-        purchasePrice: Number(item?.purchasePrice ?? item?.originalPrice ?? 0),
-      }));
+      .map((item: any) => {
+        const deliveredQuantity = Number(
+          item?.deliveredQuantity ?? item?.quantity ?? 0,
+        );
+        const remainingReturnableQuantity = Number(
+          item?.remainingReturnableQuantity ?? item?.quantity ?? 0,
+        );
+        return {
+          ...item,
+          deliveredQuantity,
+          remainingReturnableQuantity,
+          quantity: remainingReturnableQuantity,
+          purchasePrice: Number(
+            item?.purchasePrice ?? item?.originalPrice ?? 0,
+          ),
+        };
+      });
   }, [initialReturns]);
 
   const form = useForm<ReturnExchangeFormInput>({
@@ -131,10 +144,13 @@ function ReturnExchangeModalContent({
       const basePrice = Number(
         original?.purchasePrice ?? original?.originalPrice ?? 0,
       );
+      const divisor = Number(
+        (original as any)?.deliveredQuantity ?? original?.quantity ?? 1,
+      );
       const unitCost =
         basePrice -
-        (original?.discount && original?.quantity
-          ? original.discount / original.quantity
+        (original?.discount && divisor
+          ? original.discount / divisor
           : 0);
       return sum + q * unitCost;
     }, 0);
@@ -229,7 +245,19 @@ function ReturnExchangeModalContent({
         meta: {
           align: "right",
         },
-        cell: ({ row }) => Number(row.original.quantity),
+        cell: ({ row }) =>
+          Number(row.original.deliveredQuantity ?? row.original.quantity),
+      }),
+      returnColumnHelper.display({
+        header: "Returnable",
+        meta: {
+          align: "right",
+        },
+        cell: ({ row }) =>
+          Number(
+            row.original.remainingReturnableQuantity ??
+              row.original.quantity,
+          ),
       }),
       returnColumnHelper.display({
         id: "purchasePrice",
@@ -242,9 +270,11 @@ function ReturnExchangeModalContent({
           const basePrice = Number(
             item.purchasePrice ?? item.originalPrice ?? 0,
           );
+          const divisor = Number(
+            item.deliveredQuantity ?? item.quantity ?? 1,
+          );
           const price =
-            basePrice -
-            (item.discount || 0) / (item.quantity || 1);
+            basePrice - (item.discount || 0) / (divisor || 1);
           return formatCurrency(price);
         },
       }),
@@ -256,6 +286,9 @@ function ReturnExchangeModalContent({
         },
         cell: ({ row }) => {
           const item = row.original;
+          const maxReturnable = Number(
+            item.remainingReturnableQuantity ?? item.quantity,
+          );
           return (
             <Controller
               control={form.control}
@@ -269,7 +302,8 @@ function ReturnExchangeModalContent({
                     aria-invalid={
                       !!errors.returns?.[row.index]?.quantity?.message
                     }
-                    max={item.quantity}
+                    min={1}
+                    max={maxReturnable}
                   />
                 </Field>
               )}
@@ -288,10 +322,13 @@ function ReturnExchangeModalContent({
           const basePrice = Number(
             item.purchasePrice ?? item.originalPrice ?? 0,
           );
+          const divisor = Number(
+            item.deliveredQuantity ?? item.quantity ?? 1,
+          );
           const unitPrice =
             basePrice -
-            (item.discount && item.quantity
-              ? item.discount / item.quantity
+            (item.discount && divisor
+              ? item.discount / divisor
               : 0);
           return (
             <LineColumn

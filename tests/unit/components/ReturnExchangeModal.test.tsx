@@ -264,5 +264,49 @@ describe("ReturnExchangeModal Component", () => {
     expect(document.body.textContent).toContain("₱500.00");
     expect(document.body.textContent).toContain("Total Credit: ₱500.00");
   });
+
+  it("should cap return quantity input to remainingReturnableQuantity and default to it", async () => {
+    // Arrange: 5 delivered, 3 already returned, 2 remaining returnable
+    const mockReturns = [
+      {
+        id: 1,
+        combinationId: 101,
+        quantity: 5,
+        deliveredQuantity: 5,
+        remainingReturnableQuantity: 2,
+        purchasePrice: 100,
+        discount: 0,
+        unit: "PCS",
+        nameSnapshot: "Widget Alpha",
+        totalAmount: 500,
+        skuSnapshot: "WGT-A",
+      },
+    ];
+
+    act(() => {
+      useUIStore.getState().setReturnExchangeModalOpen(true);
+    });
+
+    await act(async () => {
+      root?.render(
+        <ReturnExchangeModal
+          referenceId={456}
+          salesOrder={true}
+          returns={mockReturns as any}
+        />,
+      );
+    });
+
+    const qtyInput = document.body.querySelector(
+      'input[type="number"]',
+    ) as HTMLInputElement | null;
+    expect(qtyInput).not.toBeNull();
+    // Max should be 2 (remainingReturnableQuantity), not 5
+    expect(qtyInput?.getAttribute("max")).toBe("2");
+    // Default value should be 2
+    expect(qtyInput?.value).toBe("2");
+    // Credit amount should reflect 2 * ₱100 = ₱200.00
+    expect(document.body.textContent).toContain("₱200.00");
+  });
 });
 
