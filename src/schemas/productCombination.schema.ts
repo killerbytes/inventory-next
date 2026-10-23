@@ -10,8 +10,8 @@ import {
 // 1. Base Insert Schema (override Drizzle types where necessary)
 const insertProductCombination = createInsertSchema(productCombinations, {
   productId: z.number().positive(), // Removed coerce assuming JSON payload
-  conversionFactor: z.number().positive().nullish(), // Replaced .optional().nullable()
-  price: z.number().nonnegative().nullish(),
+  conversionFactor: z.coerce.number().positive().nullish(), // Replaced .optional().nullable()
+  price: z.coerce.number().nonnegative().nullish(),
   isBreakPack: z.boolean().nullish(),
   isActive: z.boolean().nullish(),
 });
