@@ -36,6 +36,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { GoodReceiptSummary, Pagination } from "@/types";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
+import { cx } from "class-variance-authority";
 
 const columnHelper = createColumnHelper<GoodReceiptData>();
 
@@ -210,7 +211,9 @@ export default function GoodReceiptsClientWidget({
         meta: {
           align: "right",
         },
-        cell: ({ row }) => formatCurrency(row.original.totalAmount || 0),
+        cell: ({ row }) => <div className={cx({ 'text-red-600': row.original.returnTransactions.length > 0 })}>
+          {formatCurrency(row.original.totalAmount || 0)}
+        </div>
       }),
     ],
     [filters, handleFilterChange],

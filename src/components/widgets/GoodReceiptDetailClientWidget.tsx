@@ -267,18 +267,18 @@ export default function GoodReceiptDetailClientWidget({
             </div>
           </div>
         </CardContent>
-        {status !== ORDER_STATUS.RECEIVED && (
-          <CardFooter className="justify-end">
-            <PermissionGuard permission={PERMISSIONS.MANAGE_GOODS}>
+        <PermissionGuard permission={PERMISSIONS.MANAGE_GOODS}>
+          {status !== ORDER_STATUS.RECEIVED && status !== ORDER_STATUS.COMPLETED && (
+            <CardFooter className="justify-end">
               <Button
                 className="bg-orange-600"
                 onClick={() => handleUpdateStatus(ORDER_STATUS.RECEIVED)}
               >
                 <CheckCircle2 className="h-4 w-4" /> Receive Order
               </Button>
-            </PermissionGuard>
-          </CardFooter>
-        )}
+            </CardFooter>
+          )}
+        </PermissionGuard>
       </Card>
 
       {receipt.returnTransactions && receipt.returnTransactions.length > 0 && (
