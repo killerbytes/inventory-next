@@ -205,9 +205,12 @@ export default function AppSidebar() {
                 router.push(`/products/${item.productId}`);
               }
             }}
-            render={({ setOpen }) => (
+            render={({ setOpen, setSearch }) => (
               <Button
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                  setSearch('')
+                  setOpen(true)
+                }}
                 className="w-full justify-start"
                 variant="secondary"
               >

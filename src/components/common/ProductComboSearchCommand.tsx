@@ -16,7 +16,7 @@ export interface ProductComboSearchProps {
   children?: React.ReactNode;
   onSearch: (search: string) => Promise<ProductComboItem[]>;
   className?: string;
-  render?: (props: { setOpen: (open: boolean) => void }) => React.ReactNode;
+  render?: (props: { setOpen: (open: boolean) => void; setSearch: (search: string) => void }) => React.ReactNode;
   renderOptions?: (props: {
     items: ProductComboItem[];
     open: boolean;
@@ -87,12 +87,15 @@ function ProductComboSearchCommandComponent({
   return (
     <div className={className}>
       {render ? (
-        render({ setOpen })
+        render({ setOpen, setSearch })
       ) : (
         <Button
           type="button"
           variant="outline"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setSearch('')
+            setOpen(true)
+          }}
           className="w-full justify-start"
           aria-invalid={isInvalid}
         >
