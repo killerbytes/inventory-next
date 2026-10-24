@@ -8,18 +8,48 @@ import { useMemo } from "react";
 import PageHeader from "../layout/PageHeader";
 import Link from "next/link";
 import ColorBadge from "../common/ColorBadge";
-import { UNIT_COLOR } from "@/constants";
+import { PAGINATION, UNIT_COLOR } from "@/constants";
+import { Pagination } from "@/types";
+import DateRangePicker from "../common/DateRangePicker";
+import { DateRange } from "react-day-picker";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { format, parseISO } from "date-fns";
 
 const columnHelper = createColumnHelper<any>();
 
 interface PopularProductsClientWidgetProps {
   initialProducts: any[];
+  initialPagination: Pagination;
+  startDate: string;
+  endDate: string;
 }
 
 export default function PopularProductsClientWidget({
   initialProducts,
+  initialPagination,
+  startDate,
+  endDate,
 }: PopularProductsClientWidgetProps) {
   const products = initialProducts || [];
+  const { filters, setFilters } = useUrlFilters({
+    page: PAGINATION.PAGE,
+    limit: PAGINATION.PAGE_SIZE,
+    status: "ALL",
+    q: "",
+    startDate,
+    endDate,
+    sort: "transactionCount",
+    order: "DESC",
+  });
+
+  const dateRange: DateRange = useMemo(
+    () => ({
+      from: filters.startDate ? parseISO(filters.startDate) : undefined,
+      to: filters.endDate ? parseISO(filters.endDate) : undefined,
+    }),
+    [filters.startDate, filters.endDate],
+  );
+
 
   const columns = useMemo(
     () => [
@@ -63,12 +93,44 @@ export default function PopularProductsClientWidget({
         description="Top-selling product combinations ranked by sales volume and total generated revenue."
       />
 
+      <div className="flex flex-col md:flex-row gap-4 items-center">
+        <DateRangePicker
+          value={dateRange}
+          commitOnClose
+          onChange={(range) => {
+            if (range?.from && range?.to) {
+              setFilters({
+                startDate: format(range.from, "yyyy-MM-dd"),
+                endDate: format(range.to, "yyyy-MM-dd"),
+                page: 1,
+              });
+            } else if (!range?.from && !range?.to) {
+              setFilters({
+                startDate: undefined,
+                endDate: undefined,
+                page: 1,
+              });
+            }
+          }}
+        />
+
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Top Performing Items</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={products} searchKey="name" />
+
+          <DataTable
+            columns={columns}
+            data={products}
+            searchKey="name"
+            paginate={true}
+            paginationMeta={initialPagination}
+            paginationFilter={filters}
+            setPaginationFilter={setFilters}
+          />
         </CardContent>
       </Card>
     </div>

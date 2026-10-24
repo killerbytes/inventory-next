@@ -875,7 +875,9 @@ describe("Sales Order Service (Integration)", () => {
       } as any,
       user0.id,
     );
-
+    if (!order) {
+      throw new Error("Order not found");
+    }
     // Initial return of 3 units (within 5)
     await salesServerService.returnExchange(
       order.id,

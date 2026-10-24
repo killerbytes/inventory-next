@@ -81,7 +81,7 @@ export const reportsServerService = {
     });
   },
 
-  getPopularProducts: async (params: any = {}) => {
+  getPopularProducts: async (params: { limit?: number; page?: number; offset?: number; startDate?: string | null; endDate?: string | null; sort?: string; order?: string; } = {}) => {
     const {
       limit = PAGINATION.PAGE_SIZE,
       page = PAGINATION.PAGE,
@@ -115,7 +115,7 @@ export const reportsServerService = {
     const baseQuery = db
       .select({
         combinationId: salesOrderItems.combinationId,
-        combinationName: productCombinations.name,
+        combination: productCombinations,
         transactionCount: sql<number>`count(distinct ${salesOrders.id})::int`.as(
           "transactionCount",
         ),
@@ -143,22 +143,10 @@ export const reportsServerService = {
       .from(baseQuery.as("subquery"));
     const total = countQuery[0]?.count ?? 0;
 
-    const data = rows.map((r) => ({
-      combinationId: r.combinationId,
-      transactionCount: r.transactionCount,
-      combination: {
-        id: r.combinationId,
-        name: r.combinationName,
-      },
-      combinations: {
-        id: r.combinationId,
-        name: r.combinationName,
-      },
-    }));
 
     return {
-      data,
-      meta: {
+      data: rows,
+      pagination: {
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
