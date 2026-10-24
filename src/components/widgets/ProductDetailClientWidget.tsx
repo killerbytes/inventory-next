@@ -495,6 +495,7 @@ export default function ProductDetailClientWidget({
         <Button
           variant="outline"
           onClick={() => setBarcodePrinterModalOpen(true)}
+          className="hidden lg:flex"
         >
           <Printer /> Print Barcodes
         </Button>

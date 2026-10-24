@@ -30,6 +30,7 @@ import {
   inArray,
   isNull,
   lte,
+  ne,
   notInArray,
   or,
   sql,
@@ -1196,5 +1197,98 @@ export const goodReceiptServerService = {
         currentPage: page,
       },
     };
+  },
+
+  getLastPurchasePrices: async ({
+    combinationIds,
+    supplierId,
+    excludeGoodReceiptId,
+  }: {
+    combinationIds: number[];
+    supplierId?: number;
+    excludeGoodReceiptId?: number;
+  }): Promise<Record<number, {
+    combinationId: number;
+    lastPrice: number;
+    receiptDate: Date;
+    supplierId: number;
+    isSupplierMatch: boolean;
+  }>> => {
+    if (!combinationIds || combinationIds.length === 0) {
+      return {};
+    }
+
+    const validIds = Array.from(
+      new Set(combinationIds.map((id) => Number(id)).filter((id) => id > 0)),
+    );
+    if (validIds.length === 0) {
+      return {};
+    }
+
+    const conditions = [
+      inArray(goodReceiptLines.combinationId, validIds),
+      isNull(goodReceiptLines.deletedAt),
+      isNull(goodReceipts.deletedAt),
+      notInArray(goodReceipts.status, [
+        ORDER_STATUS.DRAFT,
+        ORDER_STATUS.VOID,
+        ORDER_STATUS.CANCELLED,
+      ]),
+    ];
+
+    if (excludeGoodReceiptId) {
+      conditions.push(ne(goodReceipts.id, Number(excludeGoodReceiptId)));
+    }
+
+    const rows = await db
+      .select({
+        combinationId: goodReceiptLines.combinationId,
+        purchasePrice: goodReceiptLines.purchasePrice,
+        receiptDate: goodReceipts.receiptDate,
+        supplierId: goodReceipts.supplierId,
+        lineId: goodReceiptLines.id,
+      })
+      .from(goodReceiptLines)
+      .innerJoin(
+        goodReceipts,
+        eq(goodReceipts.id, goodReceiptLines.goodReceiptId),
+      )
+      .where(and(...conditions))
+      .orderBy(desc(goodReceipts.receiptDate), desc(goodReceipts.id), desc(goodReceiptLines.id));
+
+    const result: Record<
+      number,
+      {
+        combinationId: number;
+        lastPrice: number;
+        receiptDate: Date;
+        supplierId: number;
+        isSupplierMatch: boolean;
+      }
+    > = {};
+
+    for (const row of rows) {
+      const existing = result[row.combinationId];
+      const isSupplierMatch = Boolean(
+        supplierId && row.supplierId === Number(supplierId),
+      );
+
+      if (!existing) {
+        result[row.combinationId] = {
+          combinationId: row.combinationId,
+          lastPrice: Number(row.purchasePrice),
+          receiptDate: row.receiptDate,
+          supplierId: row.supplierId,
+          isSupplierMatch,
+        };
+      } else if (!existing.isSupplierMatch && isSupplierMatch) {
+        existing.lastPrice = Number(row.purchasePrice);
+        existing.receiptDate = row.receiptDate;
+        existing.supplierId = row.supplierId;
+        existing.isSupplierMatch = true;
+      }
+    }
+
+    return result;
   },
 };

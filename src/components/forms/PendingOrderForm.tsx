@@ -17,6 +17,8 @@ import {
   Controller,
   UseFormReturn,
 } from "react-hook-form";
+import { getLastPurchasePricesAction } from "@/server/actions/goodReceipt.actions";
+import { useUIStore } from "@/stores/uiStore";
 import { Autocomplete, AutocompleteValue } from "../common/Autocomplete";
 import ColorBadge from "../common/ColorBadge";
 import { Button } from "../ui/button";
@@ -46,6 +48,62 @@ export default function PendingOrderForm({
   const {
     formState: { errors },
   } = form;
+
+  const { editingGoodReceipt } = useUIStore();
+  const currentGoodReceiptId = editingGoodReceipt?.id
+    ? Number(editingGoodReceipt.id)
+    : undefined;
+
+  const supplierId = form.watch("supplierId");
+  const goodReceiptLines = form.watch("goodReceiptLines");
+
+  const [lastPrices, setLastPrices] = React.useState<
+    Record<
+      number,
+      {
+        combinationId: number;
+        lastPrice: number;
+        receiptDate: Date;
+        supplierId: number;
+        isSupplierMatch: boolean;
+      }
+    >
+  >({});
+
+  const comboIds = React.useMemo(() => {
+    return Array.from(
+      new Set(
+        (goodReceiptLines || [])
+          .map((line: any) =>
+            Number(line?.combinationId || line?.combination?.id),
+          )
+          .filter((id: number) => id > 0),
+      ),
+    );
+  }, [goodReceiptLines]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (comboIds.length === 0) return;
+
+    getLastPurchasePricesAction({
+      combinationIds: comboIds,
+      supplierId: supplierId ? Number(supplierId) : undefined,
+      excludeGoodReceiptId: currentGoodReceiptId,
+    })
+      .then((data: any) => {
+        if (isMounted && data) {
+          setLastPrices(data);
+        }
+      })
+      .catch((err: any) => {
+        console.error("Failed to fetch last purchase prices", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [comboIds.join(","), supplierId, currentGoodReceiptId]);
 
   const columns = React.useMemo(
     () => [
@@ -146,6 +204,19 @@ export default function PendingOrderForm({
                         `goodReceiptLines.${row.index}.combination`,
                         value,
                       );
+
+                      getLastPurchasePricesAction({
+                        combinationIds: [Number(value.id)],
+                        supplierId: supplierId ? Number(supplierId) : undefined,
+                        excludeGoodReceiptId: currentGoodReceiptId,
+                      }).then((res: any) => {
+                        if (res && res[value.id]) {
+                          setLastPrices((prev) => ({
+                            ...prev,
+                            [value.id]: res[value.id],
+                          }));
+                        }
+                      });
                     }}
                   />
                 </Field>
@@ -199,24 +270,62 @@ export default function PendingOrderForm({
           className: "text-right min-w-[100px] w-[110px]",
           headerClassName: "text-right",
         },
-        cell: ({ row }) => (
-          <Controller
-            name={`goodReceiptLines.${row.index}.purchasePrice`}
-            control={form.control}
-            render={({ field }) => (
-              <Field>
-                <NumberInput
-                  {...field}
-                  type="currency"
-                  aria-invalid={
-                    !!errors.goodReceiptLines?.[row.index]?.purchasePrice
-                      ?.message
-                  }
-                />
-              </Field>
-            )}
-          />
-        ),
+        cell: ({ row }) => {
+          const comboId =
+            form.watch(`goodReceiptLines.${row.index}.combinationId`) ||
+            row.original.combinationId ||
+            row.original.combination?.id;
+          const lastPriceInfo = comboId ? lastPrices[Number(comboId)] : null;
+          const hasLastPrice =
+            lastPriceInfo &&
+            lastPriceInfo.lastPrice !== undefined &&
+            lastPriceInfo.lastPrice !== null;
+
+          return (
+            <div className="flex flex-col items-end">
+              <Controller
+                name={`goodReceiptLines.${row.index}.purchasePrice`}
+                control={form.control}
+                render={({ field }) => (
+                  <Field className="w-full">
+                    <NumberInput
+                      {...field}
+                      type="currency"
+                      aria-invalid={
+                        !!errors.goodReceiptLines?.[row.index]?.purchasePrice
+                          ?.message
+                      }
+                    />
+                  </Field>
+                )}
+              />
+              {comboId ? (
+                hasLastPrice ? (
+                  <button
+                    type="button"
+                    data-last-price={lastPriceInfo.lastPrice}
+                    tabIndex={-1}
+                    onClick={() => {
+                      form.setValue(
+                        `goodReceiptLines.${row.index}.purchasePrice`,
+                        lastPriceInfo.lastPrice,
+                        { shouldValidate: true, shouldDirty: true },
+                      );
+                    }}
+                    title={`Click to apply last price (${lastPriceInfo.isSupplierMatch ? "This Supplier" : "Any Supplier"})`}
+                    className="text-[11px] text-muted-foreground hover:text-primary transition-colors text-right cursor-pointer mt-0.5 truncate max-w-full font-medium hover:underline underline-offset-2"
+                  >
+                    Last: {formatCurrency(lastPriceInfo.lastPrice)}
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground/50 text-right mt-0.5 select-none">
+                    Last: —
+                  </span>
+                )
+              ) : null}
+            </div>
+          );
+        },
       }),
       columnHelper.display({
         header: "Amount",
@@ -242,7 +351,7 @@ export default function PendingOrderForm({
         ),
       }),
     ],
-    [errors.goodReceiptLines, form, remove],
+    [errors.goodReceiptLines, form, remove, lastPrices, supplierId],
   );
 
 

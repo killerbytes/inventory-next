@@ -82,3 +82,19 @@ export const supplierReturnsAction = createProtectedAction({
     return result ? JSON.parse(JSON.stringify(result)) : null;
   },
 });
+
+export const getLastPurchasePricesAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_GOODS,
+  handler: async (
+    _ctx,
+    params: {
+      combinationIds: number[];
+      supplierId?: number;
+      excludeGoodReceiptId?: number;
+    },
+  ) => {
+    const result = await goodReceiptServerService.getLastPurchasePrices(params);
+    return result ? JSON.parse(JSON.stringify(result)) : {};
+  },
+});
+
