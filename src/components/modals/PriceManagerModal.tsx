@@ -5,7 +5,7 @@ import { DataTable } from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { UNIT_COLOR } from "@/constants";
@@ -25,17 +25,21 @@ import {
   History,
   Layers,
   Loader2,
+  Pencil,
   Percent,
   TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ScrollArea } from "../ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 const columnHelper = createColumnHelper<any>();
 
 function PriceManagerModalContent() {
   const { editingPriceCombination, setPriceModalOpen } = useUIStore();
+  const [activeTab, setActiveTab] = useState("form")
   const router = useRouter();
 
   const [currentSrp, setCurrentSrp] = useState<number>(() => {
@@ -200,15 +204,15 @@ function PriceManagerModalContent() {
       : null;
 
   return (
-    <div className="space-y-5">
-      {/* Product metadata banner */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <ColorBadge colorMap={UNIT_COLOR}>{unit}</ColorBadge>
             <span className="font-semibold text-sm sm:text-base">{comboName}</span>
           </div>
-          <div className=" text-muted-foreground flex items-center gap-3">
+          <div className="hidden lg:block text-muted-foreground flex items-center gap-3">
             <span>Factor: <strong>{conversionFactor}</strong></span>
             {editingPriceCombination?.sku && (
               <span>SKU: <strong>{editingPriceCombination.sku}</strong></span>
@@ -219,121 +223,150 @@ function PriceManagerModalContent() {
           </div>
         </div>
       </div>
+      <ScrollArea className="h-[40vh] lg:h-auto">
+        <div className="flex flex-col gap-4">
 
-      {/* KPI Cards: Current SRP, Average Price, Margin */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="p-3 bg-muted/40 border">
-          <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
-            <Banknote className="h-3.5 w-3.5 text-primary" />
-            Current SRP
-          </div>
-          <div className="text-lg font-bold text-foreground mt-1">
-            {formatCurrency(currentSrp)}
-          </div>
-        </Card>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Card className="p-3 bg-muted/40 border gap-0">
+              <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
+                <Banknote className="h-3.5 w-3.5 text-primary" />
+                Current SRP
+              </div>
+              <div className="text-lg font-bold text-foreground mt-1">
+                {formatCurrency(currentSrp)}
+              </div>
+            </Card>
 
-        <Card className="p-3 bg-muted/40 border">
-          <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-            Current Average Price
-          </div>
-          <div className="text-lg font-bold text-foreground mt-1">
-            {formatCurrency(averagePrice)}
-          </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            Moving average inventory cost
-          </div>
-        </Card>
+            <Card className="p-3 bg-muted/40 border gap-0">
+              <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                Current Average Price
+              </div>
+              <div className="text-lg font-bold text-foreground mt-1">
+                {formatCurrency(averagePrice)}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 hidden lg:block">
+                Moving average inventory cost
+              </div>
+            </Card>
 
-        <Card className="p-3 bg-muted/40 border">
-          <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
-            <Percent className="h-3.5 w-3.5 text-emerald-500" />
-            Estimated Margin
+            <Card className="p-3 bg-muted/40 border gap-0">
+              <div className=" text-muted-foreground font-medium flex items-center gap-1.5">
+                <Percent className="h-3.5 w-3.5 text-emerald-500" />
+                Estimated Margin
+              </div>
+              <div
+                className={cx(
+                  "text-lg font-bold mt-1",
+                  profitDiff >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400",
+                )}
+              >
+                {marginPercent !== null
+                  ? `${marginPercent.toFixed(1)}%`
+                  : profitDiff !== 0
+                    ? formatCurrency(profitDiff)
+                    : "—"}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 hidden lg:block">
+                Spread: {formatCurrency(profitDiff)}
+              </div>
+            </Card>
           </div>
-          <div
-            className={cx(
-              "text-lg font-bold mt-1",
-              profitDiff >= 0
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400",
-            )}
-          >
-            {marginPercent !== null
-              ? `${marginPercent.toFixed(1)}%`
-              : profitDiff !== 0
-                ? formatCurrency(profitDiff)
-                : "—"}
-          </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            Spread: {formatCurrency(profitDiff)}
-          </div>
-        </Card>
-      </div>
 
-      {/* Update SRP Form */}
-      <form onSubmit={handleUpdatePrice} className="border rounded-lg p-3.5 bg-card/60 space-y-3">
-        <div className=" font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Layers className="h-3.5 w-3.5 text-primary" />
-          Update Suggested Retail Price (SRP)
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="form">
+                <Pencil /> Form
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History /> History
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="form">
+              <form onSubmit={handleUpdatePrice} className="border rounded-lg p-3.5 bg-card/60 space-y-3">
+                <div className=" font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  Suggested Retail Price (SRP)
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+                  <div className="relative flex-1">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="Enter new SRP (e.g. 150.00)"
+                      value={newSrpInput}
+                      onChange={(e) => setNewSrpInput(e.target.value)}
+                      className="text-sm"
+                      disabled={isUpdating}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="sm:w-auto w-full gap-1.5 font-medium"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        Update SRP
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+
+
+            <TabsContent value="history">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Price History Log</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className=" font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <History className="h-3.5 w-3.5 text-primary" />
+                        Price History Audit Ledger ({historyLogs.length})
+                      </div>
+                      {isLoadingHistory && (
+                        <div className="flex items-center gap-1  text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Loading history...
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border rounded-md overflow-hidden max-h-60 overflow-y-auto">
+                      <DataTable
+                        columns={columns}
+                        data={historyLogs}
+                        isLoading={isLoadingHistory}
+                        emptyMessage="No price history recorded for this combination."
+                      />
+                    </div>
+                  </div>
+
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+
+          </Tabs>
+
         </div>
-        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-          <div className="relative flex-1">
-            <Input
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="Enter new SRP (e.g. 150.00)"
-              value={newSrpInput}
-              onChange={(e) => setNewSrpInput(e.target.value)}
-              className="text-sm"
-              disabled={isUpdating}
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={isUpdating}
-            className="sm:w-auto w-full gap-1.5 font-medium"
-          >
-            {isUpdating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              <>
-                Update SRP
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
 
-      {/* Price History Ledger */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className=" font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-            <History className="h-3.5 w-3.5 text-primary" />
-            Price History Audit Ledger ({historyLogs.length})
-          </div>
-          {isLoadingHistory && (
-            <div className="flex items-center gap-1  text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Loading history...
-            </div>
-          )}
-        </div>
+      </ScrollArea>
 
-        <div className="border rounded-md overflow-hidden max-h-60 overflow-y-auto">
-          <DataTable
-            columns={columns}
-            data={historyLogs}
-            isLoading={isLoadingHistory}
-            emptyMessage="No price history recorded for this combination."
-          />
-        </div>
-      </div>
-
-      <DialogFooter className="pt-2 border-t">
+      <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
         <Button
           type="button"
           variant="outline"
