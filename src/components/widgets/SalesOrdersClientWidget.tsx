@@ -270,6 +270,7 @@ export default function SalesOrdersClientWidget({
       <div className="flex gap-4 items-center">
         <DateRangePicker
           value={dateRange}
+          commitOnClose
           onChange={(range) => {
             setFilters((prev) => ({
               ...prev,

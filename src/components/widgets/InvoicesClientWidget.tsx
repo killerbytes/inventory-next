@@ -168,6 +168,7 @@ export default function InvoicesClientWidget({
 
         <DateRangePicker
           value={dateRange}
+          commitOnClose
           onChange={(range) => {
             setFilters((prev) => ({
               ...prev,

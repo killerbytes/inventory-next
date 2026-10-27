@@ -26,10 +26,9 @@ export default async function GoodReceiptDetailsPage({
   if (!receipt) {
     notFound();
   }
-
   return (
     <GoodReceiptDetailClientWidget
-      initialReceipt={JSON.parse(JSON.stringify(receipt))}
+      initialReceipt={receipt}
     />
   );
 }

@@ -330,6 +330,7 @@ export default function InventoryMovementsClientWidget({
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <DateRangePicker
           value={dateRange}
+          commitOnClose
           onChange={(range) => {
             setFilters((prev) => ({
               ...prev,
