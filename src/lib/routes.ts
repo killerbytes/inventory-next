@@ -13,6 +13,8 @@ export const ROUTES = {
   STOCK_ADJUSTMENTS: "/reports/stock-adjustments",
   INVENTORY_MOVEMENTS: "/reports/inventory-movements",
   SALES_ORDERS: "/sales-orders",
+  SALES_INVOICES: "/sales-invoices",
+  SALES_INVOICE_DETAILS: "/sales-invoices/:id",
   INVOICES: "/invoices",
   INVOICE_DETAILS: "/invoices/:id",
   PAYMENTS: "/payments",

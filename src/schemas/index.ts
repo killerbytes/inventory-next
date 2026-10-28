@@ -15,3 +15,4 @@ export * from "./supplier.schema";
 export * from "./user.schema";
 export * from "./variantType.schema";
 export * from "./variantValue.schema";
+export * from "./salesInvoice.schema";

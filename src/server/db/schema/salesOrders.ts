@@ -4,6 +4,7 @@ import { customers } from "./customers";
 import { salesOrderItems } from "./salesOrderItems";
 import { orderStatusHistories } from "./orderStatusHistories";
 import { returnTransactions } from "./returnTransactions";
+import { salesInvoiceLines } from "./salesInvoices";
 
 export const salesOrders = pgTable("SalesOrders", {
   id: serial("id").primaryKey(),
@@ -36,4 +37,5 @@ export const salesOrdersRelations = relations(salesOrders, ({ one, many }) => ({
   salesOrderItems: many(salesOrderItems),
   salesOrderStatusHistory: many(orderStatusHistories),
   returnTransactions: many(returnTransactions),
+  salesInvoiceLines: many(salesInvoiceLines),
 }));

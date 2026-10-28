@@ -1,4 +1,7 @@
 import { pgTable, serial, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { salesOrders } from "./salesOrders";
+import { salesInvoices } from "./salesInvoices";
 
 export const customers = pgTable("Customers", {
   id: serial("id").primaryKey(),
@@ -12,3 +15,8 @@ export const customers = pgTable("Customers", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   deletedAt: timestamp("deletedAt"),
 });
+
+export const customersRelations = relations(customers, ({ many }) => ({
+  salesOrders: many(salesOrders),
+  salesInvoices: many(salesInvoices),
+}));

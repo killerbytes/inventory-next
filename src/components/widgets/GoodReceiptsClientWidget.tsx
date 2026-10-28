@@ -255,6 +255,9 @@ export default function GoodReceiptsClientWidget({
       )}
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
+
+
+
         <DateRangePicker
           value={dateRange}
           commitOnClose

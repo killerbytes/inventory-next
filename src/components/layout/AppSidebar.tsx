@@ -19,6 +19,7 @@ import {
   Container,
   CreditCard,
   Diff,
+  FileText,
   Gauge,
   Home,
   Moon,
@@ -59,6 +60,12 @@ const navGroups = [
         title: "Sales Orders",
         href: "/sales-orders",
         icon: BanknoteArrowUp,
+        permission: PERMISSIONS.VIEW_SALES,
+      },
+      {
+        title: "Sales Invoices",
+        href: "/sales-invoices",
+        icon: FileText,
         permission: PERMISSIONS.VIEW_SALES,
       },
       {

@@ -19,3 +19,4 @@ export * from "./salesOrders";
 export * from "./salesOrderItems";
 export * from "./returnTransactions";
 export * from "./returnItems";
+export * from "./salesInvoices";

@@ -24,6 +24,39 @@ export async function setupDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_inventory_movements_combo_id_id ON "InventoryMovements" ("combinationId", id);
       CREATE INDEX IF NOT EXISTS idx_inventory_movements_type ON "InventoryMovements" ("type");
       CREATE INDEX IF NOT EXISTS idx_inventory_movements_reference ON "InventoryMovements" ("referenceType", "referenceId");
+
+      CREATE TABLE IF NOT EXISTS "SalesInvoices" (
+        "id" SERIAL PRIMARY KEY,
+        "customerId" INTEGER NOT NULL,
+        "invoiceNumber" VARCHAR(255) NOT NULL UNIQUE,
+        "invoiceDate" TIMESTAMPTZ NOT NULL,
+        "dueDate" TIMESTAMPTZ,
+        "status" VARCHAR(50) DEFAULT 'DRAFT' NOT NULL,
+        "previousBalance" NUMERIC(10, 2) DEFAULT '0' NOT NULL,
+        "totalCharges" NUMERIC(10, 2) NOT NULL,
+        "totalPayments" NUMERIC(10, 2) DEFAULT '0' NOT NULL,
+        "amountDue" NUMERIC(10, 2) NOT NULL,
+        "notes" TEXT,
+        "changedBy" INTEGER DEFAULT 1,
+        "createdAt" TIMESTAMPTZ,
+        "updatedAt" TIMESTAMPTZ,
+        "deletedAt" TIMESTAMPTZ
+      );
+
+      CREATE TABLE IF NOT EXISTS "SalesInvoiceLines" (
+        "id" SERIAL PRIMARY KEY,
+        "salesInvoiceId" INTEGER NOT NULL REFERENCES "SalesInvoices"("id") ON DELETE CASCADE,
+        "salesOrderId" INTEGER NOT NULL REFERENCES "SalesOrders"("id"),
+        "orderDate" TIMESTAMPTZ,
+        "refNo" VARCHAR(255),
+        "description" TEXT,
+        "charges" NUMERIC(10, 2) DEFAULT '0' NOT NULL,
+        "payments" NUMERIC(10, 2) DEFAULT '0' NOT NULL,
+        "balance" NUMERIC(10, 2) DEFAULT '0' NOT NULL,
+        "createdAt" TIMESTAMPTZ,
+        "updatedAt" TIMESTAMPTZ,
+        "deletedAt" TIMESTAMPTZ
+      );
     `);
     isSchemaInitialized = true;
   }
