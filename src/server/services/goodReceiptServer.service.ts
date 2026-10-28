@@ -419,18 +419,8 @@ export const goodReceiptServerService = {
       );
     }
 
-    const allowedSortFields = new Set([
-      "id",
-      "supplierId",
-      "status",
-      "receiptDate",
-      "referenceNo",
-      "totalAmount",
-      "createdAt",
-      "updatedAt",
-      "supplier.name",
-    ]);
-    const validSort = allowedSortFields.has(sort) ? sort : "receiptDate";
+
+
     const whereClause = and(...conditions);
 
     const [countResult] = await db
@@ -441,7 +431,9 @@ export const goodReceiptServerService = {
     const total = Number(countResult?.total || 0);
 
     let rows: any[];
-    if (validSort === "supplier.name") {
+    const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
+
+    if (sort === "supplier.name") {
       const orderDir = order.toUpperCase() === "ASC" ? asc : desc;
       const sortedReceipts = await db
         .select({ id: goodReceipts.id })
@@ -488,14 +480,27 @@ export const goodReceiptServerService = {
         rows = [];
       }
     } else {
+      const allowedSortFields = new Set([
+        "id",
+        "supplierId",
+        "status",
+        "receiptDate",
+        "referenceNo",
+        "totalAmount",
+        "createdAt",
+        "updatedAt",
+        "supplier.name",
+      ]);
+      const validSort = allowedSortFields.has(sort) ? sort : "receiptDate";
+      const orderColumn =
+        goodReceipts[validSort as keyof typeof goodReceipts] || goodReceipts.id;
+
       rows = await db.query.goodReceipts.findMany({
         where: whereClause,
         limit,
         offset,
-        orderBy: (tbl, { asc, desc }) => {
-          const col = tbl[validSort as keyof typeof tbl] || tbl.receiptDate;
-          return order.toUpperCase() === "ASC" ? asc(col) : desc(col);
-        },
+        orderBy: [orderDir(orderColumn as any), desc(goodReceipts.updatedAt)],
+
         with: {
           supplier: true,
           goodReceiptLines: {

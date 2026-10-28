@@ -37,6 +37,7 @@ import DateRangePicker from "../common/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import { format, parseISO } from "date-fns";
 import { Meta } from "@/types";
+import { CalendarDatePicker } from "../common/CalendarDatePicker";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -165,11 +166,9 @@ export default function InvoicesClientWidget({
       </PageHeader>
 
       <div className="flex items-center gap-2 max-w-md">
-
-        <DateRangePicker
-          value={dateRange}
-          commitOnClose
-          onChange={(range) => {
+        <CalendarDatePicker
+          date={dateRange}
+          onDateSelect={(range) => {
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
@@ -180,8 +179,6 @@ export default function InvoicesClientWidget({
             }));
           }}
         />
-
-
         <InputGroup>
           <InputGroupInput
             placeholder="Search..."

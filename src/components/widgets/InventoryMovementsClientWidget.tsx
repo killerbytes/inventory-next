@@ -30,6 +30,7 @@ import { useCallback, useMemo, useTransition } from "react";
 import { DateRange } from "react-day-picker";
 import { Meta } from "@/types";
 import { InventoryMovementsSummary } from "@/server/services/inventoryServer.service";
+import { CalendarDatePicker } from "../common/CalendarDatePicker";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -328,10 +329,9 @@ export default function InventoryMovementsClientWidget({
       )}
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <DateRangePicker
-          value={dateRange}
-          commitOnClose
-          onChange={(range) => {
+        <CalendarDatePicker
+          date={dateRange}
+          onDateSelect={(range) => {
             setFilters((prev) => ({
               ...prev,
               startDate: range.from

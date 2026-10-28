@@ -38,6 +38,7 @@ import { Pagination, SalesOrderSummary } from "@/types";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
 import useDebounce from "@/hooks/useDebounce";
 import { cx } from "class-variance-authority";
+import { CalendarDatePicker } from "../common/CalendarDatePicker";
 
 const columnHelper = createColumnHelper<SalesOrderData>();
 
@@ -268,10 +269,9 @@ export default function SalesOrdersClientWidget({
         </div>
       )}
       <div className="flex gap-4 items-center">
-        <DateRangePicker
-          value={dateRange}
-          commitOnClose
-          onChange={(range) => {
+        <CalendarDatePicker
+          date={dateRange}
+          onDateSelect={(range) => {
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
