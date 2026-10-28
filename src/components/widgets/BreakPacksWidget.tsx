@@ -9,15 +9,18 @@ import Link from "next/link";
 import { useMemo } from "react";
 import ColorBadge from "../common/ColorBadge";
 import { UNIT_COLOR } from "@/constants";
+import { Pagination } from "@/types";
 
 const columnHelper = createColumnHelper<any>();
 
 interface BreakPacksWidgetProps {
   initialBreakPacks?: any[];
+  initialPagination: Pagination;
 }
 
 export default function BreakPacksWidget({
   initialBreakPacks = [],
+  initialPagination,
 }: BreakPacksWidgetProps) {
   const records = initialBreakPacks || [];
 
@@ -28,6 +31,7 @@ export default function BreakPacksWidget({
         header: "From (Source Unit)",
         cell: ({ row }) => {
           const from = row.original.fromCombination;
+          console.log(row.original);
           return (
             <div className="flex items-center gap-2 font-semibold">
               <ColorBadge colorMap={UNIT_COLOR}>
@@ -37,7 +41,7 @@ export default function BreakPacksWidget({
                 href={`/products/${from?.productId}`}
                 className="text-primary hover:underline"
               >
-                {from?.product?.name}
+                {from?.name}
               </Link>
             </div>
           );
@@ -54,7 +58,7 @@ export default function BreakPacksWidget({
                 {to?.unit}
               </ColorBadge>
               <span>
-                {to?.product?.name}
+                {to?.name}
               </span>
             </div>
           );
@@ -126,6 +130,8 @@ export default function BreakPacksWidget({
             columns={columns}
             data={records}
             searchKey="fromCombination.unit"
+            paginate={true}
+            paginationMeta={initialPagination}
           />
         </CardContent>
       </Card>

@@ -36,7 +36,9 @@ export const reportsServerService = {
   getBreakPacks: async (
     params: { limit?: number; page?: number; offset?: number } = {},
   ) => {
-    const { limit, page } = params;
+    const { page } = params;
+    const limit = Number(params.limit) || 50;
+
     const offset =
       params.offset !== undefined
         ? params.offset
@@ -44,41 +46,39 @@ export const reportsServerService = {
           ? (page - 1) * limit
           : undefined;
 
-    if (limit !== undefined) {
-      const [countRes] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(breakPacks);
-      const total = countRes?.count ?? 0;
+    const [countRes] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(breakPacks);
+    const total = countRes?.count ?? 0;
 
-      const rows = await db.query.breakPacks.findMany({
-        with: {
-          fromCombination: { with: { product: true } },
-          toCombination: { with: { product: true } },
-          user: true,
-        },
-        orderBy: (tbl, { desc }) => [desc(tbl.id)],
-        limit,
-        offset: offset || 0,
-      });
-
-      return {
-        rows,
-        meta: {
-          total,
-          totalPages: Math.ceil(total / limit),
-          currentPage: page || 1,
-        },
-      };
-    }
-
-    return await db.query.breakPacks.findMany({
+    const rows = await db.query.breakPacks.findMany({
       with: {
         fromCombination: { with: { product: true } },
         toCombination: { with: { product: true } },
         user: true,
       },
       orderBy: (tbl, { desc }) => [desc(tbl.id)],
+      limit,
+      offset: offset || 0,
     });
+
+    return {
+      rows,
+      pagination: {
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page || 1,
+      },
+    };
+
+    // return await db.query.breakPacks.findMany({
+    //   with: {
+    //     fromCombination: { with: { product: true } },
+    //     toCombination: { with: { product: true } },
+    //     user: true,
+    //   },
+    //   orderBy: (tbl, { desc }) => [desc(tbl.id)],
+    // });
   },
 
   getPopularProducts: async (params: { limit?: number; page?: number; offset?: number; startDate?: string | null; endDate?: string | null; sort?: string; order?: string; } = {}) => {
