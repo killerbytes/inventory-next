@@ -37,6 +37,7 @@ import { GoodReceiptSummary, Pagination } from "@/types";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
 import { cx } from "class-variance-authority";
+import { CalendarDatePicker } from "../common/CalendarDatePicker";
 
 const columnHelper = createColumnHelper<GoodReceiptData>();
 
@@ -258,10 +259,10 @@ export default function GoodReceiptsClientWidget({
       )}
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
-        <DateRangePicker
-          value={dateRange}
-          commitOnClose
-          onChange={(range) => {
+
+        <CalendarDatePicker
+          date={dateRange}
+          onDateSelect={(range) => {
             setFilters((prev) => ({
               ...prev,
               startDate: range.from
@@ -272,7 +273,6 @@ export default function GoodReceiptsClientWidget({
             }));
           }}
         />
-
 
         <InputGroup className="w-100">
           <InputGroupInput

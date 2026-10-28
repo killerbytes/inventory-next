@@ -572,7 +572,7 @@ export const salesServerService = {
 
       rows = await db.query.salesOrders.findMany({
         where: whereClause,
-        orderBy: [orderDir(orderColumn as any), desc(salesOrders.id)],
+        orderBy: [orderDir(orderColumn as any), desc(salesOrders.updatedAt)],
         limit,
         offset,
         with: {
@@ -989,18 +989,18 @@ export const salesServerService = {
       // Query prior return transactions for this sales order
       const priorReturnTransactions = tx.query.returnTransactions?.findMany
         ? await tx.query.returnTransactions.findMany({
-            where: (tbl: any, { eq, and }: any) =>
-              and(
-                eq(tbl.referenceId, referenceId),
-                eq(tbl.sourceType, ORDER_TYPE.SALE),
-              ),
-            with: {
-              returnItems: {
-                where: (tbl: any, { eq }: any) =>
-                  eq(tbl.type, RETURN_TYPE.RETURN_IN),
-              },
+          where: (tbl: any, { eq, and }: any) =>
+            and(
+              eq(tbl.referenceId, referenceId),
+              eq(tbl.sourceType, ORDER_TYPE.SALE),
+            ),
+          with: {
+            returnItems: {
+              where: (tbl: any, { eq }: any) =>
+                eq(tbl.type, RETURN_TYPE.RETURN_IN),
             },
-          })
+          },
+        })
         : [];
 
       // Track batch returns per combination to prevent intra-batch over-returns

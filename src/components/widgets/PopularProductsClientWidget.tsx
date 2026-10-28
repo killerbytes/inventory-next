@@ -14,6 +14,7 @@ import DateRangePicker from "../common/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { format, parseISO } from "date-fns";
+import { CalendarDatePicker } from "../common/CalendarDatePicker";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -94,10 +95,9 @@ export default function PopularProductsClientWidget({
       />
 
       <div className="flex flex-col md:flex-row gap-4 items-center">
-        <DateRangePicker
-          value={dateRange}
-          commitOnClose
-          onChange={(range) => {
+        <CalendarDatePicker
+          date={dateRange}
+          onDateSelect={(range) => {
             if (range?.from && range?.to) {
               setFilters({
                 startDate: format(range.from, "yyyy-MM-dd"),
