@@ -7,6 +7,11 @@ import { BreakPackData } from "@/schemas";
 import { Pagination } from "@/types";
 
 export const dynamic = "force-dynamic";
+type BreakPackRow = Awaited<
+  ReturnType<typeof reportsServerService.getBreakPacks>
+>["rows"][number];
+
+
 
 export default async function BreakPacksPage({
   searchParams,
@@ -24,7 +29,7 @@ export default async function BreakPacksPage({
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;
 
-  let initialRows: BreakPackData[] = [];
+  let initialRows: BreakPackRow[] = [];
   let initialPagination: Pagination = {
     total: 0,
     totalPages: 0,
