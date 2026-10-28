@@ -58,7 +58,6 @@ export interface GetMovementsInput {
   ids?: number[];
   limit?: number;
   page?: number;
-  q?: string | null;
   type?: string;
   sort?: string;
   order?: "ASC" | "DESC";
@@ -194,7 +193,6 @@ export const inventoryServerService = {
       ids = [],
       limit = 50,
       page = 1,
-      q = null,
       type,
       sort = "updatedAt",
       order = "DESC",
@@ -218,18 +216,7 @@ export const inventoryServerService = {
       conditions.push(lte(inventoryMovements.updatedAt, endBound));
     }
 
-    if (q) {
-      const matchingCombos = db
-        .select({ id: productCombinations.id })
-        .from(productCombinations)
-        .where(
-          and(
-            ilike(productCombinations.name, `%${q}%`),
-            isNull(productCombinations.deletedAt),
-          ),
-        );
-      conditions.push(inArray(inventoryMovements.combinationId, matchingCombos));
-    } else if (ids && ids.length > 0) {
+    if (ids && ids.length > 0) {
       conditions.push(inArray(inventoryMovements.combinationId, ids));
     }
 
@@ -241,7 +228,6 @@ export const inventoryServerService = {
       .where(whereClause);
 
     const total = Number(countResult?.total || 0);
-
     const rows = await db.query.inventoryMovements.findMany({
       where: whereClause,
       limit,

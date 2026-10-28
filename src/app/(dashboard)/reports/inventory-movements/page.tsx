@@ -17,7 +17,7 @@ export default async function MovementsPage({
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const status = params.status === "ALL" ? undefined : params.status;
-  const q = params.q || undefined;
+  const ids = params.ids || [];
 
   const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const defaultEndDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
@@ -38,7 +38,7 @@ export default async function MovementsPage({
       page,
       limit,
       type: status,
-      q,
+      ids: ids.length > 0 ? [Number(ids)] : [],
       startDate,
       endDate,
       includeSummary: true,

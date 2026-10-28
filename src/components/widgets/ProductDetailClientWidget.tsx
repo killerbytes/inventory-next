@@ -346,7 +346,16 @@ export default function ProductDetailClientWidget({
               <ColorBadge colorMap={UNIT_COLOR}>
                 {String(combo?.unit || "PCS")}
               </ColorBadge>
-              <span>{combo?.name || product.name}</span>
+              <span>{combo?.name}</span>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => {
+                  router.push(`/reports/inventory-movements?ids=${combo?.id}`);
+                }}
+              >
+                <Activity />
+              </Button>
             </div>
           );
         },
