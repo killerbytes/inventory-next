@@ -173,7 +173,9 @@ export default function VariantTypesForm({
         </div>
       </Field>
 
-      <DialogFooter className="pt-2">
+      <DialogFooter className="pt-2 flex items-center justify-between!">
+        <p>¼ ½ ¾</p>
+
         <Button type="submit" className="bg-primary text-white">
           {selected?.id ? "Update Variant" : "Add Variant"}
         </Button>

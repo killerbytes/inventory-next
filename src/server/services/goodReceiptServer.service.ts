@@ -1201,6 +1201,7 @@ export const goodReceiptServerService = {
         totalPages: Math.ceil(total / limit),
         currentPage: page,
       },
+      summary: await getSummary(whereClause)
     };
   },
 

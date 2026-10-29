@@ -614,7 +614,7 @@ export const salesServerService = {
       })),
     }));
 
-    const meta = {
+    const pagination = {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
@@ -623,8 +623,7 @@ export const salesServerService = {
     return {
       data: mappedRows as unknown as SalesOrderData[],
       rows: mappedRows as unknown as SalesOrderData[],
-      meta,
-      pagination: meta,
+      pagination,
       summary: await getSummary(whereClause, startBound, endBound),
     };
   },

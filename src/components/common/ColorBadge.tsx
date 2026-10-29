@@ -18,6 +18,7 @@ export default function ColorBadge({
   const value = (INVENTORY_MOVEMENT_TYPE as Record<string, string>)[unit];
   return (
     <Badge
+      variant="success"
       className={cx(
         "text-[8px] px-1.5",
         className,

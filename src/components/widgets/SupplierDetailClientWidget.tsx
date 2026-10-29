@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { SupplierData } from "@/schemas";
-import { Pagination } from "@/types";
+import { GoodReceiptSummary, Pagination } from "@/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
   ArrowLeft,
@@ -19,6 +19,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import ColorBadge from "../common/ColorBadge";
+import { STATUS_COLOR } from "@/constants";
+import SummaryCard from "../common/SummaryCard";
 
 const columnHelper = createColumnHelper<any>();
 
@@ -26,12 +29,14 @@ interface SupplierDetailClientWidgetProps {
   supplier: SupplierData;
   receipts: any[];
   initialPagination: Pagination;
+  initialSummary: GoodReceiptSummary
 }
 
 export default function SupplierDetailClientWidget({
   supplier,
   receipts = [],
   initialPagination,
+  initialSummary,
 }: SupplierDetailClientWidgetProps) {
   const router = useRouter();
 
@@ -50,16 +55,9 @@ export default function SupplierDetailClientWidget({
       }),
       columnHelper.accessor("status", {
         header: "Status",
-        cell: ({ row }) => {
-          const s = row.original.status || "COMPLETED";
-          const variant =
-            s === "COMPLETED"
-              ? "success"
-              : s === "CANCELLED"
-                ? "destructive"
-                : "warning";
-          return <Badge variant={variant as any}>{s}</Badge>;
-        },
+        cell: ({ row }) =>
+          <ColorBadge colorMap={STATUS_COLOR} >{row.original.status}</ColorBadge>
+
       }),
       columnHelper.accessor("receiptDate", {
         header: "Receipt Date",
@@ -94,7 +92,7 @@ export default function SupplierDetailClientWidget({
   );
 
   return (
-    <div className="space-y-6 mx-auto">
+    <div className="space-y-6 mx-auto w-full">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -149,33 +147,30 @@ export default function SupplierDetailClientWidget({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase text-muted-foreground">
-              Total Good Receipts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold ">
-              {initialPagination?.total ?? receipts.length} Shipments
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase text-emerald-700">
-              Total Delivered Goods Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold  text-emerald-600">
-              {/* {formatCurrency(totalDeliveredValue)} */}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {initialSummary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xl">
+          <SummaryCard
+            label="Total Amount"
+            value={formatCurrency(initialSummary.totalAmount)}
+          />
+          <SummaryCard
+            label="Total Payable"
+            value={
+              <span className="text-red-500">
+                {formatCurrency(initialSummary.totalPayableAmount)}
+              </span>
+            }
+          />
+          <SummaryCard
+            label="Total Return"
+            value={
+              <span className="text-yellow-500">
+                {formatCurrency(initialSummary.totalReturnAmount)}
+              </span>
+            }
+          />
+        </div>
+      )}
 
       <Card>
         <CardHeader>

@@ -241,10 +241,12 @@ export default function AppSidebar() {
                         "flex items-center gap-3 px-3 py-2 text-sm rounded-lg font-medium transition-colors",
                         isActive
                           ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                          : "hover:bg-accent hover:text-accent-foreground text-sidebar-foreground",
+                          : "hover:bg-accent hover:text-accent-foreground text-sidebar-foreground/",
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0 transition-colors"
+                      )} />
                       <span>{item.title}</span>
                     </Link>
                   );

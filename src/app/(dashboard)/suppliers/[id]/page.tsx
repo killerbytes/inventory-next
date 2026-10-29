@@ -3,7 +3,7 @@ import { PAGINATION } from "@/constants";
 import { SupplierData } from "@/schemas";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
 import { supplierServerService } from "@/server/services/supplierServer.service";
-import { Pagination } from "@/types";
+import { GoodReceiptSummary, Pagination } from "@/types";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,12 @@ export default async function SupplierDetailPage({
     totalPages: 0,
     currentPage: 0,
   };
+  let initialSummary: GoodReceiptSummary = {
+    totalAmount: 0,
+    totalPayableAmount: 0,
+    totalReturnAmount: 0,
+  };
+
   try {
     const [supplierResult, receiptsResult] = await Promise.all([
       supplierServerService.get(Number(id)),
@@ -39,9 +45,9 @@ export default async function SupplierDetailPage({
     ]);
 
     supplier = supplierResult;
-
     receipts = receiptsResult.data;
     initialPagination = receiptsResult.pagination;
+    initialSummary = receiptsResult.summary
   } catch (err) {
     console.error("Error querying supplier profile from PostgreSQL:", err);
   }
@@ -50,5 +56,5 @@ export default async function SupplierDetailPage({
     notFound();
   }
 
-  return <SupplierDetailClientWidget supplier={supplier} receipts={receipts} initialPagination={initialPagination} />;
+  return <SupplierDetailClientWidget supplier={supplier} receipts={receipts} initialPagination={initialPagination} initialSummary={initialSummary} />;
 }
