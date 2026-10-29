@@ -25,17 +25,17 @@ vi.mock("@/components/layout/PageHeader", () => ({
   ),
 }));
 
-// Mock DateRangePicker
-let mockOnChangeTrigger: ((range: any) => void) | null = null;
-vi.mock("@/components/common/DateRangePicker", () => ({
-  default: ({ value, onChange, commitOnClose }: any) => {
-    mockOnChangeTrigger = onChange;
+// Mock CalendarDatePicker
+let mockOnDateSelectTrigger: ((range: any) => void) | null = null;
+vi.mock("@/components/common/CalendarDatePicker", () => ({
+  CalendarDatePicker: ({ date, onDateSelect }: any) => {
+    mockOnDateSelectTrigger = onDateSelect;
     return (
       <div data-testid="date-range-picker-mock">
         <button
           data-testid="trigger-complete-range"
           onClick={() =>
-            onChange?.({
+            onDateSelect?.({
               from: new Date("2026-10-01T00:00:00Z"),
               to: new Date("2026-10-15T00:00:00Z"),
             })
@@ -46,7 +46,7 @@ vi.mock("@/components/common/DateRangePicker", () => ({
         <button
           data-testid="trigger-partial-range"
           onClick={() =>
-            onChange?.({
+            onDateSelect?.({
               from: new Date("2026-10-01T00:00:00Z"),
               to: undefined,
             })
@@ -57,7 +57,7 @@ vi.mock("@/components/common/DateRangePicker", () => ({
         <button
           data-testid="trigger-clear-range"
           onClick={() =>
-            onChange?.({
+            onDateSelect?.({
               from: undefined,
               to: undefined,
             })
@@ -94,7 +94,7 @@ describe("PopularProductsClientWidget (Unit)", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockReplace.mockClear();
-    mockOnChangeTrigger = null;
+    mockOnDateSelectTrigger = null;
   });
 
   afterEach(() => {

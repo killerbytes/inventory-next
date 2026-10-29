@@ -99,13 +99,6 @@ describe("Product Service (Integration)", () => {
     }
   });
 
-  it("should fetch all products by sku", async () => {
-    await productServerService.create(products[0]);
-    await productServerService.create(products[1]);
-    const prods = await productServerService.getAllBySku("01-SHO");
-    expect(prods.length).toBe(1);
-    expect(prods[0].name).toBe(products[0].name);
-  });
 
   it("should update a product's unit", async () => {
     const create: any = await productServerService.create(products[0]);
@@ -119,19 +112,4 @@ describe("Product Service (Integration)", () => {
     expect(updated.baseUnit).toBe("BOX");
   });
 
-  it("should get a paginated list of products", async () => {
-    await productServerService.create(products[0]);
-    await productServerService.create(products[1]);
-
-    const prods: any = await productServerService.getPaginated({
-      page: 1,
-      limit: 1,
-    } as any);
-
-    expect(prods.data.length).toBe(2);
-    expect(prods.data[0].categoryName).toBe(categories[0].name);
-    expect(prods.data[0].products[0].name).toBe(products[0].name);
-    expect(prods.data[1].categoryName).toBe(categories[1].name);
-    expect(prods.data[1].products[0].name).toBe(products[1].name);
-  });
 });

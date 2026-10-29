@@ -412,10 +412,9 @@ describe("Sales Order Service (Integration)", () => {
 
     const items = salesOrders.data || salesOrders.rows;
     expect(items.length).toBe(2);
-    expect(salesOrders.meta.total).toBe(2);
-    expect(salesOrders.meta.totalPages).toBe(1);
-    expect(salesOrders.meta.currentPage).toBe(1);
     expect(salesOrders.pagination.total).toBe(2);
+    expect(salesOrders.pagination.totalPages).toBe(1);
+    expect(salesOrders.pagination.currentPage).toBe(1);
   });
 
   it("should sort sales orders by id DESC by default and include nested combinations", async () => {

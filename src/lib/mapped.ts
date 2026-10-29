@@ -42,10 +42,8 @@ export function getMappedProductComboName(
   const mergedParts: string[] = [];
   const remainingParts: string[] = [];
   const usedKeys = new Set<string>();
-
   keys.forEach((key) => {
     if (usedKeys.has(key)) return;
-
     if (key.includes("_")) {
       const [base] = key.split("_");
       if (mapped[base]) {

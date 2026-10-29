@@ -31,7 +31,6 @@ export default function BreakPacksWidget({
         header: "From (Source Unit)",
         cell: ({ row }) => {
           const from = row.original.fromCombination;
-          console.log(row.original);
           return (
             <div className="flex items-center gap-2 font-semibold">
               <ColorBadge colorMap={UNIT_COLOR}>

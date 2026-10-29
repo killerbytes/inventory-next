@@ -4,25 +4,14 @@ import { ProductBaseSchema } from "@/schemas";
 import { db } from "@/server/db/drizzle";
 import { products } from "@/server/db/schema/products";
 import { productCombinations, combinationValues } from "@/server/db/schema/productCombinations";
-import { categories } from "@/server/db/schema/categories";
 import { variantTypes, variantValues } from "@/server/db/schema/variantTypes";
 import { inventories } from "@/server/db/schema/inventories";
 import {
   eq,
-  and,
-  isNull,
-  ne,
-  asc,
-  ilike,
   sql,
 } from "drizzle-orm";
 import "server-only";
-import { handleServiceError } from "./errorHandler";
 
-export interface GetProductPaginatedInput {
-  q?: string | null;
-  categoryId?: number | string | null;
-}
 
 export interface CreateProductInput {
   name: string;
@@ -92,201 +81,6 @@ export const productServerService = {
       with: { category: true },
       orderBy: (tbl, { asc }) => asc(tbl.name),
     });
-  },
-
-  getPaginated: async (params: GetProductPaginatedInput = {}) => {
-    const { q, categoryId } = params;
-    const conditions: any[] = [isNull(products.deletedAt)];
-
-    if (categoryId) {
-      conditions.push(eq(products.categoryId, Number(categoryId)));
-    }
-
-    if (q) {
-      conditions.push(ilike(products.name, `%${q}%`));
-    }
-
-    const whereClause = and(...conditions);
-
-    try {
-      const prods = await db.query.products.findMany({
-        where: whereClause,
-        with: {
-          category: {
-            with: {
-              parent: true,
-            },
-          },
-          variants: {
-            with: {
-              values: true,
-            },
-          },
-          combinations: {
-            where: (tbl, { isNull }) => isNull(tbl.deletedAt),
-            with: {
-              inventory: true,
-              combinationValues: {
-                with: {
-                  value: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: (tbl, { asc }) => asc(tbl.name),
-      });
-
-      const rootCategories = await db.query.categories.findMany({
-        where: (tbl, { isNull }) => isNull(tbl.parentId),
-        with: {
-          subCategories: {
-            orderBy: (tbl, { asc }) => asc(tbl.order),
-          },
-        },
-        orderBy: (tbl, { asc }) => asc(tbl.order),
-      });
-
-      const groupedByCategory: Record<number, any> = {};
-      rootCategories.forEach((parent: any) => {
-        groupedByCategory[parent.id] = {
-          categoryId: parent.id,
-          categoryName: parent.name,
-          categoryOrder: parent.order,
-          products: [],
-          subCategories: (parent.subCategories || []).map((sub: any) => ({
-            categoryId: sub.id,
-            subCategoryId: sub.id,
-            categoryName: sub.name,
-            products: [],
-          })),
-        };
-      });
-
-      prods.forEach((product: any) => {
-        const category = product.category;
-        if (!category) return;
-
-        const formattedProduct = {
-          ...product,
-          combinations: (product.combinations || []).map((combo: any) => ({
-            ...combo,
-            values: (combo.combinationValues || [])
-              .map((cv: any) => cv.value)
-              .filter(Boolean),
-          })),
-        };
-
-        if (category.parent) {
-          const parent = groupedByCategory[category.parent.id];
-          if (!parent) return;
-
-          const subGroup = parent.subCategories.find(
-            (s: any) =>
-              s.categoryId === category.id || s.subCategoryId === category.id,
-          );
-          if (subGroup) {
-            subGroup.products.push(formattedProduct);
-          }
-        } else {
-          const parent = groupedByCategory[category.id];
-          if (parent) {
-            parent.products.push(formattedProduct);
-          }
-        }
-      });
-
-      const data = Object.values(groupedByCategory).sort(
-        (a: any, b: any) => (a.categoryOrder || 0) - (b.categoryOrder || 0),
-      );
-
-      return {
-        data,
-      };
-    } catch (error) {
-      handleServiceError(error);
-    }
-  },
-
-  getAllBySku: async (sku: string) => {
-    const prods = await db.query.products.findMany({
-      where: (tbl, { eq, and, isNull }) =>
-        and(eq(tbl.sku, sku), isNull(tbl.deletedAt)),
-      with: {
-        variants: {
-          orderBy: (tbl, { asc }) => asc(tbl.id),
-          with: { values: true },
-        },
-        combinations: {
-          where: (tbl, { isNull }) => isNull(tbl.deletedAt),
-          orderBy: (tbl, { asc }) => asc(tbl.name),
-          with: {
-            inventory: true,
-            combinationValues: { with: { value: true } },
-          },
-        },
-      },
-      orderBy: (tbl, { asc }) => asc(tbl.name),
-    });
-
-    if (!prods || prods.length === 0) {
-      throw new Error("Product not found");
-    }
-
-    return prods.map((product: any) => ({
-      ...product,
-      combinations: (product.combinations || []).map((combo: any) => ({
-        ...combo,
-        values: (combo.combinationValues || [])
-          .map((cv: any) => cv.value)
-          .filter(Boolean),
-      })),
-    }));
-  },
-
-  getProductsByCategoryId: async (categoryId: number | string) => {
-    const categoryProducts = await db.query.products.findMany({
-      where: (tbl, { eq, and, isNull }) =>
-        and(eq(tbl.categoryId, Number(categoryId)), isNull(tbl.deletedAt)),
-      columns: { id: true },
-      orderBy: (tbl, { asc }) => [asc(tbl.name)],
-    });
-
-    if (categoryProducts.length === 0) return [];
-    const productIds = categoryProducts.map((p) => p.id);
-
-    const combos = await db.query.productCombinations.findMany({
-      where: (tbl, { eq, and, isNull, inArray }) =>
-        and(
-          eq(tbl.isActive, true),
-          isNull(tbl.deletedAt),
-          inArray(tbl.productId, productIds),
-        ),
-      with: {
-        inventory: true,
-      },
-      columns: {
-        id: true,
-        name: true,
-        unit: true,
-        price: true,
-        isBreakPack: true,
-      },
-    });
-
-    return combos.map((c: any) => ({
-      combinations: {
-        id: c.id,
-        name: c.name,
-        unit: c.unit,
-        price: c.price,
-        isBreakPack: c.isBreakPack,
-        inventory: {
-          averagePrice: c.inventory?.averagePrice ?? "0",
-          quantity: c.inventory?.quantity ?? "0",
-        },
-      },
-    }));
   },
 
   create: async (data: CreateProductInput) => {
@@ -449,35 +243,19 @@ export const productServerService = {
     });
   },
 
-  updateBaseUnit: async (id: number, baseUnit: string) => {
-    return await db.transaction(async (tx) => {
-      await tx
-        .update(products)
-        .set({ baseUnit, updatedAt: new Date() })
-        .where(eq(products.id, id));
-
-      await tx
-        .update(productCombinations)
-        .set({ unit: baseUnit, updatedAt: new Date() })
-        .where(
-          and(
-            eq(productCombinations.productId, id),
-            eq(productCombinations.isBreakPack, false),
-          ),
-        );
-
-      await productServerService.syncCombinationNames(id, tx);
-      await productServerService.rebuildProductSearchText(id, tx);
-      return true;
-    });
-  },
-
   syncCombinationNames: async (productId: number, transaction?: any) => {
     const client = transaction || db;
     const product = await client.query.products.findFirst({
       where: (tbl: any, { eq, and, isNull }: any) =>
         and(eq(tbl.id, productId), isNull(tbl.deletedAt)),
       with: {
+        variants: {
+          with: {
+            values: true,
+          },
+        },
+
+
         combinations: {
           where: (tbl: any, { isNull }: any) => isNull(tbl.deletedAt),
           with: {

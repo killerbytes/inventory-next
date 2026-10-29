@@ -70,41 +70,6 @@ export interface SearchProductCombinationsInput {
   limit?: number;
 }
 
-export interface CombinationItemInput {
-  id?: number | string;
-  name?: string;
-  sku?: string;
-  barcode?: string | null;
-  unit?: string;
-  price?: number;
-  costPrice?: number;
-  conversionFactor?: number;
-  isBreakPack?: boolean;
-  isBreakPackOfId?: number | string | null;
-  values?: any[];
-  [key: string]: any;
-}
-
-export interface UpdateProductCombinationsInput {
-  combinations?: CombinationItemInput[];
-  userId?: number;
-}
-
-export interface BreakPackPayload {
-  fromCombinationId: number;
-  toCombinationId: number;
-  quantity: number;
-  userId: number;
-}
-
-export interface StockAdjustmentPayload {
-  combinationId: number;
-  newQuantity: number;
-  reason: string;
-  notes?: string | null;
-  userId?: number;
-}
-
 export interface UpdatePriceItem {
   id: number | string;
   newPrice: number;
@@ -112,44 +77,6 @@ export interface UpdatePriceItem {
 }
 
 export const productCombinationServerService = {
-  buildTsQuery,
-
-  get: async (id: number | string) => {
-    const numId = Number(id);
-    const combo = await db.query.productCombinations.findFirst({
-      where: (tbl, { eq, and, isNull }) =>
-        and(eq(tbl.id, numId), isNull(tbl.deletedAt)),
-      with: {
-        product: {
-          with: {
-            variants: {
-              orderBy: (tbl, { asc }) => asc(tbl.name),
-            },
-          },
-        },
-        inventory: true,
-        combinationValues: {
-          with: {
-            value: true,
-          },
-        },
-      },
-    });
-
-    if (!combo) {
-      throw new Error("Product combination not found");
-    }
-
-    const values = (combo.combinationValues || [])
-      .map((cv: any) => cv.value)
-      .filter(Boolean);
-
-    return {
-      ...combo,
-      values,
-    };
-  },
-
   getByProductId: async (id: number | string) => {
     const numId = Number(id);
     const combos = await db.query.productCombinations.findMany({
@@ -349,7 +276,6 @@ export const productCombinationServerService = {
           if (variantValueIds.length !== (combo.values || []).length) {
             throw new Error("Some variant values are invalid or missing");
           }
-
           const computedName =
             combo.name ||
             getMappedProductComboName(product, combo.values || []);

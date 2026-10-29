@@ -210,7 +210,7 @@ export default function GoodReceiptsClientWidget({
         meta: {
           align: "right",
         },
-        cell: ({ row }) => <div className={cx({ 'text-red-600': row.original.returnTransactions.length > 0 })}>
+        cell: ({ row }) => <div className={cx({ 'text-red-600': row.original.returnTransactions?.length > 0 })}>
           {formatCurrency(row.original.totalAmount || 0)}
         </div>
       }),

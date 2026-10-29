@@ -110,6 +110,16 @@ describe("PriceManagerModal (Unit)", () => {
     expect(document.body.textContent).toContain("450.00"); // Current SRP
     expect(getPriceHistoryAction).toHaveBeenCalledWith({ combinationId: 55 });
 
+    // Switch to History tab
+    const historyTab = Array.from(
+      document.querySelectorAll('[role="tab"], button'),
+    ).find((el) => el.textContent?.includes("History")) as HTMLButtonElement | undefined;
+    if (historyTab) {
+      await act(async () => {
+        historyTab.click();
+      });
+    }
+
     // Check history item rendered
     expect(document.body.textContent).toContain("400.00");
     expect(document.body.textContent).toContain("Manager One");
