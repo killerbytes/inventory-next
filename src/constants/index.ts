@@ -221,3 +221,6 @@ export const goodReceiptItemDefault = {
   purchasePrice: 0,
   combination: null,
 };
+
+export * from "./company";
+

@@ -43,6 +43,7 @@ import {
   SidebarHeader,
 } from "../ui/sidebar";
 import UserDropdown from "./UserDropdown";
+import { COMPANY_PROFILE } from "@/constants";
 
 const navGroups = [
   {
@@ -183,8 +184,6 @@ export default function AppSidebar() {
     document.documentElement.classList.toggle("dark");
   };
 
-  const appTitle = process.env.NEXT_PUBLIC_APP_TITLE || "H Concepcion Hardware";
-
   const onSearch = useCallback(async (search: string) => {
     return await getMappedSearchProductCombinations({ search });
   }, []);
@@ -193,7 +192,7 @@ export default function AppSidebar() {
     <Sidebar variant="inset">
       <SidebarHeader className="items-center text-center text-gray-400 leading-tight uppercase">
         <img src="/logo.png" className="mx-auto w-20" />
-        <h1 className="text-white">{appTitle}</h1>
+        <h1 className="text-white">{COMPANY_PROFILE.name}</h1>
       </SidebarHeader>
 
       <SidebarContent className="scrollbar-none">

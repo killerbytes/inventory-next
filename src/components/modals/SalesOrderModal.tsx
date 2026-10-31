@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
 import { formatCurrency } from "@/lib/utils";
+import { format } from "date-fns";
 import {
   CustomerData,
   ProductCombinationData,
@@ -24,7 +25,7 @@ import {
 } from "@/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Printer, Trash2 } from "lucide-react";
 import React, { useEffect, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -438,6 +439,72 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     return acc + (item?.quantity || 0) * (item?.combination?.price || 0);
   }, 0);
 
+  const handlePrintQuotation = () => {
+    const values = form.getValues();
+    const items = values.salesOrderItems || [];
+    const validItems = items.filter(
+      (item) => Number(item.combinationId) > 0 && Number(item.quantity || 0) > 0
+    );
+
+    if (validItems.length === 0) {
+      toast.error("Please add at least one product before printing a quotation.");
+      return;
+    }
+
+    const selectedCustomer = customers.find(
+      (c) => Number(c.id) === Number(values.customerId)
+    );
+
+    const quotationOrder = {
+      isQuotation: true,
+      salesOrderNumber:
+        values.salesOrderNumber?.trim() ||
+        `QT-${format(new Date(), "yyyyMMdd-HHmmss")}`,
+      orderDate: values.orderDate || new Date(),
+      status: "QUOTATION",
+      modeOfPayment: values.modeOfPayment || MODE_OF_PAYMENT.CASH,
+      customer: selectedCustomer || {
+        name: "Cash Customer",
+      },
+      isDelivery: Boolean(values.isDelivery),
+      deliveryDate: values.deliveryDate,
+      deliveryAddress: values.deliveryAddress,
+      deliveryInstructions: values.deliveryInstructions,
+      notes: values.notes,
+      salesOrderItems: validItems.map((item, idx) => {
+        const price = Number(item.combination?.price ?? 0);
+        const qty = Number(item.quantity || 0);
+        const discount = Number(item.discount || 0);
+        return {
+          id: idx + 1,
+          combinationId: item.combinationId,
+          nameSnapshot:
+            item.combination?.name || `Item #${item.combinationId}`,
+          skuSnapshot: item.combination?.sku || "",
+          unit: item.combination?.unit || "PCS",
+          purchasePrice: price,
+          originalPrice: price,
+          quantity: qty,
+          discount: discount,
+          discountNote: item.discountNote || "",
+          totalAmount: qty * price - discount,
+        };
+      }),
+      totalAmount: salesOrderTotal || 0,
+      returnTransactions: [],
+    };
+
+    try {
+      const payload = JSON.stringify(quotationOrder);
+      sessionStorage.setItem("quotation_print_data", payload);
+      localStorage.setItem("quotation_print_data", payload);
+    } catch (err) {
+      console.error("Failed to store quotation in session:", err);
+    }
+
+    window.open("/sales-orders/quotation/print", "_blank");
+  };
+
   return (
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -584,6 +651,17 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             Cancel
           </Button>
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="print-order-btn"
+              onClick={handlePrintQuotation}
+              className="flex items-center gap-1.5"
+            >
+              <Printer className="h-4 w-4" />
+              Print Quotation
+            </Button>
             <Button
               type="button"
               variant="outline"

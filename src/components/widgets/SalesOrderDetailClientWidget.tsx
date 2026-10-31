@@ -38,6 +38,7 @@ import {
   Car,
   EllipsisVertical,
   GalleryVerticalEnd,
+  Printer,
   Undo,
 } from "lucide-react";
 import Link from "next/link";
@@ -295,6 +296,17 @@ export default function SalesOrderDetailClientWidget({
         description="Customer sales order details, line items, and fulfillment ledger."
       >
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="print-order-btn"
+            onClick={() => window.open(`/sales-orders/${data.id}/print`, "_blank")}
+            className="flex items-center gap-1.5"
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+
           <ColorBadge colorMap={STATUS_COLOR}>
             {String(data.status || "POSTED")}
           </ColorBadge>

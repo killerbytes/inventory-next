@@ -17,7 +17,8 @@
     "backup": "node backup.cjs backup",
     "restore": "node backup.cjs restore",
     "verify:dump": "node scripts/verify-db-dump.cjs",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepare": "husky"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -71,6 +72,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "drizzle-kit": "^0.31.11",
     "env-cmd": "^11.0.0",
+    "husky": "^9.1.7",
     "jsdom": "^26.0.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
