@@ -81,7 +81,13 @@ export default function PriceManagerPage() {
             return;
           }
 
-          const existingCombinations = await getCombinationsByIdsAction(ids);
+          const res = await getCombinationsByIdsAction(ids);
+          if (!res.success) {
+            toast.error(res.error || "Failed to load product combinations");
+            setIsLoading(false);
+            return;
+          }
+          const existingCombinations = res.data;
 
           const processedRows: PriceManagerRow[] = existingCombinations.map(
             (combo: any) => {

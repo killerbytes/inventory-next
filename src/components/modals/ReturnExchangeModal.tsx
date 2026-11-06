@@ -199,379 +199,389 @@ function ReturnExchangeModalContent({
             quantity: Number(item.quantity),
           }));
 
-          const result = await returnExchangeAction(referenceId, {
-            returns: activeReturns,
-            exchanges: activeExchanges,
-            reason: values.reason || "Customer Return/Exchange",
-          });
+            const res = await returnExchangeAction(referenceId, {
+              returns: activeReturns,
+              exchanges: activeExchanges,
+              reason: values.reason || "Customer Return/Exchange",
+            });
 
-          toast.success(
-            result?.message ||
-            "Sales Order Return/Exchange submitted successfully!",
-          );
-        } else {
-          await supplierReturnsAction(values.referenceId, {
+            if(res && !res.success) {
+              toast.error(res.error || "Failed to process return/exchange");
+          return;
+        }
+
+        toast.success(
+          res?.data?.message ||
+          "Sales Order Return/Exchange submitted successfully!",
+        );
+      } else {
+          const res = await supplierReturnsAction(values.referenceId, {
             returns: values.returns,
             reason: values.reason,
           });
 
-          toast.success("Supplier returns processed successfully!");
+          if(res && !res.success) {
+          toast.error(res.error || "Failed to process supplier returns");
+          return;
         }
 
-        setReturnExchangeModalOpen(false);
-        router.refresh();
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to process return/exchange");
+        toast.success("Supplier returns processed successfully!");
       }
-    });
-  };
 
-  const returnColumns = useMemo(
-    () => [
-      returnColumnHelper.display({
-        id: "product",
-        header: "Product",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <ColorBadge colorMap={UNIT_COLOR}>
-              {row.original.unit || ""}
-            </ColorBadge>
-            {row.original.nameSnapshot}
-          </div>
-        ),
-      }),
-      returnColumnHelper.display({
-        header: "Delivered",
-        meta: {
-          align: "right",
-        },
-        cell: ({ row }) =>
-          Number(row.original.deliveredQuantity ?? row.original.quantity),
-      }),
-      returnColumnHelper.display({
-        header: "Returnable",
-        meta: {
-          align: "right",
-        },
-        cell: ({ row }) =>
-          Number(
-            row.original.remainingReturnableQuantity ??
-              row.original.quantity,
-          ),
-      }),
-      returnColumnHelper.display({
-        id: "purchasePrice",
-        header: salesOrder ? "Unit Price" : "Unit Cost",
-        meta: {
-          align: "right",
-        },
-        cell: ({ row }) => {
-          const item = row.original;
-          const basePrice = Number(
-            item.purchasePrice ?? item.originalPrice ?? 0,
-          );
-          const divisor = Number(
-            item.deliveredQuantity ?? item.quantity ?? 1,
-          );
-          const price =
-            basePrice - (item.discount || 0) / (divisor || 1);
-          return formatCurrency(price);
-        },
-      }),
-      returnColumnHelper.accessor("quantity", {
-        header: "Return Qty",
-        meta: {
-          className: "w-20",
-          align: "right",
-        },
-        cell: ({ row }) => {
-          const item = row.original;
-          const maxReturnable = Number(
-            item.remainingReturnableQuantity ?? item.quantity,
-          );
-          return (
-            <Controller
-              control={form.control}
-              name={`returns.${row.index}.quantity`}
-              render={({ field }) => (
-                <Field>
-                  <Input
-                    type="number"
-                    {...field}
-                    value={Number(field.value) || ""}
-                    aria-invalid={
-                      !!errors.returns?.[row.index]?.quantity?.message
-                    }
-                    min={1}
-                    max={maxReturnable}
-                  />
-                </Field>
-              )}
-            />
-          );
-        },
-      }),
-      returnColumnHelper.display({
-        id: "creditAmount",
-        header: "Credit Amount",
-        meta: {
-          align: "right",
-        },
-        cell: ({ row }) => {
-          const item = row.original;
-          const basePrice = Number(
-            item.purchasePrice ?? item.originalPrice ?? 0,
-          );
-          const divisor = Number(
-            item.deliveredQuantity ?? item.quantity ?? 1,
-          );
-          const unitPrice =
-            basePrice -
-            (item.discount && divisor
-              ? item.discount / divisor
-              : 0);
-          return (
-            <LineColumn
-              index={row.index}
-              control={form.control}
-              name="returns"
-            >
-              {(value: any) => {
-                const returnQty = Number(value?.quantity || 0);
-                const lineAmount = returnQty * unitPrice;
-                return (
-                  <div className="font-semibold text-emerald-600">
-                    {formatCurrency(lineAmount)}
-                  </div>
-                );
-              }}
-            </LineColumn>
-          );
-        },
-      }),
-    ],
-    [form.control, errors.returns, salesOrder],
-  );
+      setReturnExchangeModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to process return/exchange");
+    }
+  });
+};
 
-  const exchangeColumns = useMemo(
-    () => [
-      exchangeColumnHelper.accessor("name", {
-        header: "Replacement Product",
-        cell: ({ row }) => (
-          <span className="font-medium text-sm">{row.original.name}</span>
+const returnColumns = useMemo(
+  () => [
+    returnColumnHelper.display({
+      id: "product",
+      header: "Product",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <ColorBadge colorMap={UNIT_COLOR}>
+            {row.original.unit || ""}
+          </ColorBadge>
+          {row.original.nameSnapshot}
+        </div>
+      ),
+    }),
+    returnColumnHelper.display({
+      header: "Delivered",
+      meta: {
+        align: "right",
+      },
+      cell: ({ row }) =>
+        Number(row.original.deliveredQuantity ?? row.original.quantity),
+    }),
+    returnColumnHelper.display({
+      header: "Returnable",
+      meta: {
+        align: "right",
+      },
+      cell: ({ row }) =>
+        Number(
+          row.original.remainingReturnableQuantity ??
+          row.original.quantity,
         ),
-      }),
-      exchangeColumnHelper.accessor("unit", {
-        header: () => <div className="text-center">Unit</div>,
-        cell: ({ row }) => (
-          <div className="flex justify-center">
-            <ColorBadge colorMap={UNIT_COLOR}>
-              {row.original.unit || ""}
-            </ColorBadge>
-          </div>
-        ),
-      }),
-      exchangeColumnHelper.accessor("price", {
-        header: () => <div className="text-right">Price</div>,
-        cell: ({ row }) => (
-          <div className="text-right  text-sm">
-            {formatCurrency(row.original.price)}
-          </div>
-        ),
-      }),
-      exchangeColumnHelper.display({
-        id: "quantity",
-        header: () => <div className="text-right">Qty</div>,
-        cell: ({ row }) => {
-          return (
-            <div className="flex justify-end">
-              <Controller
-                control={form.control}
-                name={`exchanges.${row.index}.quantity`}
-                render={({ field }) => (
-                  <Input
-                    type="number"
-                    min="1"
-                    {...field}
-                    value={Number(field.value) || ""}
-                    onChange={(e) => {
-                      const val = Math.max(1, Number(e.target.value));
-                      field.onChange(val);
-                    }}
-                    className="h-8 w-24 text-right "
-                  />
-                )}
-              />
-            </div>
-          );
-        },
-      }),
-      exchangeColumnHelper.display({
-        id: "total",
-        header: () => <div className="text-right">Total</div>,
-        cell: ({ row }) => (
+    }),
+    returnColumnHelper.display({
+      id: "purchasePrice",
+      header: salesOrder ? "Unit Price" : "Unit Cost",
+      meta: {
+        align: "right",
+      },
+      cell: ({ row }) => {
+        const item = row.original;
+        const basePrice = Number(
+          item.purchasePrice ?? item.originalPrice ?? 0,
+        );
+        const divisor = Number(
+          item.deliveredQuantity ?? item.quantity ?? 1,
+        );
+        const price =
+          basePrice - (item.discount || 0) / (divisor || 1);
+        return formatCurrency(price);
+      },
+    }),
+    returnColumnHelper.accessor("quantity", {
+      header: "Return Qty",
+      meta: {
+        className: "w-20",
+        align: "right",
+      },
+      cell: ({ row }) => {
+        const item = row.original;
+        const maxReturnable = Number(
+          item.remainingReturnableQuantity ?? item.quantity,
+        );
+        return (
+          <Controller
+            control={form.control}
+            name={`returns.${row.index}.quantity`}
+            render={({ field }) => (
+              <Field>
+                <Input
+                  type="number"
+                  {...field}
+                  value={Number(field.value) || ""}
+                  aria-invalid={
+                    !!errors.returns?.[row.index]?.quantity?.message
+                  }
+                  min={1}
+                  max={maxReturnable}
+                />
+              </Field>
+            )}
+          />
+        );
+      },
+    }),
+    returnColumnHelper.display({
+      id: "creditAmount",
+      header: "Credit Amount",
+      meta: {
+        align: "right",
+      },
+      cell: ({ row }) => {
+        const item = row.original;
+        const basePrice = Number(
+          item.purchasePrice ?? item.originalPrice ?? 0,
+        );
+        const divisor = Number(
+          item.deliveredQuantity ?? item.quantity ?? 1,
+        );
+        const unitPrice =
+          basePrice -
+          (item.discount && divisor
+            ? item.discount / divisor
+            : 0);
+        return (
           <LineColumn
             index={row.index}
             control={form.control}
-            name="exchanges"
+            name="returns"
           >
             {(value: any) => {
-              const q = Number(value?.quantity || 0);
-              const p = Number(value?.price ?? row.original.price ?? 0);
+              const returnQty = Number(value?.quantity || 0);
+              const lineAmount = returnQty * unitPrice;
               return (
-                <div className="text-right  font-semibold text-sm">
-                  {formatCurrency(q * p)}
+                <div className="font-semibold text-emerald-600">
+                  {formatCurrency(lineAmount)}
                 </div>
               );
             }}
           </LineColumn>
-        ),
-      }),
-      exchangeColumnHelper.display({
-        id: "actions",
-        header: () => <div className="w-8"></div>,
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => handleRemoveExchange(row.index)}
-              aria-label="Remove item"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ),
-      }),
-    ],
-    [form.control, handleRemoveExchange],
-  );
+        );
+      },
+    }),
+  ],
+  [form.control, errors.returns, salesOrder],
+);
 
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 my-2">
-      {/* Returns Table */}
-      <div className="space-y-2">
+const exchangeColumns = useMemo(
+  () => [
+    exchangeColumnHelper.accessor("name", {
+      header: "Replacement Product",
+      cell: ({ row }) => (
+        <span className="font-medium text-sm">{row.original.name}</span>
+      ),
+    }),
+    exchangeColumnHelper.accessor("unit", {
+      header: () => <div className="text-center">Unit</div>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          <ColorBadge colorMap={UNIT_COLOR}>
+            {row.original.unit || ""}
+          </ColorBadge>
+        </div>
+      ),
+    }),
+    exchangeColumnHelper.accessor("price", {
+      header: () => <div className="text-right">Price</div>,
+      cell: ({ row }) => (
+        <div className="text-right  text-sm">
+          {formatCurrency(row.original.price)}
+        </div>
+      ),
+    }),
+    exchangeColumnHelper.display({
+      id: "quantity",
+      header: () => <div className="text-right">Qty</div>,
+      cell: ({ row }) => {
+        return (
+          <div className="flex justify-end">
+            <Controller
+              control={form.control}
+              name={`exchanges.${row.index}.quantity`}
+              render={({ field }) => (
+                <Input
+                  type="number"
+                  min="1"
+                  {...field}
+                  value={Number(field.value) || ""}
+                  onChange={(e) => {
+                    const val = Math.max(1, Number(e.target.value));
+                    field.onChange(val);
+                  }}
+                  className="h-8 w-24 text-right "
+                />
+              )}
+            />
+          </div>
+        );
+      },
+    }),
+    exchangeColumnHelper.display({
+      id: "total",
+      header: () => <div className="text-right">Total</div>,
+      cell: ({ row }) => (
+        <LineColumn
+          index={row.index}
+          control={form.control}
+          name="exchanges"
+        >
+          {(value: any) => {
+            const q = Number(value?.quantity || 0);
+            const p = Number(value?.price ?? row.original.price ?? 0);
+            return (
+              <div className="text-right  font-semibold text-sm">
+                {formatCurrency(q * p)}
+              </div>
+            );
+          }}
+        </LineColumn>
+      ),
+    }),
+    exchangeColumnHelper.display({
+      id: "actions",
+      header: () => <div className="w-8"></div>,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => handleRemoveExchange(row.index)}
+            aria-label="Remove item"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    }),
+  ],
+  [form.control, handleRemoveExchange],
+);
+
+return (
+  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 my-2">
+    {/* Returns Table */}
+    <div className="space-y-2">
+      <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
+        <span>Items to Return</span>
+        <span className="text-xs  font-normal text-muted-foreground">
+          Total Credit: {formatCurrency(totalReturnAmount)}
+        </span>
+      </h4>
+
+      <div className="border rounded-lg overflow-hidden">
+        <DataTable
+          columns={returnColumns}
+          data={fields as unknown as ReturnTableItem[]}
+          paginate={false}
+        />
+      </div>
+    </div>
+
+    {/* Exchanges Table (Sales Order Only) */}
+    {salesOrder && (
+      <div className="space-y-3">
         <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
-          <span>Items to Return</span>
+          <span>Replacement Items (Exchange)</span>
           <span className="text-xs  font-normal text-muted-foreground">
-            Total Credit: {formatCurrency(totalReturnAmount)}
+            Total Debit: {formatCurrency(totalExchangeAmount)}
           </span>
         </h4>
 
-        <div className="border rounded-lg overflow-hidden">
-          <DataTable
-            columns={returnColumns}
-            data={fields as unknown as ReturnTableItem[]}
-            paginate={false}
-          />
-        </div>
-      </div>
-
-      {/* Exchanges Table (Sales Order Only) */}
-      {salesOrder && (
-        <div className="space-y-3">
-          <h4 className="font-semibold text-sm text-foreground flex items-center justify-between">
-            <span>Replacement Items (Exchange)</span>
-            <span className="text-xs  font-normal text-muted-foreground">
-              Total Debit: {formatCurrency(totalExchangeAmount)}
-            </span>
-          </h4>
-
-          <div className="flex gap-2 items-center">
-            <div className="flex-1">
-              <ProductLookupInput
-                onChange={(product: any) => handleAddExchange(product)}
-              />
-            </div>
+        <div className="flex gap-2 items-center">
+          <div className="flex-1">
+            <ProductLookupInput
+              onChange={(product: any) => handleAddExchange(product)}
+            />
           </div>
-
-          {exchangeFields.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <DataTable
-                columns={exchangeColumns}
-                data={exchangeFields}
-                paginate={false}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Balance & Notes Summary */}
-      <div className="space-y-4">
-        <div>
-          <FormField
-            form={form}
-            name="reason"
-            label="Return Reason / Internal Notes"
-            render={({ field }) => (
-              <Textarea
-                {...field}
-                placeholder="Describe reason for customer return, exchange, or supplier rejection..."
-                rows={2}
-              />
-            )}
-          />
         </div>
 
-        {salesOrder && (
-          <div className="p-4 rounded-xl border bg-muted/30 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-sm">
-                Net Balance Adjustment
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {paymentDifference > 0
-                  ? "Customer owes payment for higher-value replacement items."
-                  : paymentDifference < 0
-                    ? "Store credit / refund is owed to customer."
-                    : "Even exchange: No financial balance change required."}
-              </div>
-            </div>
-            <div
-              className={`text-xl  font-bold ${paymentDifference > 0
-                ? "text-rose-600"
-                : paymentDifference < 0
-                  ? "text-emerald-600"
-                  : "text-foreground"
-                }`}
-            >
-              {paymentDifference > 0
-                ? `Due: +${formatCurrency(paymentDifference)}`
-                : paymentDifference < 0
-                  ? `Refund: -${formatCurrency(Math.abs(paymentDifference))}`
-                  : "₱0.00"}
-            </div>
+        {exchangeFields.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <DataTable
+              columns={exchangeColumns}
+              data={exchangeFields}
+              paginate={false}
+            />
           </div>
         )}
       </div>
+    )}
 
-      <DialogFooter className="gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setReturnExchangeModalOpen(false)}
-          disabled={isPending}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Undo2 className="h-4 w-4" />
+    {/* Balance & Notes Summary */}
+    <div className="space-y-4">
+      <div>
+        <FormField
+          form={form}
+          name="reason"
+          label="Return Reason / Internal Notes"
+          render={({ field }) => (
+            <Textarea
+              {...field}
+              placeholder="Describe reason for customer return, exchange, or supplier rejection..."
+              rows={2}
+            />
           )}
-          {salesOrder ? "Submit Return & Exchange" : "Process Supplier Return"}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
+        />
+      </div>
+
+      {salesOrder && (
+        <div className="p-4 rounded-xl border bg-muted/30 flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-sm">
+              Net Balance Adjustment
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {paymentDifference > 0
+                ? "Customer owes payment for higher-value replacement items."
+                : paymentDifference < 0
+                  ? "Store credit / refund is owed to customer."
+                  : "Even exchange: No financial balance change required."}
+            </div>
+          </div>
+          <div
+            className={`text-xl  font-bold ${paymentDifference > 0
+              ? "text-rose-600"
+              : paymentDifference < 0
+                ? "text-emerald-600"
+                : "text-foreground"
+              }`}
+          >
+            {paymentDifference > 0
+              ? `Due: +${formatCurrency(paymentDifference)}`
+              : paymentDifference < 0
+                ? `Refund: -${formatCurrency(Math.abs(paymentDifference))}`
+                : "₱0.00"}
+          </div>
+        </div>
+      )}
+    </div>
+
+    <DialogFooter className="gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setReturnExchangeModalOpen(false)}
+        disabled={isPending}
+      >
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        disabled={isPending}
+        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+      >
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Undo2 className="h-4 w-4" />
+        )}
+        {salesOrder ? "Submit Return & Exchange" : "Process Supplier Return"}
+      </Button>
+    </DialogFooter>
+  </form>
+);
 }
 
 export default function ReturnExchangeModal({

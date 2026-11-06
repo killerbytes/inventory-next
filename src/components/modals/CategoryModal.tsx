@@ -41,20 +41,31 @@ function CategoryModalContent() {
   const onSubmit = async (values: CategoryUpdateInput) => {
     startTransition(async () => {
       try {
-        if (isEditing && editingCategory?.id) {
-          await updateCategoryAction(editingCategory.id, values);
-          toast.success(`Category "${values.name}" updated successfully!`);
-        } else {
-          await createCategoryAction(values as CategoryInput);
-          toast.success(`Category "${values.name}" saved successfully!`);
+          const res =
+            isEditing && editingCategory?.id
+              ? await updateCategoryAction(editingCategory.id, values)
+              : await createCategoryAction(values as CategoryInput);
+
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(res.error || "Failed to save category");
+            return;
+          }
+
+          toast.success(
+            `Category "${values.name}" ${isEditing ? "updated" : "saved"} successfully!`,
+          );
+          form.reset();
+          setCategoryModalOpen(false);
+          router.refresh();
+        } catch (err: any) {
+          toast.error(err?.message || "Failed to save category");
         }
-        form.reset();
-        setCategoryModalOpen(false);
-        router.refresh();
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to save category");
-      }
-    });
+      });
   };
 
   return (

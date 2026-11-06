@@ -82,18 +82,21 @@ describe("PriceManagerModal (Unit)", () => {
     } as any;
 
     vi.mocked(getPriceHistoryAction).mockResolvedValue({
-      data: [
-        {
-          id: 1,
-          productId: 10,
-          combinationId: 55,
-          fromPrice: "400.00",
-          toPrice: "450.00",
-          changedAt: "2026-10-15T10:00:00.000Z",
-          user: { id: 1, username: "manager1", name: "Manager One" },
-        },
-      ],
-      meta: { total: 1, totalPages: 1, currentPage: 1 },
+      success: true,
+      data: {
+        data: [
+          {
+            id: 1,
+            productId: 10,
+            combinationId: 55,
+            fromPrice: "400.00",
+            toPrice: "450.00",
+            changedAt: "2026-10-15T10:00:00.000Z",
+            user: { id: 1, username: "manager1", name: "Manager One" },
+          },
+        ],
+        meta: { total: 1, totalPages: 1, currentPage: 1 },
+      },
     } as any);
 
     await act(async () => {
@@ -139,11 +142,17 @@ describe("PriceManagerModal (Unit)", () => {
     } as any;
 
     vi.mocked(getPriceHistoryAction).mockResolvedValue({
-      data: [],
-      meta: { total: 0, totalPages: 0, currentPage: 1 },
+      success: true,
+      data: {
+        data: [],
+        meta: { total: 0, totalPages: 0, currentPage: 1 },
+      },
     } as any);
 
-    vi.mocked(updateCombinationPriceAction).mockResolvedValue(true as any);
+    vi.mocked(updateCombinationPriceAction).mockResolvedValue({
+      success: true,
+      data: true,
+    } as any);
 
     await act(async () => {
       useUIStore.setState({

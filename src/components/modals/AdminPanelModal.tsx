@@ -17,8 +17,12 @@ function AdminPanelModalContent() {
     setIsBackingUp(true);
     try {
       const res = await triggerBackupAction();
+      if (!res.success) {
+        toast.error(res.error || "Database backup routine failed.");
+        return;
+      }
       toast.success(
-        res.message || "Database backup workflow triggered successfully!"
+        res.data?.message || "Database backup workflow triggered successfully!"
       );
     } catch (err: any) {
       toast.error(err?.message || "Database backup routine failed.");

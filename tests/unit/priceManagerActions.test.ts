@@ -59,8 +59,11 @@ describe("Price Manager Actions (Unit)", () => {
       expect(inventoryServerService.getPriceHistory).toHaveBeenCalledWith({
         combinationId: 20,
       });
-      expect(res.data).toHaveLength(1);
-      expect(res.data[0].toPrice).toBe("120.00");
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.data).toHaveLength(1);
+        expect(res.data.data[0].toPrice).toBe("120.00");
+      }
     });
   });
 
@@ -79,7 +82,7 @@ describe("Price Manager Actions (Unit)", () => {
       );
       expect(revalidatePath).toHaveBeenCalledWith("/products");
       expect(revalidatePath).toHaveBeenCalledWith("/price-manager");
-      expect(res).toBe(true);
+      expect(res).toEqual({ success: true, data: true });
     });
   });
 });

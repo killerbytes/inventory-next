@@ -69,7 +69,7 @@ function PriceManagerModalContent() {
     setIsLoadingHistory(true);
     try {
       const res = await getPriceHistoryAction({ combinationId });
-      setHistoryLogs(res?.data || []);
+      setHistoryLogs(res?.success && res.data?.data ? res.data.data : []);
     } catch (err: any) {
       console.error("Failed to load price history:", err);
       toast.error("Failed to load price history logs.");
@@ -100,10 +100,15 @@ function PriceManagerModalContent() {
 
     startTransition(async () => {
       try {
-        await updateCombinationPriceAction({
-          combinationId: Number(combinationId),
-          price: parsedPrice,
-        });
+          const res = await updateCombinationPriceAction({
+            combinationId: Number(combinationId),
+            price: parsedPrice,
+          });
+
+          if(res && !res.success) {
+          toast.error(res.error || "Failed to update price.");
+          return;
+        }
 
         toast.success(`SRP updated to ${formatCurrency(parsedPrice)} successfully!`);
         setCurrentSrp(parsedPrice);

@@ -24,7 +24,11 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
     setTestSession(null);
 
     // Act & Assert
-    await expect(getDashboardDataAction()).rejects.toThrow(/Unauthorized/i);
+    const res = await getDashboardDataAction();
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Unauthorized/i),
+    });
   });
 
   it("should FORBID regular user from creating users via createUserAction", async () => {
@@ -37,15 +41,17 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
     });
 
     // Act & Assert
-    await expect(
-      createUserAction({
-        name: "Hacker User",
-        username: "hacker",
-        email: "hacker@test.com",
-        password: "Password123!",
-        confirmPassword: "Password123!",
-      })
-    ).rejects.toThrow(/Forbidden.*permission/i);
+    const res = await createUserAction({
+      name: "Hacker User",
+      username: "hacker",
+      email: "hacker@test.com",
+      password: "Password123!",
+      confirmPassword: "Password123!",
+    });
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Forbidden.*permission/i),
+    });
   });
 
   it("should FORBID regular user from triggering database backup via triggerBackupAction", async () => {
@@ -58,7 +64,11 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
     });
 
     // Act & Assert
-    await expect(triggerBackupAction()).rejects.toThrow(/Forbidden.*permission/i);
+    const res = await triggerBackupAction();
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Forbidden.*permission/i),
+    });
   });
 
   it("should FORBID regular user from deleting good receipts via deleteGoodReceiptAction", async () => {
@@ -71,7 +81,11 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
     });
 
     // Act & Assert
-    await expect(deleteGoodReceiptAction(1)).rejects.toThrow(/Forbidden.*permission/i);
+    const res = await deleteGoodReceiptAction(1);
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Forbidden.*permission/i),
+    });
   });
 
   describe("changePasswordAction Security Guardrails", () => {

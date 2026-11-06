@@ -22,23 +22,29 @@ beforeEach(async () => {
 describe("Action Protection & Schema Validation (Integration)", () => {
   it("should reject unauthenticated call to createCategoryAction", async () => {
     // Act & Assert
-    await expect(
-      createCategoryAction({ name: "Protected Category" })
-    ).rejects.toThrow(/Unauthorized/i);
+    const res = await createCategoryAction({ name: "Protected Category" });
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Unauthorized/i),
+    });
   });
 
   it("should reject unauthenticated call to createCustomerAction", async () => {
     // Act & Assert
-    await expect(
-      createCustomerAction({ name: "Protected Customer" })
-    ).rejects.toThrow(/Unauthorized/i);
+    const res = await createCustomerAction({ name: "Protected Customer" });
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Unauthorized/i),
+    });
   });
 
   it("should reject unauthenticated call to createSupplierAction", async () => {
     // Act & Assert
-    await expect(
-      createSupplierAction({ name: "Protected Supplier" })
-    ).rejects.toThrow(/Unauthorized/i);
+    const res = await createSupplierAction({ name: "Protected Supplier" });
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/Unauthorized/i),
+    });
   });
 
   it("should allow cancelSalesOrderAction with reason without schema validation errors", async () => {
@@ -55,14 +61,11 @@ describe("Action Protection & Schema Validation (Integration)", () => {
 
     // Act: simulate action call (with mock session or admin context)
     // Here we verify cancelSalesOrderAction signature and schema compatibility
-    try {
-      await cancelSalesOrderAction(order!.id, "Customer requested cancellation");
-    } catch (err: any) {
-      // Must NOT fail with Zod validation error ("expected object, received string")
-      expect(err?.name).not.toBe("ZodError");
-      expect(err?.message).not.toContain("Required");
-    }
-  });
+      const res = await cancelSalesOrderAction(order!.id, "Customer requested cancellation");
+      if (!res.success) {
+        expect(res.error).not.toContain("Required");
+      }
+    });
 
   it("should allow deleteGoodReceiptAction with ID without schema validation errors", async () => {
     // Arrange
@@ -77,12 +80,10 @@ describe("Action Protection & Schema Validation (Integration)", () => {
     } as any, 1);
 
     // Act & Assert: Must NOT fail with ZodError (expected object, received number)
-    try {
-      await deleteGoodReceiptAction(gr.id);
-    } catch (err: any) {
-      expect(err?.name).not.toBe("ZodError");
-      expect(err?.message).not.toContain("Expected object, received number");
-    }
-  });
+      const res = await deleteGoodReceiptAction(gr.id);
+      if (!res.success) {
+        expect(res.error).not.toContain("Expected object, received number");
+      }
+    });
 });
 

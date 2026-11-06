@@ -41,3 +41,11 @@ export type SalesOrderSummary = {
   totalReturnAmount: number;
   totalExchangeAmount: number;
 };
+
+/**
+ * Standard Result contract for Server Actions preventing Next.js production error masking.
+ */
+export type ActionResult<T = unknown> =
+  | { success: true; data: T; message?: string }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+

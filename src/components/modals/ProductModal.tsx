@@ -66,12 +66,30 @@ function ProductModalContent() {
     startTransition(async () => {
       try {
         if (isEditing && editingProduct?.id) {
-          await updateProductAction(editingProduct.id, values);
+          const res = await updateProductAction(editingProduct.id, values);
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(res.error || "Failed to update product");
+            return;
+          }
           toast.success(`Product "${values.name}" updated successfully!`);
           router.refresh();
         } else {
-          const result = await createProductAction(values);
-          router.push(`/products/${result.id}`);
+          const res = await createProductAction(values);
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(res.error || "Failed to create product");
+            return;
+          }
+          router.push(`/products/${res.data?.id}`);
           toast.success(`Product "${values.name}" created successfully!`);
         }
 

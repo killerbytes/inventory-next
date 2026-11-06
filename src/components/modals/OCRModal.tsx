@@ -49,9 +49,15 @@ export default function OCRModal({ isOpen, onClose, onApplyItems }: OCRModalProp
 
     try {
       toast.loading("Analyzing receipt with Gemini AI...", { id: "ocr-parse" });
-      const result = await parseReceiptAction(formData);
+      const res = await parseReceiptAction(formData);
       toast.dismiss("ocr-parse");
 
+      if (!res.success) {
+        toast.error(res.error || "Failed to analyze receipt");
+        return;
+      }
+
+      const result = res.data;
       if (result) {
         setReceiptNo(result.receiptNo || `REC-${Date.now()}`);
         const parsedArticles = (result.articles || []).map((art: any) => {

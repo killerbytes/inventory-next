@@ -48,9 +48,11 @@ describe("AdminPanelModal (Unit)", () => {
     // Arrange: open modal and mock successful action
     vi.mocked(triggerBackupAction).mockResolvedValue({
       success: true,
-      message: "Database backup workflow triggered on GitHub Actions.",
-      timestamp: "2026-10-16T08:00:00.000Z",
-      dispatchedTo: "github-actions",
+      data: {
+        message: "Database backup workflow triggered on GitHub Actions.",
+        timestamp: "2026-10-16T08:00:00.000Z",
+        dispatchedTo: "github-actions",
+      },
     });
 
     act(() => {

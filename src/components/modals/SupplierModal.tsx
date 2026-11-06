@@ -41,29 +41,46 @@ function SupplierModalContent() {
   const onSubmit = async (values: SupplierInput) => {
     startTransition(async () => {
       try {
-        if (isEditing && editingSupplier?.id) {
-          await updateSupplierAction(editingSupplier.id, values);
-        } else {
-          await createSupplierAction(values);
-        }
-        toast.success(
-          `Supplier "${values.name}" ${isEditing ? "updated" : "created"} successfully!`,
-        );
-        form.reset();
-        setSupplierModalOpen(false, null);
-        router.refresh();
-      } catch (err: any) {
-        toast.error(
-          err?.message ||
+          const res =
+            isEditing && editingSupplier?.id
+              ? await updateSupplierAction(editingSupplier.id, values)
+              : await createSupplierAction(values);
+
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(
+              res.error ||
+              `Failed to ${isEditing ? "update" : "create"} supplier`,
+            );
+            return;
+          }
+
+          toast.success(
+            `Supplier "${values.name}" ${isEditing ? "updated" : "created"} successfully!`,
+          );
+          form.reset();
+          setSupplierModalOpen(false, null);
+          router.refresh();
+        } catch (err: any) {
+          toast.error(
+            err?.message ||
             `Failed to ${isEditing ? "update" : "create"} supplier`,
-        );
-      }
-    });
+          );
+        }
+      });
   };
   const onDelete = () => {
     startTransition(async () => {
       try {
-        await deleteSupplierAction(editingSupplier?.id!);
+        const res = await deleteSupplierAction(editingSupplier?.id!);
+        if (res && !res.success) {
+          toast.error(res.error || "Failed to delete supplier");
+          return;
+        }
         toast.success("Supplier deleted successfully!");
         form.reset();
         setSupplierModalOpen(false, null);

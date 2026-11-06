@@ -34,6 +34,11 @@ export default function DashboardError({
             {error.message ||
               "An unexpected error occurred while loading dashboard data."}
           </CardDescription>
+          {error.digest && (
+            <p className="text-xs text-muted-foreground font-mono mt-2">
+              Error Digest: {error.digest}
+            </p>
+          )}
         </CardHeader>
         <CardContent className="flex justify-center pt-2">
           <Button

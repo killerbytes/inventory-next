@@ -118,9 +118,10 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
         }
 
         try {
-          const latestCombos = await getCombinationsByIdsAction(combinationIds);
+          const res = await getCombinationsByIdsAction(combinationIds);
           if (!isMounted) return;
 
+          const latestCombos = res.success && res.data ? res.data : [];
           const comboMap = new Map<number, ProductCombinationData>(
             (latestCombos || []).map((combo: ProductCombinationData) => [Number(combo.id), combo]),
           );
@@ -190,7 +191,16 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             ({ combination, ...item }) => item,
           ),
         };
-        await createSalesOrderAction(payload);
+        const res = await createSalesOrderAction(payload);
+        if (res && !res.success) {
+          if (res.fieldErrors) {
+            Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+              form.setError(field as any, { message: messages?.[0] });
+            });
+          }
+          toast.error(res.error || "Failed to save draft.");
+          return;
+        }
         toast.success("Draft saved successfully!");
       } catch (error: any) {
         toast.error(error.message || "Failed to save draft.");
@@ -208,7 +218,16 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
             ({ combination, ...item }) => item,
           ),
         };
-        await createSalesOrderAction(payload);
+        const res = await createSalesOrderAction(payload);
+        if (res && !res.success) {
+          if (res.fieldErrors) {
+            Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+              form.setError(field as any, { message: messages?.[0] });
+            });
+          }
+          toast.error(res.error || "Failed to create sales order.");
+          return;
+        }
         clearDraft(DRAFT_STORAGE_KEYS.SALES_ORDER);
         toast.success(`Sales order created successfully!`);
         setSalesOrderModalOpen(false);

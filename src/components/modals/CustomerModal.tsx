@@ -41,27 +41,41 @@ function CustomerModalContent() {
   const onSubmit = async (values: CustomerInput) => {
     startTransition(async () => {
       try {
-        if (isEditing && editingCustomer?.id) {
-          await updateCustomerAction(editingCustomer.id, values);
-        } else {
-          await createCustomerAction(values);
+          const res =
+            isEditing && editingCustomer?.id
+              ? await updateCustomerAction(editingCustomer.id, values)
+              : await createCustomerAction(values);
+
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(res.error || "Failed to register customer");
+            return;
+          }
+
+          toast.success(
+            `Customer "${values.name}" ${isEditing ? "updated" : "registered"} successfully!`,
+          );
+          form.reset();
+          setCustomerModalOpen(false, null);
+          router.refresh();
+        } catch (err: any) {
+          toast.error(err?.message || "Failed to register customer");
         }
-        toast.success(
-          `Customer "${values.name}" ${isEditing ? "updated" : "registered"} successfully!`,
-        );
-        form.reset();
-        setCustomerModalOpen(false, null);
-        router.refresh();
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to register customer");
-      }
-    });
+      });
   };
 
   const onDelete = () => {
     startTransition(async () => {
       try {
-        await deleteCustomerAction(editingCustomer?.id!);
+        const res = await deleteCustomerAction(editingCustomer?.id!);
+        if (res && !res.success) {
+          toast.error(res.error || "Failed to delete customer");
+          return;
+        }
         toast.success("Customer deleted successfully!");
         form.reset();
         setCustomerModalOpen(false, null);

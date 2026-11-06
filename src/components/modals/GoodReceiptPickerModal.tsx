@@ -44,7 +44,7 @@ function GoodReceiptPickerModalContent({
       .then((res) => {
         if (!mounted) return;
 
-        const items = res?.data || [];
+        const items = res?.success && res.data?.data ? res.data.data : [];
         setData(items);
 
         // Pre-select items that match defaultSelected

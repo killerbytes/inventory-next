@@ -112,7 +112,10 @@ describe("SalesOrderModal Draft Rehydration (Unit)", () => {
         quantity: "50",
       },
     };
-    vi.mocked(getCombinationsByIdsAction).mockResolvedValue([freshCombination as any]);
+    vi.mocked(getCombinationsByIdsAction).mockResolvedValue({
+      success: true,
+      data: [freshCombination as any],
+    });
 
     // Act: Open modal and render
     act(() => {
@@ -159,7 +162,10 @@ describe("SalesOrderModal Draft Rehydration (Unit)", () => {
     saveDraft(DRAFT_STORAGE_KEYS.SALES_ORDER, staleDraft);
 
     // Server returns empty array because combo 999 is deleted
-    vi.mocked(getCombinationsByIdsAction).mockResolvedValue([]);
+    vi.mocked(getCombinationsByIdsAction).mockResolvedValue({
+      success: true,
+      data: [],
+    });
 
     // Act
     act(() => {

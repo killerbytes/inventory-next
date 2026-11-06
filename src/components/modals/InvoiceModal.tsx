@@ -113,7 +113,7 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
   useEffect(() => {
     if (!propSuppliers || propSuppliers.length === 0) {
       getSuppliersAction()
-        .then((data) => setSuppliers(data || []))
+        .then((res) => setSuppliers(res.success && res.data ? res.data : []))
         .catch((err) => console.error("Error loading suppliers:", err));
     }
   }, [propSuppliers]);
@@ -157,249 +157,257 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
           invoiceLines,
         };
 
-        if (isEditing) {
-          await updateInvoiceAction(editingInvoice.id, payload);
-          toast.success(
-            `Invoice #${values.invoiceNumber} updated successfully`,
-          );
-        } else {
-          await createInvoiceAction(payload);
-          toast.success(
-            targetStatus === INVOICE_STATUS.POSTED
-              ? `Invoice #${values.invoiceNumber} created and posted`
-              : `Invoice #${values.invoiceNumber} saved as draft`,
-          );
-        }
+        const res = isEditing
+            ? await updateInvoiceAction(editingInvoice.id, payload)
+            : await createInvoiceAction(payload);
 
-        setInvoiceModalOpen(false);
-        router.refresh();
-      } catch (err: any) {
-        console.error("Error submitting invoice:", err);
-        toast.error(err.message || "Failed to save invoice");
-      }
-    });
+          if (res && !res.success) {
+            if (res.fieldErrors) {
+              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+                form.setError(field as any, { message: messages?.[0] });
+              });
+            }
+            toast.error(res.error || "Failed to save invoice");
+            return;
+          }
+
+          toast.success(
+            isEditing
+              ? `Invoice #${values.invoiceNumber} updated successfully`
+              : targetStatus === INVOICE_STATUS.POSTED
+                ? `Invoice #${values.invoiceNumber} created and posted`
+                : `Invoice #${values.invoiceNumber} saved as draft`,
+        );
+
+    setInvoiceModalOpen(false);
+    router.refresh();
+  } catch (err: any) {
+    console.error("Error submitting invoice:", err);
+    toast.error(err.message || "Failed to save invoice");
+  }
+});
   };
 
-  const totalInvoiceAmount = useMemo(() => {
-    return selectedGr.reduce(
-      (sum: number, item: InvoiceGoodReceipt) =>
-        sum +
-        Math.max(
-          0,
-          Number(item.totalAmount) - Number(item.totalReturnAmount || 0),
-        ),
-      0,
-    );
-  }, [selectedGr]);
-
-  const columns: ColumnDef<InvoiceGoodReceipt>[] = useMemo(
-    () => [
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-rose-500 hover:text-rose-700"
-            onClick={() => handleRemoveGr(row.original.id)}
-          >
-            <Trash2 />
-          </Button>
-        ),
-      },
-      {
-        accessorKey: "referenceNo",
-        header: "Reference",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.original.referenceNo}</span>
-        ),
-      },
-      {
-        accessorKey: "receiptDate",
-        header: "Receipt Date",
-        meta: {
-          className: "text-xs text-muted-foreground",
-        },
-        cell: ({ row }) => formatDate(row.original.receiptDate),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-          <ColorBadge colorMap={STATUS_COLOR}>
-            {String(row.original.status)}
-          </ColorBadge>
-        ),
-      },
-      {
-        accessorKey: "totalAmount",
-        header: () => <div className="text-right">Net Payable</div>,
-        meta: {
-          align: "right",
-          className: "font-medium",
-        },
-        cell: ({ row }) => {
-          const net = Math.max(
-            0,
-            Number(row.original.totalAmount || 0) -
-            Number(row.original.totalReturnAmount || 0),
-          );
-          return formatCurrency(net);
-        },
-      },
-    ],
-    [selectedGr],
+const totalInvoiceAmount = useMemo(() => {
+  return selectedGr.reduce(
+    (sum: number, item: InvoiceGoodReceipt) =>
+      sum +
+      Math.max(
+        0,
+        Number(item.totalAmount) - Number(item.totalReturnAmount || 0),
+      ),
+    0,
   );
+}, [selectedGr]);
 
-  return (
-    <>
-      <form className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <FormField
-            form={form}
-            name="supplierId"
-            label="Supplier *"
-            render={({ field, fieldState }) => (
-              <Autocomplete
-                options={suppliers || []}
-                placeholder="Supplier"
-                aria-invalid={fieldState.invalid}
-                onChange={(value) => {
-                  form.setValue("supplierId", Number(value.id), {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                }}
-              >
-                <AutocompleteValue
-                  value={
-                    suppliers?.find((supplier) => supplier.id === field.value)
-                      ?.name
-                  }
-                />
-              </Autocomplete>
-            )}
-          />
+const columns: ColumnDef<InvoiceGoodReceipt>[] = useMemo(
+  () => [
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-rose-500 hover:text-rose-700"
+          onClick={() => handleRemoveGr(row.original.id)}
+        >
+          <Trash2 />
+        </Button>
+      ),
+    },
+    {
+      accessorKey: "referenceNo",
+      header: "Reference",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.referenceNo}</span>
+      ),
+    },
+    {
+      accessorKey: "receiptDate",
+      header: "Receipt Date",
+      meta: {
+        className: "text-xs text-muted-foreground",
+      },
+      cell: ({ row }) => formatDate(row.original.receiptDate),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <ColorBadge colorMap={STATUS_COLOR}>
+          {String(row.original.status)}
+        </ColorBadge>
+      ),
+    },
+    {
+      accessorKey: "totalAmount",
+      header: () => <div className="text-right">Net Payable</div>,
+      meta: {
+        align: "right",
+        className: "font-medium",
+      },
+      cell: ({ row }) => {
+        const net = Math.max(
+          0,
+          Number(row.original.totalAmount || 0) -
+          Number(row.original.totalReturnAmount || 0),
+        );
+        return formatCurrency(net);
+      },
+    },
+  ],
+  [selectedGr],
+);
 
-          <FormField
-            form={form}
-            name="invoiceNumber"
-            label="Invoice Number *"
-            placeholder="Supplier Invoice #"
-          />
-
-          <FormField
-            form={form}
-            name="invoiceDate"
-            label="Invoice Date"
-            render={({ field }) => <DatePicker {...field} />}
-          />
-
-          <FormField
-            form={form}
-            name="dueDate"
-            label="Due Date"
-            render={({ field }) => <DatePicker {...field} />}
-          />
-        </div>
-
+return (
+  <>
+    <form className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <FormField
           form={form}
-          name="notes"
-          label="Notes"
-          render={({ field }) => (
-            <Textarea
-              id="notes"
-              placeholder="Terms, payment instructions, or internal remarks..."
-              rows={2}
-              {...field}
-            />
+          name="supplierId"
+          label="Supplier *"
+          render={({ field, fieldState }) => (
+            <Autocomplete
+              options={suppliers || []}
+              placeholder="Supplier"
+              aria-invalid={fieldState.invalid}
+              onChange={(value) => {
+                form.setValue("supplierId", Number(value.id), {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                });
+              }}
+            >
+              <AutocompleteValue
+                value={
+                  suppliers?.find((supplier) => supplier.id === field.value)
+                    ?.name
+                }
+              />
+            </Autocomplete>
           )}
         />
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="font-semibold">
-              Billed Good Receipts ({selectedGr.length})
-            </Label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!selectedSupplierId}
-              onClick={() => setGoodReceiptPickerModalOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" /> Add Good Receipts
-            </Button>
-          </div>
+        <FormField
+          form={form}
+          name="invoiceNumber"
+          label="Invoice Number *"
+          placeholder="Supplier Invoice #"
+        />
 
-          <div className="border rounded-md max-h-[35vh] overflow-y-auto">
-            <DataTable
-              data={selectedGr}
-              columns={columns}
-              renderFooter={() => (
-                <tr className="border-t font-semibold bg-muted/50">
-                  <td colSpan={4} className="p-3 text-right">
-                    Total Invoice Amount:
-                  </td>
-                  <td className="p-3 text-right  font-bold text-base text-primary">
-                    {formatCurrency(totalInvoiceAmount)}
-                  </td>
-                  <td></td>
-                </tr>
-              )}
-            />
-          </div>
+        <FormField
+          form={form}
+          name="invoiceDate"
+          label="Invoice Date"
+          render={({ field }) => <DatePicker {...field} />}
+        />
+
+        <FormField
+          form={form}
+          name="dueDate"
+          label="Due Date"
+          render={({ field }) => <DatePicker {...field} />}
+        />
+      </div>
+
+      <FormField
+        form={form}
+        name="notes"
+        label="Notes"
+        render={({ field }) => (
+          <Textarea
+            id="notes"
+            placeholder="Terms, payment instructions, or internal remarks..."
+            rows={2}
+            {...field}
+          />
+        )}
+      />
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-semibold">
+            Billed Good Receipts ({selectedGr.length})
+          </Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!selectedSupplierId}
+            onClick={() => setGoodReceiptPickerModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add Good Receipts
+          </Button>
         </div>
 
-        <DialogFooter className="items-center justify-between!">
+        <div className="border rounded-md max-h-[35vh] overflow-y-auto">
+          <DataTable
+            data={selectedGr}
+            columns={columns}
+            renderFooter={() => (
+              <tr className="border-t font-semibold bg-muted/50">
+                <td colSpan={4} className="p-3 text-right">
+                  Total Invoice Amount:
+                </td>
+                <td className="p-3 text-right  font-bold text-base text-primary">
+                  {formatCurrency(totalInvoiceAmount)}
+                </td>
+                <td></td>
+              </tr>
+            )}
+          />
+        </div>
+      </div>
+
+      <DialogFooter className="items-center justify-between!">
+        <Button
+          variant="outline"
+          type="button"
+          onClick={() => setInvoiceModalOpen(false)}
+          disabled={isPending}
+        >
+          Cancel
+        </Button>
+        <div className="flex gap-2">
           <Button
-            variant="outline"
             type="button"
-            onClick={() => setInvoiceModalOpen(false)}
+            variant="secondary"
             disabled={isPending}
+            onClick={form.handleSubmit((vals) =>
+              submitWithStatus(vals, INVOICE_STATUS.DRAFT),
+            )}
           >
-            Cancel
+            Save as Draft
           </Button>
-          <div className="flex gap-2">
+          <ConfirmDialog
+            title="Post Invoice"
+            description="Posting this invoice will automatically transition all associated Good Receipts to COMPLETED status and make this invoice payable. This cannot be undone."
+            onConfirm={() =>
+              form.handleSubmit((vals) =>
+                submitWithStatus(vals, INVOICE_STATUS.POSTED),
+              )()
+            }
+          >
             <Button
               type="button"
-              variant="secondary"
-              disabled={isPending}
-              onClick={form.handleSubmit((vals) =>
-                submitWithStatus(vals, INVOICE_STATUS.DRAFT),
-              )}
+              disabled={isPending || selectedGr.length === 0}
             >
-              Save as Draft
+              Post Invoice
             </Button>
-            <ConfirmDialog
-              title="Post Invoice"
-              description="Posting this invoice will automatically transition all associated Good Receipts to COMPLETED status and make this invoice payable. This cannot be undone."
-              onConfirm={() =>
-                form.handleSubmit((vals) =>
-                  submitWithStatus(vals, INVOICE_STATUS.POSTED),
-                )()
-              }
-            >
-              <Button
-                type="button"
-                disabled={isPending || selectedGr.length === 0}
-              >
-                Post Invoice
-              </Button>
-            </ConfirmDialog>
-          </div>
-        </DialogFooter>
-      </form>
+          </ConfirmDialog>
+        </div>
+      </DialogFooter>
+    </form>
 
-      <GoodReceiptPickerModal
-        supplierId={Number(selectedSupplierId)}
-        onSubmit={handlePickerSubmit}
-        defaultSelected={selectedGr}
-      />
-    </>
-  );
+    <GoodReceiptPickerModal
+      supplierId={Number(selectedSupplierId)}
+      onSubmit={handlePickerSubmit}
+      defaultSelected={selectedGr}
+    />
+  </>
+);
 }
 
 export default function InvoiceModal({

@@ -19,8 +19,8 @@ export function LazyProductsByCategory({ categoryId }: { categoryId: number }) {
   React.useEffect(() => {
     (async () => {
       setIsLoading(true);
-      const result = await getProductCombinationsByCategoryIdAction(categoryId);
-      setData(result);
+      const res = await getProductCombinationsByCategoryIdAction(categoryId);
+      setData(res.success && res.data ? res.data : []);
       setIsLoading(false);
     })();
   }, [categoryId]);

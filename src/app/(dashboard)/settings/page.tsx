@@ -28,8 +28,12 @@ export default function SettingsPage() {
     setIsBackingUp(true);
     try {
       const res = await triggerBackupAction();
-      setLastBackup(res.timestamp);
-      toast.success(res.message || "Database backup completed successfully!");
+      if (!res.success) {
+        toast.error(res.error || "Failed to trigger database backup");
+        return;
+      }
+      setLastBackup(res.data.timestamp);
+      toast.success(res.data.message || "Database backup completed successfully!");
     } catch (err: any) {
       toast.error(err?.message || "Failed to trigger database backup");
     } finally {
