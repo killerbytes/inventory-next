@@ -29,3 +29,5 @@ yarn-error.log*
 GEMINI
 backups/
 tsconfig.tsbuildinfo
+# Sentry Config File
+.env.sentry-build-plugin
