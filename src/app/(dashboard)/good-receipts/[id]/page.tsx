@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import GoodReceiptDetailClientWidget from "@/components/widgets/GoodReceiptDetailClientWidget";
 import { GoodReceiptData } from "@/schemas";
 import { goodReceiptServerService } from "@/server/services/goodReceiptServer.service";
@@ -10,6 +12,7 @@ export default async function GoodReceiptDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_GOODS);
   const { id } = await params;
   let receipt: GoodReceiptData | null = null;
   try {

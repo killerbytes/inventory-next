@@ -73,7 +73,6 @@ export interface SearchProductCombinationsInput {
 export interface UpdatePriceItem {
   id: number | string;
   newPrice: number;
-  userId?: number;
 }
 
 export const productCombinationServerService = {
@@ -187,7 +186,7 @@ export const productCombinationServerService = {
   updateByProductId: async (
     productId: number | string,
     combinationsList: ProductCombinationUpdate[],
-    userId: number = 1,
+    userId: number,
   ) => {
     const numProductId = Number(productId);
     try {
@@ -716,7 +715,7 @@ export const productCombinationServerService = {
     return results;
   },
 
-  breakPack: async (payload: BreakPackInput, userId: number = 1) => {
+  breakPack: async (payload: BreakPackInput, userId: number) => {
     const { fromCombinationId, quantity, toCombinationId } = payload;
     const numFromId = Number(fromCombinationId);
     const numToId = Number(toCombinationId);
@@ -876,7 +875,7 @@ export const productCombinationServerService = {
 
   stockAdjustment: async (
     payload: StockAdjustmentInput,
-    userId: number = 1,
+    userId: number,
   ) => {
     const validatedData = stockAdjustmentInputSchema.parse(payload);
     const { combinationId, newQuantity, reason, notes } = validatedData;
@@ -964,7 +963,7 @@ export const productCombinationServerService = {
     }));
   },
 
-  updatePrices: async (list: UpdatePriceItem[], userId: number = 1) => {
+  updatePrices: async (list: UpdatePriceItem[], userId: number) => {
     return await db.transaction(async (tx) => {
       for (const item of list) {
         const numId = Number(item.id);

@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import React from "react";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import InvoiceDetailClientWidget from "@/components/widgets/InvoiceDetailClientWidget";
@@ -9,6 +11,7 @@ export default async function InvoiceDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission(PERMISSIONS.MANAGE_INVOICES);
   const { id } = await params;
   let invoice: any = null;
   try {

@@ -714,6 +714,7 @@ describe("Inventory Service & Concurrency Integration Tests", () => {
         } as any,
       ],
       "Defective",
+      user0.id,
     );
 
     const inventoryAfter = await db.query.inventories.findFirst({

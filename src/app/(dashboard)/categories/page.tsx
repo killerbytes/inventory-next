@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import CategoriesWidget from "@/components/widgets/CategoriesWidget";
 import { categoryServerService } from "@/server/services";
 
@@ -7,6 +9,7 @@ export const metadata = {
 };
 
 export default async function CategoriesPage() {
+  await requirePermission(PERMISSIONS.MANAGE_CATEGORIES);
   let categories: any[] = [];
   try {
     categories = await categoryServerService.getAll();

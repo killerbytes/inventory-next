@@ -5,6 +5,9 @@ import { salesServerService } from "@/server/services/salesServer.service";
 import { paymentServerService } from "@/server/services/paymentServer.service";
 import { db } from "@/server/db/drizzle";
 
+/** Mocked transactions never resolve a real user; any positive id satisfies the audit guard. */
+const ACTING_USER_ID = 42;
+
 describe("Cross-Service Soft-Delete Hardening (Unit)", () => {
   describe("reportsServerService.getProfitSummary", () => {
     it("should query only non-deleted sales orders and non-deleted sales order items", async () => {
@@ -103,6 +106,13 @@ describe("Cross-Service Soft-Delete Hardening (Unit)", () => {
               },
             },
           },
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                for: async () => [{ id: 99 }],
+              }),
+            }),
+          }),
           insert: () => ({
             values: () => ({
               returning: async () => [{ id: 1 }],
@@ -117,7 +127,7 @@ describe("Cross-Service Soft-Delete Hardening (Unit)", () => {
         return await callback(mockTx);
       });
 
-      await salesServerService.returnExchange(99, [], [], "test");
+      await salesServerService.returnExchange(99, [], [], "test", ACTING_USER_ID);
 
       expect(withConfig).toBeDefined();
       expect(typeof withConfig?.salesOrderItems?.where).toBe("function");

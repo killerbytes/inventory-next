@@ -137,7 +137,7 @@ export const invoiceServerService = {
     return await invoiceServerService.getAll(params);
   },
 
-  create: async (data: InvoiceInput, userId?: number) => {
+  create: async (data: InvoiceInput, userId: number) => {
     try {
       return await db.transaction(async (tx) => {
         const lines = data.invoiceLines || [];
@@ -182,7 +182,7 @@ export const invoiceServerService = {
             dueDate: data.dueDate ? new Date(data.dueDate) : null,
             status: data.status || INVOICE_STATUS.DRAFT,
             notes: data.notes || null,
-            changedBy: userId ?? 1,
+            changedBy: userId,
             createdAt: new Date(),
             updatedAt: new Date(),
           })

@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import InvoicesClientWidget from "@/components/widgets/InvoicesClientWidget";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import { supplierServerService } from "@/server/services/supplierServer.service";
@@ -11,6 +13,7 @@ export default async function InvoicesPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.MANAGE_INVOICES);
   const params = (await searchParams) || {};
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 25;

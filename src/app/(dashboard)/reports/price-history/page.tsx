@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import PriceHistoryClientWidget from "@/components/widgets/PriceHistoryClientWidget";
 import { inventoryServerService } from "@/server/services/inventoryServer.service";
 
@@ -8,6 +10,7 @@ export default async function PriceHistoryPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_REPORTS);
   const params = (await searchParams) || {};
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 25;

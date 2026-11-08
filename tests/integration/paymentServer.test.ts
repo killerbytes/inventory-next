@@ -14,13 +14,15 @@ import {
   createVariantType,
 } from "../utils/fixtures";
 
+let user0: any;
+
 beforeAll(async () => {
   await setupDatabase();
 });
 
 beforeEach(async () => {
   await resetDatabase();
-  await createUser(0);
+  user0 = await createUser(0);
   await createCategory(0);
   await createCategory(1);
   await createProduct(0);
@@ -40,7 +42,7 @@ beforeEach(async () => {
       quantity: line.quantity,
       purchasePrice: line.purchasePrice,
     })),
-  });
+  }, user0.id);
 
   const gr2 = await goodReceiptServerService.get(2);
   await goodReceiptServerService.update(2, {
@@ -50,7 +52,7 @@ beforeEach(async () => {
       quantity: line.quantity,
       purchasePrice: line.purchasePrice,
     })),
-  });
+  }, user0.id);
 
   await createInvoice();
 });

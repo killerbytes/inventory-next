@@ -1,7 +1,11 @@
 "use server";
 
 import { PERMISSIONS } from "@/lib/rbac";
-import { SalesOrderInputSchema } from "@/schemas/salesOrder.schema";
+import {
+  ReturnExchangeInput,
+  ReturnExchangeInputSchema,
+  SalesOrderInputSchema,
+} from "@/schemas/salesOrder.schema";
 import { salesServerService } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
@@ -29,20 +33,18 @@ export const cancelSalesOrderAction = createProtectedAction({
 
 export const returnExchangeAction = createProtectedAction({
   permission: PERMISSIONS.RETURN_EXCHANGE_SALES,
-  handler: async (
-    _ctx,
-    id: number,
-    data: {
-      returns?: { combinationId: number; quantity: number }[];
-      exchanges?: { combinationId: number; quantity: number }[];
-      reason?: string;
-    },
-  ) => {
+  schema: ReturnExchangeInputSchema,
+  handler: async ({ user }, id: number, data: ReturnExchangeInput) => {
+    const orderId = Number(id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      throw new Error("Invalid sales order id");
+    }
     const result = await salesServerService.returnExchange(
-      id,
-      data.returns || [],
-      data.exchanges || [],
+      orderId,
+      data.returns,
+      data.exchanges,
       data.reason || "Customer Return/Exchange",
+      user.id,
     );
     revalidatePath("/sales-orders");
     revalidatePath(`/sales-orders/${id}`);

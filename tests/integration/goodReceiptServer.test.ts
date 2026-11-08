@@ -175,7 +175,7 @@ describe("Good Receipt Service (Integration)", () => {
 
   it("should void a good receipt", async () => {
     await createMockReceipt();
-    await goodReceiptServerService.delete(1);
+    await goodReceiptServerService.delete(1, user0.id);
     const goodReceipt = await goodReceiptServerService.get(1);
 
     expect(goodReceipt?.status).toBe("VOID");
@@ -234,13 +234,13 @@ describe("Good Receipt Service (Integration)", () => {
     ];
 
     await expect(
-      goodReceiptServerService.supplierReturns(1, returns as any, "reason"),
+      goodReceiptServerService.supplierReturns(1, returns as any, "reason", user0.id),
     ).rejects.toThrow("Good Receipt is not in a valid state: DRAFT");
   });
 
   it("should not allow return if status is VOID", async () => {
     await createMockReceipt();
-    await goodReceiptServerService.delete(1);
+    await goodReceiptServerService.delete(1, user0.id);
 
     const returns = [
       { combinationId: 1, quantity: 11 },
@@ -248,7 +248,7 @@ describe("Good Receipt Service (Integration)", () => {
     ];
 
     await expect(
-      goodReceiptServerService.supplierReturns(1, returns as any, "reason"),
+      goodReceiptServerService.supplierReturns(1, returns as any, "reason", user0.id),
     ).rejects.toThrow("Good Receipt is not in a valid state: VOID");
   });
 
@@ -269,6 +269,7 @@ describe("Good Receipt Service (Integration)", () => {
       1,
       returns as any,
       "reason",
+      user0.id,
     );
     const inventory = await db.query.inventories.findMany({
       orderBy: (inv, { asc }) => [asc(inv.id)],
@@ -330,8 +331,8 @@ describe("Good Receipt Service (Integration)", () => {
       { combinationId: 2, quantity: 0 },
     ];
 
-    await goodReceiptServerService.supplierReturns(1, returns, "reason");
-    await goodReceiptServerService.supplierReturns(1, returns, "reason");
+    await goodReceiptServerService.supplierReturns(1, returns, "reason", user0.id);
+    await goodReceiptServerService.supplierReturns(1, returns, "reason", user0.id);
 
     const returnTransaction = await db.query.returnTransactions.findMany({
       orderBy: (t, { asc }) => [asc(t.id)],
@@ -394,14 +395,15 @@ describe("Good Receipt Service (Integration)", () => {
 
     const returns = [{ combinationId: 1, quantity: 2 }];
 
-    await goodReceiptServerService.supplierReturns(1, returns as any, "reason");
-    await goodReceiptServerService.supplierReturns(1, returns as any, "reason");
+    await goodReceiptServerService.supplierReturns(1, returns as any, "reason", user0.id);
+    await goodReceiptServerService.supplierReturns(1, returns as any, "reason", user0.id);
 
     await expect(
       goodReceiptServerService.supplierReturns(
         1,
         [{ combinationId: 1, quantity: 10 }] as any,
         "reason",
+        user0.id,
       ),
     ).rejects.toThrow("Return quantity exceeds order quantity");
   });
@@ -415,6 +417,7 @@ describe("Good Receipt Service (Integration)", () => {
       1,
       [{ combinationId: 1, quantity: 2 }] as any,
       "Defective",
+      user0.id,
     );
 
     const result = await goodReceiptServerService.getGoodReceiptWithReturns(1);
@@ -487,7 +490,7 @@ describe("Good Receipt Service (Integration)", () => {
       [{ combinationId: 1, quantity: 10, purchasePrice: 100 }],
       "RECEIVED",
     );
-    await expect(goodReceiptServerService.delete(1)).rejects.toThrow(
+    await expect(goodReceiptServerService.delete(1, user0.id)).rejects.toThrow(
       "Good Receipt is not in a valid state",
     );
   });

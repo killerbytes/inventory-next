@@ -16,6 +16,16 @@ import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, ne, sql, count } 
 import moment from "moment-timezone";
 import "server-only";
 
+/**
+ * Every inventory movement is an audit record and must be attributed to the
+ * acting user. Callers must pass the session user's id, never a fallback.
+ */
+export function assertValidUserId(userId: unknown): asserts userId is number {
+  if (typeof userId !== "number" || !Number.isInteger(userId) || userId <= 0) {
+    throw new Error("A valid userId is required");
+  }
+}
+
 export interface GetReordersLevelsInput {
   limit?: number;
   page?: number;
@@ -375,8 +385,9 @@ export const inventoryServerService = {
     referenceId: number | null = null,
     referenceType: string | null = null,
     transaction: any = null,
-    userId: number = 1,
+    userId: number,
   ) => {
+    assertValidUserId(userId);
     const { combinationId } = item;
     const quantity = truncateQty(item.quantity);
     const averagePrice =
@@ -468,8 +479,9 @@ export const inventoryServerService = {
     referenceId: number | null = null,
     referenceType: string | null = null,
     transaction: any = null,
-    userId: number = 1,
+    userId: number,
   ) => {
+    assertValidUserId(userId);
     const { combinationId } = item;
     const quantity = truncateQty(item.quantity);
 

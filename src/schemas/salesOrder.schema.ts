@@ -92,7 +92,11 @@ export const SalesOrderInputSchema = SalesOrderBaseSchema.omit({
 })
   .strict()
   .extend({
-    status: z.string(),
+    // Only DRAFT and RECEIVED are valid at creation; any other status would
+    // persist the order without running the inventory decrease.
+    status: z.enum([ORDER_STATUS.DRAFT, ORDER_STATUS.RECEIVED], {
+      message: "Invalid sales order status.",
+    }),
     salesOrderItems: z.array(SalesOrderItemInputSchema).min(1, {
       message: "At least one product is required.",
     }),
@@ -155,3 +159,26 @@ export type SalesOrderItemWithCombination = z.infer<
 >;
 export type SalesOrderForm = z.infer<typeof SalesOrderFormSchema>;
 
+
+const ReturnExchangeLineSchema = z
+  .object({
+    combinationId: z.coerce.number().int().positive(),
+    quantity: z.coerce
+      .number()
+      .finite()
+      .positive({ message: "Quantity must be greater than zero." }),
+  })
+  .strict();
+
+export const ReturnExchangeInputSchema = z
+  .object({
+    returns: z.array(ReturnExchangeLineSchema).default([]),
+    exchanges: z.array(ReturnExchangeLineSchema).default([]),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .strict()
+  .refine((d) => d.returns.length > 0 || d.exchanges.length > 0, {
+    message: "At least one return or exchange item is required.",
+  });
+
+export type ReturnExchangeInput = z.infer<typeof ReturnExchangeInputSchema>;

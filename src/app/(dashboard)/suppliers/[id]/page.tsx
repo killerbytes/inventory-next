@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import SupplierDetailClientWidget from "@/components/widgets/SupplierDetailClientWidget";
 import { PAGINATION } from "@/constants";
 import { SupplierData } from "@/schemas";
@@ -15,6 +17,7 @@ export default async function SupplierDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requirePermission(PERMISSIONS.MANAGE_SUPPLIERS);
   const { id } = await params;
   const search = (await searchParams) || {};
   const page = Number(search.page) || PAGINATION.PAGE;

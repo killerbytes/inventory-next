@@ -15,13 +15,15 @@ import {
   createVariantType,
 } from "../utils/fixtures";
 
+let user0: any;
+
 beforeAll(async () => {
   await setupDatabase();
 });
 
 beforeEach(async () => {
   await resetDatabase();
-  await createUser(0);
+  user0 = await createUser(0);
   await createUser(1);
   await createCategory(0);
   await createCategory(1);
@@ -34,7 +36,7 @@ beforeEach(async () => {
 
 describe("Product Combination Service (Integration)", () => {
   it("should create and fetch a product combination", async () => {
-    await productCombinationServerService.updateByProductId(1, combinations as any);
+    await productCombinationServerService.updateByProductId(1, combinations as any, user0.id);
     const combo: any = await productCombinationServerService.getByProductId(1);
     const product: any = await productServerService.get(1);
     const sku = getSKU(
@@ -70,7 +72,7 @@ describe("Product Combination Service (Integration)", () => {
       currentCombos.map((c: any) => ({
         ...c.dataValues,
         price: 123,
-      }))
+      })), user0.id
     );
 
     const combo: any = await productCombinationServerService.getByProductId(1);
@@ -86,7 +88,7 @@ describe("Product Combination Service (Integration)", () => {
   });
 
   it("should make a stock adjustment", async () => {
-    await productCombinationServerService.updateByProductId(1, combinations as any);
+    await productCombinationServerService.updateByProductId(1, combinations as any, user0.id);
     const initialCombo: any =
       await productCombinationServerService.getByProductId(1);
     const targetCombinationId = initialCombo.combinations[0].id;
@@ -180,7 +182,7 @@ describe("Product Combination Service (Integration)", () => {
             },
           ],
         },
-      ] as any);
+      ] as any, user0.id);
     });
 
     it("should break pack from BOX to PCS", async () => {
@@ -431,7 +433,7 @@ describe("Product Combination Service (Integration)", () => {
         conversionFactor: 24,
         values: [{ variantTypeId: 2, value: "Blue" }],
       },
-    ] as any);
+    ] as any, user0.id);
 
     await productCombinationServerService.stockAdjustment(
       {

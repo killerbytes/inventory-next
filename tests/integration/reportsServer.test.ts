@@ -69,7 +69,7 @@ describe("Reports Service (Inventory Value)", () => {
   });
 
   it("should return the total value of inventory from movements", async () => {
-    await createUser(0);
+    const user = await createUser(0);
     await createCategory(0);
     const product = await createProduct(0);
 
@@ -112,7 +112,7 @@ describe("Reports Service (Inventory Value)", () => {
       { combinationId: combo.id, quantity: 10, averagePrice: 100 },
       INVENTORY_MOVEMENT_TYPE.IN,
       1,
-      "GOOD_RECEIPT"
+      "GOOD_RECEIPT", null, user.id
     );
 
     // 2. OUT: 3 units (cost was 100) = -300
@@ -120,7 +120,7 @@ describe("Reports Service (Inventory Value)", () => {
       { combinationId: combo.id, quantity: 3 },
       INVENTORY_MOVEMENT_TYPE.OUT,
       1,
-      "SALES_ORDER"
+      "SALES_ORDER", null, user.id
     );
 
     // 3. ADJUSTMENT: +2 units (cost is 100) = +200
@@ -129,7 +129,7 @@ describe("Reports Service (Inventory Value)", () => {
       newQuantity: 9, // was 10-3=7, so diff is +2
       reason: "FOUND",
       notes: "test",
-    } as any);
+    } as any, user.id);
 
     // 4. BREAK_PACK: Move 1 unit to a smaller pack (conversion factor 10)
     if (targetCombo) {
@@ -137,7 +137,7 @@ describe("Reports Service (Inventory Value)", () => {
         fromCombinationId: combo.id,
         quantity: 1,
         toCombinationId: targetCombo.id,
-      } as any);
+      } as any, user.id);
       // 1 unit of Item 1 ($100) is removed.
       // 10 units of Item 1 (Smaller) ($10 each) are added.
       // Net change to total warehouse value: $0.

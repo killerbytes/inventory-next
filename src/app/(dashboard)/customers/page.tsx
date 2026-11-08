@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import CustomersWidget from "@/components/widgets/CustomersWidget";
 import { customerServerService } from "@/server/services/customerServer.service";
 
@@ -9,6 +11,7 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
+  await requirePermission(PERMISSIONS.MANAGE_CUSTOMERS);
   let customers: any[] = [];
   try {
     customers = await customerServerService.getAll();

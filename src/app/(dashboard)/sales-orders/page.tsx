@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import SalesOrdersClientWidget from "@/components/widgets/SalesOrdersClientWidget";
 import { CustomerData, SalesOrderData } from "@/schemas";
 import { customerServerService, salesServerService } from "@/server/services";
@@ -12,6 +14,7 @@ export default async function SalesOrdersPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_SALES);
   const params = (await searchParams) || {};
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;

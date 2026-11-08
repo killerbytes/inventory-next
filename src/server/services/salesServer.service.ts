@@ -227,7 +227,7 @@ const processReceivedOrder = async (
   payload: any,
   salesOrder: any,
   tx: any,
-  userId?: number,
+  userId: number,
   isCreate: boolean = false,
 ) => {
   const items =
@@ -278,7 +278,7 @@ const processReceivedOrder = async (
       salesOrder.id,
       INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
       tx,
-      userId ?? 1,
+      userId,
     );
   }
 
@@ -286,7 +286,7 @@ const processReceivedOrder = async (
     await tx.insert(orderStatusHistories).values({
       salesOrderId: salesOrder.id,
       status: ORDER_STATUS.RECEIVED,
-      changedBy: userId ?? 1,
+      changedBy: userId,
       changedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -298,7 +298,7 @@ const processCompletedOrder = async (
   payload: any,
   salesOrder: any,
   tx: any,
-  userId?: number,
+  userId: number,
 ) => {
   await updateOrder(
     {
@@ -313,7 +313,7 @@ const processCompletedOrder = async (
   await tx.insert(orderStatusHistories).values({
     salesOrderId: salesOrder.id,
     status: ORDER_STATUS.COMPLETED,
-    changedBy: userId ?? 1,
+    changedBy: userId,
     changedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -676,7 +676,7 @@ export const salesServerService = {
     return days.map((r) => ({ name: r.name, totalAmount: r.totalAmount }));
   },
 
-  create: async (data: SalesOrderInput, userId?: number) => {
+  create: async (data: SalesOrderInput, userId: number) => {
     try {
       return await db.transaction(async (tx) => {
         const rawItems = data.salesOrderItems || [];
@@ -780,7 +780,7 @@ export const salesServerService = {
         await tx.insert(orderStatusHistories).values({
           salesOrderId: order.id,
           status,
-          changedBy: userId ?? 1,
+          changedBy: userId,
           changedAt: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -797,7 +797,7 @@ export const salesServerService = {
     }
   },
 
-  update: async (id: number, data: any, userId?: number) => {
+  update: async (id: number, data: any, userId: number) => {
     return await db.transaction(async (tx) => {
       const salesOrder = await tx.query.salesOrders.findFirst({
         where: (tbl: any, { eq, and, isNull }: any) =>
@@ -836,7 +836,7 @@ export const salesServerService = {
     });
   },
 
-  delete: async (id: number, userId?: number) => {
+  delete: async (id: number, userId: number) => {
     return await db.transaction(async (tx) => {
       const salesOrder = await tx.query.salesOrders.findFirst({
         where: (tbl: any, { eq, and, isNull }: any) =>
@@ -863,7 +863,7 @@ export const salesServerService = {
       await tx.insert(orderStatusHistories).values({
         salesOrderId: salesOrder.id,
         status: ORDER_STATUS.VOID,
-        changedBy: userId ?? 1,
+        changedBy: userId,
         changedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -875,8 +875,8 @@ export const salesServerService = {
 
   cancelOrder: async (
     id: number,
-    payload?: { reason?: string } | string,
-    userId?: number,
+    payload: { reason?: string } | string | undefined,
+    userId: number,
   ) => {
     const reason = typeof payload === "string" ? payload : payload?.reason;
     return await db.transaction(async (tx) => {
@@ -940,14 +940,14 @@ export const salesServerService = {
           salesOrder.id,
           INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
           tx,
-          userId ?? 1,
+          userId,
         );
       }
 
       await tx.insert(orderStatusHistories).values({
         salesOrderId: salesOrder.id,
         status: ORDER_STATUS.CANCELLED,
-        changedBy: userId ?? 1,
+        changedBy: userId,
         changedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -962,8 +962,17 @@ export const salesServerService = {
     returns: ReturnExchangeItem[] = [],
     exchanges: ReturnExchangeItem[] = [],
     reason: string = "Customer Return",
+    userId: number,
   ) => {
     return await db.transaction(async (tx) => {
+      // Lock the order row so concurrent return requests serialize; otherwise
+      // both could pass the returnable-quantity check below and over-return.
+      await tx
+        .select({ id: salesOrders.id })
+        .from(salesOrders)
+        .where(eq(salesOrders.id, referenceId))
+        .for("update");
+
       const salesOrder = await tx.query.salesOrders.findFirst({
         where: (tbl: any, { eq, and, isNull }: any) =>
           and(eq(tbl.id, referenceId), isNull(tbl.deletedAt)),
@@ -1110,6 +1119,7 @@ export const salesServerService = {
           salesOrder.id,
           INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
           tx,
+          userId,
         );
       }
 
@@ -1148,6 +1158,7 @@ export const salesServerService = {
           salesOrder.id,
           INVENTORY_MOVEMENT_REFERENCE_TYPE.SALES_ORDER,
           tx,
+          userId,
         );
       }
 

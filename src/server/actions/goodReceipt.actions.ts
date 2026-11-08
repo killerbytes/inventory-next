@@ -38,8 +38,8 @@ export const updateGoodReceiptAction = createProtectedAction({
 
 export const cancelGoodReceiptAction = createProtectedAction({
   permission: PERMISSIONS.CANCEL_GOODS,
-  handler: async (_ctx, id: number) => {
-    const result = await goodReceiptServerService.cancelOrder(id);
+  handler: async ({ user }, id: number) => {
+    const result = await goodReceiptServerService.cancelOrder(id, user.id);
     revalidatePath("/good-receipts");
     revalidatePath(`/good-receipts/${id}`);
     return result ? JSON.parse(JSON.stringify(result)) : null;
@@ -58,7 +58,7 @@ export const deleteGoodReceiptAction = createProtectedAction({
 export const supplierReturnsAction = createProtectedAction({
   permission: PERMISSIONS.RETURN_GOODS,
   handler: async (
-    _ctx,
+    { user },
     id: number,
     data: {
       returns: GoodReceiptLineData[];
@@ -75,6 +75,7 @@ export const supplierReturnsAction = createProtectedAction({
       validated.referenceId,
       validated.returns,
       validated.reason,
+      user.id,
     );
     revalidatePath("/good-receipts");
     revalidatePath(`/good-receipts/${id}`);

@@ -208,7 +208,7 @@ const processReceivedOrder = async (
   payload: any,
   goodReceipt: any,
   tx: typeof db,
-  userId?: number,
+  userId: number,
 ) => {
   await updateOrder(
     {
@@ -262,13 +262,14 @@ const processReceivedOrder = async (
       goodReceipt.id,
       INVENTORY_MOVEMENT_REFERENCE_TYPE.GOOD_RECEIPT,
       tx,
+      userId,
     );
   }
 
   await tx.insert(orderStatusHistories).values({
     goodReceiptId: goodReceipt.id,
     status: ORDER_STATUS.RECEIVED,
-    changedBy: userId ?? 1,
+    changedBy: userId,
     changedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -657,7 +658,7 @@ export const goodReceiptServerService = {
     }
   },
 
-  update: async (id: number, data: any, userId?: number) => {
+  update: async (id: number, data: any, userId: number) => {
     try {
       return await db.transaction(async (tx) => {
         const goodReceipt = await tx.query.goodReceipts.findFirst({
@@ -727,7 +728,7 @@ export const goodReceiptServerService = {
     }
   },
 
-  delete: async (id: number, userId?: number) => {
+  delete: async (id: number, userId: number) => {
     return await db.transaction(async (tx) => {
       const receipt = await tx.query.goodReceipts.findFirst({
         where: (tbl, { eq, and, isNull }) =>
@@ -749,7 +750,7 @@ export const goodReceiptServerService = {
       await tx.insert(orderStatusHistories).values({
         goodReceiptId: receipt.id,
         status: ORDER_STATUS.VOID,
-        changedBy: userId ?? 1,
+        changedBy: userId,
         changedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -762,7 +763,7 @@ export const goodReceiptServerService = {
     });
   },
 
-  cancelOrder: async (id: number) => {
+  cancelOrder: async (id: number, userId: number) => {
     return await db.transaction(async (tx) => {
       const receipt = await tx.query.goodReceipts.findFirst({
         where: (tbl, { eq, and, isNull }) =>
@@ -798,6 +799,7 @@ export const goodReceiptServerService = {
           receipt.id,
           "CANCELLED_GOOD_RECEIPT",
           tx,
+          userId,
         );
       }
 
@@ -809,6 +811,7 @@ export const goodReceiptServerService = {
     referenceId: number,
     returns: ReturnExchangeItem[],
     reason: string = "Supplier Return",
+    userId: number,
   ) => {
     return await db.transaction(async (tx) => {
       const receipt = await tx.query.goodReceipts.findFirst({
@@ -960,6 +963,7 @@ export const goodReceiptServerService = {
           receipt.id,
           INVENTORY_MOVEMENT_REFERENCE_TYPE.GOOD_RECEIPT,
           tx,
+          userId,
         );
       }
 

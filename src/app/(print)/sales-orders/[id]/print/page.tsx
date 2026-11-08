@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import SalesOrderPrintWidget from "@/components/widgets/SalesOrderPrintWidget";
 import { SalesOrderData } from "@/schemas";
 import { salesServerService } from "@/server/services/salesServer.service";
@@ -12,6 +14,7 @@ export default async function SalesOrderPrintPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ auto?: string }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_SALES);
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
   const autoPrint = query?.auto === "true" || query?.auto === "1";

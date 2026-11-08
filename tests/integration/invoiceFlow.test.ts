@@ -231,6 +231,7 @@ describe("Invoices Flow & Side Effects Integration Tests", () => {
       gr1.id,
       [{ combinationId: testCombo.id, quantity: 2 }],
       "Damaged goods",
+      testUser.id,
     );
 
     // getBySupplierId will be called by GoodReceiptPickerModal

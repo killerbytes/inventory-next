@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import InventoryMovementsClientWidget from "@/components/widgets/InventoryMovementsClientWidget";
 import {
   inventoryServerService,
@@ -13,6 +15,7 @@ export default async function MovementsPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_REPORTS);
   const params = (await searchParams) || {};
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;

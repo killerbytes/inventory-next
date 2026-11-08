@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import GoodReceiptsClientWidget from "@/components/widgets/GoodReceiptsClientWidget";
 import { GoodReceiptData, SupplierData } from "@/schemas";
 import {
@@ -17,6 +19,7 @@ export default async function GoodReceiptsPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_GOODS);
   const params = (await searchParams) || {};
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;

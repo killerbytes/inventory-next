@@ -190,7 +190,7 @@ export const paymentServerService = {
     }
   },
 
-  create: async (data: CreatePaymentInput, userId?: number) => {
+  create: async (data: CreatePaymentInput, userId: number) => {
     try {
       return await db.transaction(async (tx) => {
         const paymentAmount = Number(data.amountPaid ?? data.amount ?? 0);
@@ -204,7 +204,7 @@ export const paymentServerService = {
               : new Date(),
             referenceNo: data.referenceNumber || data.referenceNo || null,
             notes: data.notes || null,
-            changedBy: userId ?? (data as any).changedBy ?? 1,
+            changedBy: userId,
             createdAt: new Date(),
             updatedAt: new Date(),
           })

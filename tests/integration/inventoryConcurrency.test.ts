@@ -55,7 +55,7 @@ describe("Inventory Concurrency (Integration)", () => {
       newQuantity: 1,
       reason: "OTHER",
       notes: "Setup",
-    } as any);
+    } as any, user0.id);
   });
 
   it("should prevent selling more than available stock during concurrent requests", async () => {

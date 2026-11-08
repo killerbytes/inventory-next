@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import React from "react";
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import ProfitClientWidget from "@/components/widgets/ProfitClientWidget";
@@ -10,6 +12,7 @@ export default async function ProfitReportPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_REPORTS);
   const params = (await searchParams) || {};
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;

@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import Loader from "@/components/common/Loader";
 import SearchClientWidget from "@/components/widgets/SearchClientWidget";
 import { categoryServerService } from "@/server/services";
@@ -14,6 +16,7 @@ export const metadata = {
  * and wraps SearchClientWidget in Suspense for useSearchParams compatibility.
  */
 export default async function GlobalSearchPage() {
+  await requirePermission(PERMISSIONS.VIEW_PRODUCTS);
   let categories: any[] = [];
   try {
     categories = await categoryServerService.getAll();

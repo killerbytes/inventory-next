@@ -672,7 +672,7 @@ describe("Sales Order Service (Integration)", () => {
     const inventory = await db.query.inventories.findMany({
       orderBy: (inv, { asc }) => [asc(inv.id)],
     });
-    await salesServerService.returnExchange(1, returns, undefined, "reason");
+    await salesServerService.returnExchange(1, returns, undefined, "reason", user0.id);
     const inventory2 = await db.query.inventories.findMany({
       orderBy: (inv, { asc }) => [asc(inv.id)],
     });
@@ -764,7 +764,7 @@ describe("Sales Order Service (Integration)", () => {
     const exchanges = [{ combinationId: 2, quantity: 1 }];
 
     // Perform return & exchange on order2 (id: 2)
-    await salesServerService.returnExchange(order2Id, returns, exchanges, "Damaged item replacement");
+    await salesServerService.returnExchange(order2Id, returns, exchanges, "Damaged item replacement", user0.id);
 
     const returnMovements = await db.query.inventoryMovements.findMany({
       where: (tbl, { eq }) => eq(tbl.type, RETURN_TYPE.RETURN_IN),
@@ -815,6 +815,7 @@ describe("Sales Order Service (Integration)", () => {
       returns as any,
       undefined,
       "reason",
+      user0.id,
     );
 
     await expect(
@@ -853,7 +854,7 @@ describe("Sales Order Service (Integration)", () => {
     ];
 
     await expect(
-      salesServerService.returnExchange(1, returns as any, undefined, "reason"),
+      salesServerService.returnExchange(1, returns as any, undefined, "reason", user0.id),
     ).rejects.toThrow("SalesOrder is not in a valid state");
   });
 
@@ -883,6 +884,7 @@ describe("Sales Order Service (Integration)", () => {
       [{ combinationId: 1, quantity: 3 }],
       undefined,
       "First partial return",
+      user0.id,
     );
 
     // Second return of 3 units should fail because 3 + 3 = 6 > 5
@@ -892,6 +894,7 @@ describe("Sales Order Service (Integration)", () => {
         [{ combinationId: 1, quantity: 3 }],
         undefined,
         "Second return exceeding remaining",
+        user0.id,
       ),
     ).rejects.toThrow("Return quantity exceeds available returnable quantity");
 
@@ -901,6 +904,7 @@ describe("Sales Order Service (Integration)", () => {
       [{ combinationId: 1, quantity: 2 }],
       undefined,
       "Second return completing full return",
+      user0.id,
     );
 
     // Third return should now fail because all 5 have been returned
@@ -910,6 +914,7 @@ describe("Sales Order Service (Integration)", () => {
         [{ combinationId: 1, quantity: 1 }],
         undefined,
         "Third return on exhausted line",
+        user0.id,
       ),
     ).rejects.toThrow("Return quantity exceeds available returnable quantity");
   });
