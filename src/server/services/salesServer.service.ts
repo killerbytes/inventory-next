@@ -1,4 +1,8 @@
-import { getAmount, getTotalAmount } from "@/lib/compute";
+import {
+  getAmount,
+  getTotalAmount,
+  isDiscountWithinLineAmount,
+} from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
 import { getNextSequence } from "@/lib/sequence";
 import { format } from "date-fns";
@@ -704,6 +708,12 @@ export const salesServerService = {
             const originalPrice = Number(productCombination.price);
             const quantity = Number(item.quantity || 0);
             const discount = Number(item.discount || 0);
+            // Checked here rather than in the schema because the bound depends on the DB price.
+            if (!isDiscountWithinLineAmount({ purchasePrice, quantity, discount })) {
+              throw new Error(
+                `Discount cannot exceed the line amount for "${productCombination.name}".`,
+              );
+            }
             const totalAmount = getAmount({
               purchasePrice,
               quantity,

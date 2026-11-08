@@ -21,6 +21,22 @@ export function getAmount(item: ComputableItem): number {
   return price * qty - discount;
 }
 
+/** Tolerance matching the DB's numeric scale of 6, so float sums like 0.1 * 3 compare equal. */
+const AMOUNT_EPSILON = 1e-6;
+
+/**
+ * A line discount must satisfy 0 <= discount <= price * quantity.
+ * A negative discount silently charges above list price; one above the gross amount yields a
+ * negative line total and, on goods receipts, drags the weighted average cost below zero.
+ * A 100% discount (free line) is allowed.
+ */
+export function isDiscountWithinLineAmount(item: ComputableItem): boolean {
+  const discount = Number(item.discount ?? 0);
+  if (!Number.isFinite(discount) || discount < 0) return false;
+  const gross = Number(item.purchasePrice ?? 0) * Number(item.quantity || 0);
+  return discount <= gross + AMOUNT_EPSILON;
+}
+
 /**
  * Sums total amount across an array of line items.
  */

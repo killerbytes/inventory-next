@@ -489,6 +489,28 @@ describe("Sales Order Service (Integration)", () => {
     ).rejects.toThrow("Quantity is greater than inventory");
   });
 
+  it("rejects a discount larger than the line amount and leaves stock untouched", async () => {
+    const before = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, 1),
+    });
+
+    await expect(
+      salesServerService.create(
+        {
+          ...getTestData(),
+          status: ORDER_STATUS.RECEIVED,
+          salesOrderItems: [{ combinationId: 1, quantity: 1, discount: 1_000_000 }],
+        },
+        user0.id,
+      ),
+    ).rejects.toThrow("Discount cannot exceed the line amount");
+
+    const after = await db.query.inventories.findFirst({
+      where: (tbl, { eq }) => eq(tbl.combinationId, 1),
+    });
+    expect(after?.quantity).toBe(before?.quantity);
+  });
+
   it("should update inventory movements", async () => {
     await salesServerService.create(getTestData() as any, user0.id);
     await salesServerService.update(

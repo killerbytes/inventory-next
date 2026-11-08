@@ -18,7 +18,9 @@ export const SalesOrderItemBaseSchema = createInsertSchema(salesOrderItems, {
     z.coerce.number().min(1, {
       message: "Quantity must be at least 1.",
     }),
-  discount: () => z.coerce.number().nullish(),
+  // Upper bound needs the DB price, so it is enforced in salesServerService.create.
+  discount: () =>
+    z.coerce.number().nonnegative("Discount cannot be negative.").nullish(),
   discountNote: () => z.string().nullish(),
 }).pick({
   combinationId: true,

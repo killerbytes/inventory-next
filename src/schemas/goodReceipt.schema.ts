@@ -2,6 +2,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { goodReceipts } from "@/server/db/schema/goodReceipts";
 import { goodReceiptLines } from "@/server/db/schema/goodReceiptLines";
 import { ORDER_STATUS } from "@/constants";
+import { isDiscountWithinLineAmount } from "@/lib/compute";
 import z from "zod";
 import { OrderStatusHistorySchema } from "./orderStatusHistory.schema";
 import { ProductCombinationSchema } from "./productCombination.schema";
@@ -16,7 +17,8 @@ export const GoodReceiptLineBaseSchema = createInsertSchema(
     combinationId: () => z.coerce.number().positive("Product is Required"),
     purchasePrice: () =>
       z.coerce.number().positive("Purchase Price is Required"),
-    discount: () => z.coerce.number().nullish(),
+    discount: () =>
+      z.coerce.number().nonnegative("Discount cannot be negative.").nullish(),
     discountNote: () => z.string().nullish(),
   },
 ).pick({
@@ -63,6 +65,30 @@ export const GoodReceiptBaseSchema = createInsertSchema(goodReceipts, {
       .min(1, "Product/s must be included"),
   });
 
+/**
+ * Rejects lines whose discount exceeds price * quantity. Applied to the lines array (not each
+ * line schema) because the line schemas are extended elsewhere and must stay plain objects.
+ */
+function refineLineDiscounts(
+  lines: { purchasePrice?: number | null; quantity?: number | null; discount?: number | null }[] | undefined,
+  ctx: z.RefinementCtx,
+) {
+  (lines || []).forEach((line, index) => {
+    const ok = isDiscountWithinLineAmount({
+      purchasePrice: Number(line.purchasePrice ?? 0),
+      quantity: Number(line.quantity ?? 0),
+      discount: line.discount,
+    });
+    if (!ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [index, "discount"],
+        message: "Discount cannot exceed the line amount.",
+      });
+    }
+  });
+}
+
 export const GoodReceiptInputSchema = GoodReceiptBaseSchema.omit({
   goodReceiptLines: true,
 })
@@ -70,7 +96,8 @@ export const GoodReceiptInputSchema = GoodReceiptBaseSchema.omit({
   .extend({
     goodReceiptLines: z
       .array(GoodReceiptLineInputSchema)
-      .min(1, "Product/s must be included"),
+      .min(1, "Product/s must be included")
+      .superRefine(refineLineDiscounts),
   });
 
 export const GoodReceiptLineUpdateSchema = GoodReceiptLineBaseSchema.extend({
@@ -84,7 +111,10 @@ export const GoodReceiptUpdateSchema = z.object({
   internalNotes: z.string().nullish(),
   status: z.nativeEnum(ORDER_STATUS).optional(),
   cancellationReason: z.string().nullish(),
-  goodReceiptLines: z.array(GoodReceiptLineUpdateSchema).optional(),
+  goodReceiptLines: z
+    .array(GoodReceiptLineUpdateSchema)
+    .superRefine(refineLineDiscounts)
+    .optional(),
 });
 
 export const GoodReceiptLineWithCombination = GoodReceiptLineInputSchema.extend({
