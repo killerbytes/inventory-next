@@ -62,7 +62,7 @@ export async function loginAction(credentials: {
     role: user.role || "USER",
   };
 
-  await setSessionCookie(sessionUser);
+  await setSessionCookie(sessionUser, user.password);
 
   return {
     success: true,

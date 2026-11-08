@@ -7,7 +7,7 @@ import {
   UserUpdateInput,
   UserUpdateSchema,
 } from "@/schemas";
-import { getSession } from "@/server/auth/session";
+import { getSession, setSessionCookie } from "@/server/auth/session";
 import { userServerService } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
@@ -52,10 +52,29 @@ export async function changePasswordAction(data: {
     );
   }
 
-  return await userServerService.changePassword(
+  const result = await userServerService.changePassword(
     targetUserId,
     data.newPassword,
     data.oldPassword,
     isAdmin && !isSelf,
   );
+
+  // The new hash invalidates every session issued under the old password, including
+  // this one; re-issue the caller's cookie so changing your own password keeps you signed in.
+  if (isSelf) {
+    const updated = await userServerService.getSessionRow(session.id);
+    if (updated) {
+      await setSessionCookie(
+        {
+          id: updated.id,
+          name: updated.name,
+          username: updated.username,
+          role: updated.role || "USER",
+        },
+        updated.password,
+      );
+    }
+  }
+
+  return result;
 }

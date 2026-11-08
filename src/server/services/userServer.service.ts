@@ -46,6 +46,26 @@ export const userServerService = {
     );
   },
 
+  /**
+   * Loads the fields needed to issue a session, including the password hash.
+   * Server-only: never return this row to the client.
+   */
+  getSessionRow: async (id: number) => {
+    return (
+      (await db.query.users.findFirst({
+        where: (tbl, { eq, and, isNull }) =>
+          and(eq(tbl.id, Number(id)), isNull(tbl.deletedAt)),
+        columns: {
+          id: true,
+          name: true,
+          username: true,
+          role: true,
+          password: true,
+        },
+      })) || null
+    );
+  },
+
   getAll: async () => {
     return await db.query.users.findMany({
       where: (tbl, { isNull }) => isNull(tbl.deletedAt),

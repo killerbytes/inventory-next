@@ -6,11 +6,10 @@ import SalesOrderModal from "@/components/modals/SalesOrderModal";
 import AddSupplierModal from "@/components/modals/SupplierModal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PERMISSIONS } from "@/lib/rbac";
-import { getDashboardDataAction } from "@/server/actions/dashboard.actions";
+import type { DashboardSummary } from "@/server/services/dashboardServer.service";
 import { useUIStore } from "@/stores/uiStore";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import PermissionGuard from "../common/PermissionGuard";
 import DeadStock from "./dashboard/DeadStock";
 import LastMonthProfitCard from "./dashboard/LastMonthProfitCard";
@@ -24,13 +23,12 @@ import StockAlertCard from "./dashboard/StockAlertCard";
 import WeekSalesGraph from "./dashboard/WeekSalesGraph";
 
 interface DashboardClientWidgetProps {
-  initialData?: any;
+  initialData: DashboardSummary;
 }
 
 export default function DashboardClientWidget({
-  initialData,
+  initialData: data,
 }: DashboardClientWidgetProps) {
-  const [data, setData] = useState<any>(initialData || null);
   const {
     setSalesOrderModalOpen,
     setProductModalOpen,
@@ -38,22 +36,14 @@ export default function DashboardClientWidget({
     setSupplierModalOpen,
   } = useUIStore();
 
-  useEffect(() => {
-    if (!initialData) {
-      getDashboardDataAction().then((res) => {
-        if (res) setData(res);
-      });
-    }
-  }, [initialData]);
-
   return (
     <div className="flex flex-col gap-6 md:gap-8">
       {/* 4 Top Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-        <SalesOrderCard data={data?.todaySales} />
-        <OutstandingGoodReceiptsCard data={data?.outstandingGoodReceipts} />
-        <StockAlertCard data={data?.stockAlerts} />
-        <LastMonthProfitCard data={data?.lastMonthProfit} />
+        <SalesOrderCard data={data.todaySales} />
+        <OutstandingGoodReceiptsCard data={data.outstandingGoodReceipts} />
+        <StockAlertCard data={data.stockAlerts} />
+        <LastMonthProfitCard data={data.lastMonthProfit} />
       </div>
 
       {/* 5 Quick Action Buttons */}
@@ -107,25 +97,25 @@ export default function DashboardClientWidget({
       </div>
 
       {/* Recent Sales Orders */}
-      <RecentSalesOrders orders={data?.recentOrders} />
+      <RecentSalesOrders orders={data.recentOrders} />
 
       {/* Recent Inventory Movements */}
-      <RecentInventoryMovements movements={data?.recentMovements} />
+      <RecentInventoryMovements movements={data.recentMovements} />
 
       {/* Dead Stock & Low Stock */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <DeadStock items={data?.deadStock} />
-        <LowStock items={data?.stockAlerts?.items} />
+        <DeadStock items={data.deadStock} />
+        <LowStock items={data.stockAlerts.items} />
       </div>
 
       {/* Weekly Sales & Most Popular */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <WeekSalesGraph data={data?.weeklySales} />
-        <MostPopular data={data?.mostPopular} />
+        <WeekSalesGraph data={data.weeklySales} />
+        <MostPopular data={data.mostPopular} />
       </div>
 
       {/* Modals connected via useUIStore */}
-      <SalesOrderModal customers={data?.customers || []} />
+      <SalesOrderModal customers={data.customers} />
       <CreateProductModal />
       <AddCustomerModal />
       <AddSupplierModal />

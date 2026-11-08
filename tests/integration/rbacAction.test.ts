@@ -7,7 +7,6 @@ import { setTestSession } from "@/server/auth/session";
 import { createUserAction, changePasswordAction } from "@/server/actions/user.actions";
 import { triggerBackupAction } from "@/server/actions/backup.actions";
 import { deleteGoodReceiptAction } from "@/server/actions/goodReceipt.actions";
-import { getDashboardDataAction } from "@/server/actions/dashboard.actions";
 
 beforeAll(async () => {
   await setupDatabase();
@@ -19,12 +18,12 @@ beforeEach(async () => {
 });
 
 describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", () => {
-  it("should FORBID unauthenticated callers from accessing getDashboardDataAction", async () => {
+  it("rejects unauthenticated callers before any protected handler runs", async () => {
     // Arrange: No session
     setTestSession(null);
 
     // Act & Assert
-    const res = await getDashboardDataAction();
+    const res = await deleteGoodReceiptAction(1);
     expect(res).toEqual({
       success: false,
       error: expect.stringMatching(/Unauthorized/i),

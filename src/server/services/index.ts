@@ -10,6 +10,7 @@ export * from "./invoiceServer.service";
 export * from "./paymentServer.service";
 export * from "./userServer.service";
 export * from "./reportsServer.service";
+export * from "./dashboardServer.service";
 export * from "./productCombinationServer.service";
 export * from "./inventoryServer.service";
 export * from "./variantTypeServer.service";
