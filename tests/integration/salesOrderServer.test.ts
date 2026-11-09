@@ -8,6 +8,8 @@ import {
 import { salesServerService } from "@/server/services/salesServer.service";
 import { ORDER_STATUS, RETURN_TYPE, INVENTORY_MOVEMENT_TYPE } from "@/constants";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { productCombinations } from "@/server/db/schema/productCombinations";
+import { eq } from "drizzle-orm";
 import { resetDatabase, setupDatabase } from "../setup";
 import {
   createCategory,
@@ -509,6 +511,177 @@ describe("Sales Order Service (Integration)", () => {
       where: (tbl, { eq }) => eq(tbl.combinationId, 1),
     });
     expect(after?.quantity).toBe(before?.quantity);
+  });
+
+  describe("update enforces the same line rules as create", () => {
+    const getStock = async (combinationId: number) =>
+      (
+        await db.query.inventories.findFirst({
+          where: (tbl, { eq }) => eq(tbl.combinationId, combinationId),
+        })
+      )?.quantity;
+
+    it.each([ORDER_STATUS.DRAFT, ORDER_STATUS.RECEIVED])(
+      "rejects a discount larger than the line amount when saving a draft as %s, keeping the stored lines and stock",
+      async (status) => {
+        await salesServerService.create(getTestData(), user0.id);
+        const stockBefore = await getStock(1);
+
+        await expect(
+          salesServerService.update(
+            1,
+            {
+              ...getTestData(),
+              status,
+              salesOrderItems: [
+                { combinationId: 1, quantity: 1, discount: 1_000_000 },
+              ],
+            },
+            user0.id,
+          ),
+        ).rejects.toThrow("Discount cannot exceed the line amount");
+
+        const order = await salesServerService.get(1);
+        expect(order?.status).toBe(ORDER_STATUS.DRAFT);
+        expect(order?.salesOrderItems?.length).toBe(2);
+        expect(await getStock(1)).toBe(stockBefore);
+      },
+    );
+
+    it("rejects re-saving a draft whose product price was cleared after the draft was created", async () => {
+      await salesServerService.create(getTestData(), user0.id);
+      await db
+        .update(productCombinations)
+        .set({ price: "0" })
+        .where(eq(productCombinations.id, 1));
+
+      await expect(
+        salesServerService.update(
+          1,
+          { ...getTestData(), status: ORDER_STATUS.DRAFT },
+          user0.id,
+        ),
+      ).rejects.toThrow("price is not set");
+    });
+
+    it("rejects a draft line whose product no longer exists", async () => {
+      await salesServerService.create(getTestData(), user0.id);
+
+      await expect(
+        salesServerService.update(
+          1,
+          {
+            ...getTestData(),
+            status: ORDER_STATUS.DRAFT,
+            salesOrderItems: [{ combinationId: 9999, quantity: 1 }],
+          },
+          user0.id,
+        ),
+      ).rejects.toThrow("Product Combination not found");
+    });
+  });
+
+  describe("editing DRAFT orders", () => {
+    const stockOf = async (combinationId: number) =>
+      Number(
+        (
+          await db.query.inventories.findFirst({
+            where: (tbl, { eq }) => eq(tbl.combinationId, combinationId),
+          })
+        )?.quantity,
+      );
+
+    it("edits a DRAFT's header and lines without touching stock", async () => {
+      const draft = await salesServerService.create(getTestData(), user0.id);
+      const line1 = draft!.salesOrderItems.find((i: any) => i.combinationId === 1)!;
+
+      await salesServerService.update(
+        draft!.id,
+        {
+          ...getTestData(),
+          status: ORDER_STATUS.DRAFT,
+          notes: "Customer called back",
+          salesOrderItems: [{ id: line1.id, combinationId: 1, quantity: 5 }],
+        },
+        user0.id,
+      );
+
+      const updated = await salesServerService.get(draft!.id);
+      expect(updated?.status).toBe(ORDER_STATUS.DRAFT);
+      expect(updated?.notes).toBe("Customer called back");
+      expect(updated?.salesOrderItems).toHaveLength(1);
+      expect(updated?.salesOrderItems[0].id).toBe(line1.id);
+      expect(Number(updated?.totalAmount)).toBe(500);
+      expect(await stockOf(1)).toBe(11);
+    });
+
+    it("prices DRAFT lines from the database, ignoring client-sent prices and totals", async () => {
+      const draft = await salesServerService.create(getTestData(), user0.id);
+
+      await salesServerService.update(
+        draft!.id,
+        {
+          status: ORDER_STATUS.DRAFT,
+          totalAmount: 1,
+          salesOrderItems: [
+            { combinationId: 1, quantity: 2, purchasePrice: 1, originalPrice: 1, totalAmount: 1 },
+          ],
+        } as any,
+        user0.id,
+      );
+
+      const updated = await salesServerService.get(draft!.id);
+      expect(Number(updated?.salesOrderItems[0].purchasePrice)).toBe(100);
+      expect(Number(updated?.totalAmount)).toBe(200);
+    });
+
+    it("ignores non-editable header fields such as deletedAt", async () => {
+      const draft = await salesServerService.create(getTestData(), user0.id);
+
+      await salesServerService.update(
+        draft!.id,
+        { ...getTestData(), deletedAt: new Date(), id: 999 } as any,
+        user0.id,
+      );
+
+      expect(await salesServerService.get(draft!.id)).not.toBeNull();
+    });
+
+    it("rejects a discount larger than the line amount when editing", async () => {
+      const draft = await salesServerService.create(getTestData(), user0.id);
+
+      await expect(
+        salesServerService.update(
+          draft!.id,
+          {
+            ...getTestData(),
+            salesOrderItems: [{ combinationId: 1, quantity: 1, discount: 101 }],
+          },
+          user0.id,
+        ),
+      ).rejects.toThrow("Discount cannot exceed the line amount");
+    });
+
+    it("decreases stock exactly once when the same DRAFT is received twice concurrently", async () => {
+      const draft = await salesServerService.create(getTestData(), user0.id);
+      // Small quantities so stock can't run out; only the order lock can stop the second receive.
+      const receive = () =>
+        salesServerService.update(
+          draft!.id,
+          {
+            ...getTestData(),
+            status: ORDER_STATUS.RECEIVED,
+            salesOrderItems: [{ combinationId: 1, quantity: 1 }],
+          },
+          user0.id,
+        );
+
+      const results = await Promise.allSettled([receive(), receive()]);
+
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+      expect(await stockOf(1)).toBe(10);
+    });
   });
 
   it("should update inventory movements", async () => {

@@ -104,6 +104,22 @@ export const SalesOrderInputSchema = SalesOrderBaseSchema.omit({
     }),
   });
 
+/**
+ * Payload for editing a DRAFT or receiving it. Same strict shape as create, plus the
+ * existing line `id` so edited lines are updated in place instead of re-inserted.
+ */
+export const SalesOrderUpdateInputSchema = SalesOrderInputSchema.extend({
+  salesOrderItems: z
+    .array(
+      SalesOrderItemInputSchema.extend({
+        id: z.coerce.number().int().positive().optional(),
+      }),
+    )
+    .min(1, { message: "At least one product is required." }),
+});
+
+export type SalesOrderUpdateInput = z.infer<typeof SalesOrderUpdateInputSchema>;
+
 export const SalesOrderUpdateSchema = SalesOrderBaseSchema.partial();
 
 export const SalesOrderSelectSchema = createSelectSchema(salesOrders);
@@ -124,6 +140,8 @@ export type SalesOrderData = z.infer<typeof SalesOrderSchema>;
 
 export const SalesOrderItemWithCombinationSchema =
   SalesOrderItemInputSchema.extend({
+    // Present when editing a saved DRAFT so the line is updated in place.
+    id: z.coerce.number().int().positive().optional(),
     combination: ProductCombinationSchema.partial()
       .extend({
         price: z.coerce.number().positive().nullish(),
