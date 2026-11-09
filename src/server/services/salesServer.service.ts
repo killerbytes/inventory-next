@@ -116,6 +116,68 @@ const fetchProductCombinationWithDetails = async (
   };
 };
 
+/** Order header columns that may be changed through `updateOrder`. */
+const EDITABLE_ORDER_FIELDS = [
+  "salesOrderNumber",
+  "customerId",
+  "orderDate",
+  "modeOfPayment",
+  "isDelivery",
+  "deliveryAddress",
+  "deliveryInstructions",
+  "deliveryDate",
+  "internalNotes",
+  "notes",
+  "dueDate",
+  "checkNumber",
+  "status",
+  "isDeliveryCompleted",
+  "cancellationReason",
+] as const;
+
+/**
+ * Prices one sales line from the product's current DB price. Client-sent prices and
+ * totals are ignored so a crafted request cannot sell below list price.
+ * @throws when the product is missing, has no price, or the discount exceeds the line amount.
+ */
+const priceLine = async (
+  item: { combinationId?: number | string; quantity?: number | string; discount?: number | string | null },
+  tx: any,
+) => {
+  const combinationId = Number(item.combinationId);
+  const productCombination = await fetchProductCombinationWithDetails(combinationId, tx);
+
+  if (!productCombination) {
+    throw new Error("Product Combination not found");
+  }
+
+  const purchasePrice = Number(productCombination.price);
+  if (!(purchasePrice > 0)) {
+    throw new Error(
+      `Product "${productCombination.name}" price is not set. Please set the product price first.`,
+    );
+  }
+
+  const quantity = Number(item.quantity || 0);
+  const discount = Number(item.discount || 0);
+  // Checked here rather than in the schema because the bound depends on the DB price.
+  if (!isDiscountWithinLineAmount({ purchasePrice, quantity, discount })) {
+    throw new Error(
+      `Discount cannot exceed the line amount for "${productCombination.name}".`,
+    );
+  }
+
+  return {
+    combinationId,
+    purchasePrice,
+    originalPrice: purchasePrice,
+    quantity,
+    discount,
+    totalAmount: getAmount({ purchasePrice, quantity, discount }),
+    ...mappedProductCombinationProps(productCombination),
+  };
+};
+
 const updateOrder = async (
   payload: any,
   salesOrder: any,
@@ -123,15 +185,14 @@ const updateOrder = async (
   updateOrderItems: boolean = false,
 ) => {
   const items = payload.salesOrderItems || payload.items;
-  const updateData: any = {
-    ...payload,
-  };
-  if (items) {
-    updateData.totalAmount = String(getTotalAmount(items));
+  // Whitelist instead of spreading the payload: a spread let callers overwrite
+  // id, totalAmount, deletedAt or any other column on the order row.
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  for (const key of EDITABLE_ORDER_FIELDS) {
+    if (payload[key] !== undefined) {
+      updateData[key] = payload[key];
+    }
   }
-  delete updateData.salesOrderItems;
-  delete updateData.items;
-  updateData.updatedAt = new Date();
 
   await tx
     .update(salesOrders)
@@ -160,46 +221,22 @@ const updateOrder = async (
 
     let calculatedTotal = 0;
     for (const item of items) {
-      const combinationId = Number(item.combinationId || item.productId);
-      const productCombination = await fetchProductCombinationWithDetails(
-        combinationId,
-        tx,
-      );
-
-      const mappedProps: any = productCombination
-        ? mappedProductCombinationProps(productCombination)
-        : {};
-
-      const purchasePrice =
-        item.purchasePrice !== undefined
-          ? Number(item.purchasePrice)
-          : Number(productCombination?.price ?? 0);
-      const originalPrice =
-        item.originalPrice !== undefined
-          ? Number(item.originalPrice)
-          : Number(productCombination?.price) || purchasePrice;
-      const quantity = Number(item.quantity || 0);
-      const discount = Number(item.discount || 0);
-      const totalAmount =
-        item.totalAmount !== undefined
-          ? Number(item.totalAmount)
-          : getAmount({ purchasePrice, quantity, discount });
-
-      calculatedTotal += totalAmount;
+      const line = await priceLine(item, tx);
+      calculatedTotal += line.totalAmount;
 
       const lineData: any = {
-        combinationId,
-        purchasePrice: String(purchasePrice),
-        originalPrice: String(originalPrice),
-        quantity: String(quantity),
-        discount: String(discount),
-        totalAmount: String(totalAmount),
-        unit: mappedProps.unit || item.unit || "PCS",
+        combinationId: line.combinationId,
+        purchasePrice: String(line.purchasePrice),
+        originalPrice: String(line.originalPrice),
+        quantity: String(line.quantity),
+        discount: String(line.discount),
+        totalAmount: String(line.totalAmount),
+        unit: line.unit || "PCS",
         discountNote: item.discountNote || null,
-        skuSnapshot: mappedProps.skuSnapshot || "",
-        nameSnapshot: mappedProps.nameSnapshot || "",
-        categorySnapshot: mappedProps.categorySnapshot || null,
-        variantSnapshot: mappedProps.variantSnapshot || null,
+        skuSnapshot: line.skuSnapshot || "",
+        nameSnapshot: line.nameSnapshot || "",
+        categorySnapshot: line.categorySnapshot || null,
+        variantSnapshot: line.variantSnapshot || null,
         salesOrderId: salesOrder.id,
         updatedAt: new Date(),
       };
@@ -688,48 +725,7 @@ export const salesServerService = {
 
         const processedItems = await Promise.all(
           rawItems.map(async (item) => {
-            const combinationId = Number(item.combinationId);
-            const productCombination = await fetchProductCombinationWithDetails(
-              combinationId,
-              tx,
-            );
-
-            if (!productCombination) {
-              throw new Error("Product Combination not found");
-            }
-
-            if (Number(productCombination.price) <= 0) {
-              throw new Error(
-                `Product "${productCombination.name}" price is not set. Please set the product price first.`,
-              );
-            }
-
-            const purchasePrice = Number(productCombination.price);
-            const originalPrice = Number(productCombination.price);
-            const quantity = Number(item.quantity || 0);
-            const discount = Number(item.discount || 0);
-            // Checked here rather than in the schema because the bound depends on the DB price.
-            if (!isDiscountWithinLineAmount({ purchasePrice, quantity, discount })) {
-              throw new Error(
-                `Discount cannot exceed the line amount for "${productCombination.name}".`,
-              );
-            }
-            const totalAmount = getAmount({
-              purchasePrice,
-              quantity,
-              discount,
-            });
-
-            return {
-              ...item,
-              combinationId,
-              purchasePrice,
-              originalPrice,
-              quantity,
-              discount,
-              totalAmount,
-              ...mappedProductCombinationProps(productCombination),
-            };
+            return { ...item, ...(await priceLine(item, tx)) };
           }),
         );
 
@@ -807,8 +803,19 @@ export const salesServerService = {
     }
   },
 
+  /**
+   * Edits a DRAFT or moves it through DRAFT → RECEIVED → COMPLETED.
+   * The order row is locked first so two concurrent submits serialize; the second
+   * then sees the new status and fails, instead of decreasing stock a second time.
+   */
   update: async (id: number, data: any, userId: number) => {
     return await db.transaction(async (tx) => {
+      await tx
+        .select({ id: salesOrders.id })
+        .from(salesOrders)
+        .where(eq(salesOrders.id, id))
+        .for("update");
+
       const salesOrder = await tx.query.salesOrders.findFirst({
         where: (tbl: any, { eq, and, isNull }: any) =>
           and(eq(tbl.id, id), isNull(tbl.deletedAt)),

@@ -11,11 +11,17 @@ import {
   ProductCombinationData,
   SalesOrderForm,
   SalesOrderFormSchema,
+  SalesOrderData,
   SalesOrderInput,
   SalesOrderItemWithCombination,
+  SalesOrderUpdateInput,
 } from "@/schemas";
 import { getCombinationsByIdsAction } from "@/server/actions/product.actions";
-import { createSalesOrderAction } from "@/server/actions/salesOrder.actions";
+import {
+  createSalesOrderAction,
+  getSalesOrderAction,
+  updateSalesOrderAction,
+} from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
 import {
   MODE_OF_PAYMENT,
@@ -26,7 +32,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Plus, Printer, Trash2 } from "lucide-react";
-import React, { useEffect, useTransition } from "react";
+import React, { useEffect, useRef, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
@@ -59,29 +65,64 @@ export {
 
 const columnHelper = createColumnHelper<SalesOrderItemWithCombination>();
 
+const toDate = (value: unknown) => (value ? new Date(value as string) : new Date());
+
+/** Maps a saved DRAFT order onto the form, keeping line ids so edits update lines in place. */
+function toFormValues(order: SalesOrderData): SalesOrderForm {
+  return {
+    salesOrderNumber: order.salesOrderNumber || "",
+    customerId: Number(order.customerId || 0),
+    orderDate: toDate(order.orderDate),
+    modeOfPayment: order.modeOfPayment || MODE_OF_PAYMENT.CASH,
+    status: ORDER_STATUS.DRAFT,
+    isDelivery: Boolean(order.isDelivery),
+    deliveryAddress: order.deliveryAddress ?? null,
+    deliveryInstructions: order.deliveryInstructions ?? null,
+    deliveryDate: toDate(order.deliveryDate),
+    dueDate: toDate(order.dueDate),
+    notes: order.notes ?? null,
+    internalNotes: order.internalNotes ?? null,
+    checkNumber: order.checkNumber ?? null,
+    salesOrderItems: (order.salesOrderItems || []).map((item) => ({
+      id: Number(item.id),
+      combinationId: Number(item.combinationId),
+      quantity: Number(item.quantity),
+      discount: Number(item.discount || 0),
+      discountNote: item.discountNote ?? null,
+      combination: (item.combination as any) ?? null,
+    })),
+  };
+}
+
 function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   const [isPending, startTransition] = useTransition();
-  const { setSalesOrderModalOpen } = useUIStore();
+  const { setSalesOrderModalOpen, editingSalesOrder } = useUIStore();
+  // The order the modal was opened with. Switching into edit mode after the first
+  // "Save Draft" must not re-run the initial load and reset what the user typed.
+  const initialOrder = useRef(editingSalesOrder).current;
+  const isEditing = Boolean(editingSalesOrder?.id);
 
   const form = useForm<SalesOrderForm>({
     resolver: zodResolver(SalesOrderFormSchema),
-    defaultValues: {
-      salesOrderNumber: "",
-      customerId: 0,
-      orderDate: new Date(),
-      modeOfPayment: MODE_OF_PAYMENT.CASH,
-      status: ORDER_STATUS.RECEIVED,
-      isDelivery: false,
-      deliveryDate: new Date(),
-      dueDate: new Date(),
-      salesOrderItems: [
-        {
-          combinationId: 0,
-          quantity: 1,
-          discount: 0,
+    defaultValues: initialOrder
+      ? toFormValues(initialOrder)
+      : {
+          salesOrderNumber: "",
+          customerId: 0,
+          orderDate: new Date(),
+          modeOfPayment: MODE_OF_PAYMENT.CASH,
+          status: ORDER_STATUS.RECEIVED,
+          isDelivery: false,
+          deliveryDate: new Date(),
+          dueDate: new Date(),
+          salesOrderItems: [
+            {
+              combinationId: 0,
+              quantity: 1,
+              discount: 0,
+            },
+          ],
         },
-      ],
-    },
   });
 
   const {
@@ -95,13 +136,42 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   });
   useEffect(() => {
     let isMounted = true;
+    /**
+     * A saved DRAFT is re-fetched rather than taken from the list row, so edits
+     * saved on another device since the list loaded are not lost; only new
+     * orders use the local draft.
+     */
+    async function loadDraftSource(): Promise<SalesOrderForm | null> {
+      if (!initialOrder?.id) {
+        return loadDraft<SalesOrderForm>(DRAFT_STORAGE_KEYS.SALES_ORDER, [
+          "orderDate",
+          "deliveryDate",
+          "dueDate",
+        ]);
+      }
+
+      const res = await getSalesOrderAction(Number(initialOrder.id));
+      if (!isMounted) return null;
+      if (!res.success) {
+        toast.error(res.error || "Failed to load draft.");
+        setSalesOrderModalOpen(false);
+        return null;
+      }
+      // Another device may have received or voided it since the list loaded.
+      if (res.data.status !== ORDER_STATUS.DRAFT) {
+        toast.error(
+          `Sales order ${res.data.salesOrderNumber} is no longer a draft and cannot be edited here.`,
+        );
+        setSalesOrderModalOpen(false);
+        return null;
+      }
+      return toFormValues(res.data);
+    }
+
     async function loadAndSyncDraft() {
       try {
-        const storedDraft = loadDraft<SalesOrderForm>(
-          DRAFT_STORAGE_KEYS.SALES_ORDER,
-          ["orderDate", "deliveryDate", "dueDate"],
-        );
-        if (!storedDraft) return;
+        const storedDraft = await loadDraftSource();
+        if (!isMounted || !storedDraft) return;
 
         const items = storedDraft.salesOrderItems || [];
         const combinationIds = Array.from(
@@ -189,18 +259,24 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     };
   }, [form.reset]);
 
+  /** Creates a new order, or updates the saved DRAFT this modal is editing. */
+  const saveOrder = (values: SalesOrderForm, status: string) => {
+    const payload = {
+      ...values,
+      status,
+      salesOrderItems: values.salesOrderItems.map(
+        ({ combination, ...item }) => item,
+      ),
+    };
+    return editingSalesOrder?.id
+      ? updateSalesOrderAction(Number(editingSalesOrder.id), payload as SalesOrderUpdateInput)
+      : createSalesOrderAction(payload as SalesOrderInput);
+  };
+
   const handleSaveDraft = async () => {
     startTransition(async () => {
       try {
-        const values = form.getValues();
-        const payload: SalesOrderInput = {
-          ...values,
-          status: ORDER_STATUS.DRAFT,
-          salesOrderItems: values.salesOrderItems.map(
-            ({ combination, ...item }) => item,
-          ),
-        };
-        const res = await createSalesOrderAction(payload);
+        const res = await saveOrder(form.getValues(), ORDER_STATUS.DRAFT);
         if (res && !res.success) {
           if (res.fieldErrors) {
             Object.entries(res.fieldErrors).forEach(([field, messages]) => {
@@ -209,6 +285,12 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           }
           toast.error(res.error || "Failed to save draft.");
           return;
+        }
+        if (!isEditing && res?.data) {
+          // The draft now lives on the server: later saves must update it rather than
+          // create a duplicate, and the local "new order" draft is no longer needed.
+          clearDraft(DRAFT_STORAGE_KEYS.SALES_ORDER);
+          setSalesOrderModalOpen(true, res.data);
         }
         toast.success("Draft saved successfully!");
       } catch (error: any) {
@@ -220,14 +302,7 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   const onSubmit = async (values: SalesOrderForm) => {
     startTransition(async () => {
       try {
-        const payload: SalesOrderInput = {
-          ...values,
-          status: ORDER_STATUS.RECEIVED,
-          salesOrderItems: values.salesOrderItems.map(
-            ({ combination, ...item }) => item,
-          ),
-        };
-        const res = await createSalesOrderAction(payload);
+        const res = await saveOrder(values, ORDER_STATUS.RECEIVED);
         if (res && !res.success) {
           if (res.fieldErrors) {
             Object.entries(res.fieldErrors).forEach(([field, messages]) => {
@@ -237,8 +312,15 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           toast.error(res.error || "Failed to create sales order.");
           return;
         }
-        clearDraft(DRAFT_STORAGE_KEYS.SALES_ORDER);
-        toast.success(`Sales order created successfully!`);
+        if (!isEditing) {
+          // The local draft belongs to the new-order flow; leave it alone when receiving a saved DRAFT.
+          clearDraft(DRAFT_STORAGE_KEYS.SALES_ORDER);
+        }
+        toast.success(
+          isEditing
+            ? "Sales order received successfully!"
+            : "Sales order created successfully!",
+        );
         setSalesOrderModalOpen(false);
       } catch (error: any) {
         toast.error(error.message || "Failed to create sales order.");
@@ -536,10 +618,13 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
   return (
     <>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <DraftAutoSaver
-          form={form}
-          storageKey={DRAFT_STORAGE_KEYS.SALES_ORDER}
-        />
+        {/* A saved DRAFT persists on the server; autosaving it locally would overwrite the new-order draft. */}
+        {!isEditing && (
+          <DraftAutoSaver
+            form={form}
+            storageKey={DRAFT_STORAGE_KEYS.SALES_ORDER}
+          />
+        )}
         <FormField
           form={form}
           name="customerId"
@@ -707,7 +792,13 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
               onClick={() => form.setValue("status", ORDER_STATUS.RECEIVED)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isPending ? "Creating..." : "Create Sales Order"}
+              {isEditing
+                ? isPending
+                  ? "Receiving..."
+                  : "Receive Sales Order"
+                : isPending
+                  ? "Creating..."
+                  : "Create Sales Order"}
             </Button>
           </div>
         </DialogFooter>
@@ -721,14 +812,23 @@ export default function SalesOrderModal({
 }: {
   customers?: CustomerData[];
 }) {
-  const { isSalesOrderModalOpen, setSalesOrderModalOpen } = useUIStore();
+  const { isSalesOrderModalOpen, setSalesOrderModalOpen, editingSalesOrder } =
+    useUIStore();
 
   if (!isSalesOrderModalOpen) return null;
 
+  const editingNumber = editingSalesOrder?.id
+    ? editingSalesOrder.salesOrderNumber
+    : null;
+
   return (
     <Modal
-      title="Sales Order"
-      description="Create a new sales order."
+      title={editingNumber ? `Edit Draft ${editingNumber}` : "Sales Order"}
+      description={
+        editingNumber
+          ? "Update this draft, or receive it to deduct stock."
+          : "Create a new sales order."
+      }
       isOpen={isSalesOrderModalOpen}
       onClose={() => setSalesOrderModalOpen(false)}
       size="xl"
