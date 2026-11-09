@@ -43,7 +43,11 @@ export default function CancelModal({
       if (onConfirm) {
         await onConfirm(reason);
       } else if (orderId) {
-        await cancelSalesOrderAction(orderId, reason);
+        const res = await cancelSalesOrderAction(orderId, reason);
+        if (!res.success) {
+          toast.error(res.error || "Failed to cancel order");
+          return;
+        }
         toast.success("Order cancelled successfully");
       }
       onClose();

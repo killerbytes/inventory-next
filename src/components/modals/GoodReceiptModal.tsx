@@ -100,6 +100,16 @@ function GoodReceiptModalContent({
     }
   }, [editingGoodReceipt, form]);
 
+  const showActionError = (
+    res: { error: string; fieldErrors?: Record<string, string[]> },
+    fallback: string,
+  ) => {
+    Object.entries(res.fieldErrors ?? {}).forEach(([field, messages]) => {
+      form.setError(field as any, { message: messages?.[0] });
+    });
+    toast.error(res.error || fallback);
+  };
+
   async function onSubmit(values: GoodReceiptModalForm) {
     startTransition(async () => {
       try {
@@ -111,12 +121,20 @@ function GoodReceiptModalContent({
           ),
         };
 
-        if (isEdit && editingGoodReceipt?.id) {
-          await updateGoodReceiptAction(Number(editingGoodReceipt.id), payload);
+        const res =
+          isEdit && editingGoodReceipt?.id
+            ? await updateGoodReceiptAction(Number(editingGoodReceipt.id), payload)
+            : await createGoodReceiptAction(payload);
+        if (!res.success) {
+          showActionError(res, "Failed to save good receipt.");
+          return;
+        }
+
+        if (isEdit) {
           toast.success("Good Receipt updated successfully");
         } else {
-          await createGoodReceiptAction(payload);
           toast.success("Purchase Order created successfully");
+          // Only after a confirmed save: clearing on failure would lose the user's draft.
           clearDraft(DRAFT_STORAGE_KEYS.PURCHASE);
         }
 
@@ -139,7 +157,14 @@ function GoodReceiptModalContent({
           ),
         };
 
-        await updateGoodReceiptAction(Number(editingGoodReceipt?.id), payload);
+        const res = await updateGoodReceiptAction(
+          Number(editingGoodReceipt?.id),
+          payload,
+        );
+        if (!res.success) {
+          showActionError(res, "Failed to save draft.");
+          return;
+        }
         toast.success("Draft saved successfully!");
         setGoodReceiptModalOpen(false);
         router.refresh();

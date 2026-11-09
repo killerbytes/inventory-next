@@ -58,13 +58,17 @@ export default function GoodReceiptDetailClientWidget({
 
   const handleUpdateStatus = async (newStatus: string) => {
     try {
-      if (newStatus === "CANCELLED") {
-        await cancelGoodReceiptAction(Number(receipt.id));
-      } else {
-        await updateGoodReceiptAction(Number(receipt.id), {
-          status: newStatus,
-        });
+      const res =
+        newStatus === "CANCELLED"
+          ? await cancelGoodReceiptAction(Number(receipt.id))
+          : await updateGoodReceiptAction(Number(receipt.id), {
+              status: newStatus,
+            });
+      if (!res.success) {
+        toast.error(res.error || "Failed to update receipt status");
+        return;
       }
+      // Only reflect the new status once the server has accepted it.
       setStatus(newStatus);
       toast.success(`Good Receipt status updated to ${newStatus}`);
     } catch (err: any) {

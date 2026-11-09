@@ -34,7 +34,11 @@ export default function CategoriesWidget({
   const handleSortSubmit = async (sortedData: CategoryData[]) => {
     try {
       const sortedIds = sortedData.map((c) => c.id);
-      await updateCategorySortAction(sortedIds);
+      const res = await updateCategorySortAction(sortedIds);
+      if (!res.success) {
+        toast.error(res.error || "Failed to update category order");
+        return;
+      }
       toast.success("Category sort order updated!");
     } catch (err: any) {
       toast.error(err?.message || "Failed to update category order");
@@ -44,8 +48,11 @@ export default function CategoriesWidget({
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`Are you sure you want to delete category "${name}"?`)) return;
     try {
-      await deleteCategoryAction(id);
-      // setCategories((prev) => prev.filter((c) => c.id !== id));
+      const res = await deleteCategoryAction(id);
+      if (!res.success) {
+        toast.error(res.error || "Failed to delete category");
+        return;
+      }
       toast.success(`Category "${name}" deleted`);
       router.refresh();
     } catch (err: any) {

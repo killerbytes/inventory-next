@@ -113,8 +113,13 @@ function InvoiceModalContent({ suppliers: propSuppliers }: InvoiceModalProps) {
   useEffect(() => {
     if (!propSuppliers || propSuppliers.length === 0) {
       getSuppliersAction()
-        .then((res) => setSuppliers(res.success && res.data ? res.data : []))
-        .catch((err) => console.error("Error loading suppliers:", err));
+        .then((res) => {
+          if (res.success) {
+            setSuppliers(res.data ?? []);
+          } else {
+            toast.error(res.error || "Failed to load suppliers");
+          }
+        });
     }
   }, [propSuppliers]);
 

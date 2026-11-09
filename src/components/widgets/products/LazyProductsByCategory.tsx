@@ -10,6 +10,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import React from "react";
+import { toast } from "sonner";
 
 const columnHelper = createColumnHelper<ProductCombinationData>();
 
@@ -20,7 +21,11 @@ export function LazyProductsByCategory({ categoryId }: { categoryId: number }) {
     (async () => {
       setIsLoading(true);
       const res = await getProductCombinationsByCategoryIdAction(categoryId);
-      setData(res.success && res.data ? res.data : []);
+      if (res.success) {
+        setData(res.data ?? []);
+      } else {
+        toast.error(res.error || "Failed to load products");
+      }
       setIsLoading(false);
     })();
   }, [categoryId]);

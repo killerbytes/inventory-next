@@ -60,13 +60,21 @@ function VariantsModalContent({
   const handleSubmit = async (values: VariantTypeFormInput) => {
     startTransition(async () => {
       try {
-        if (values.id) {
-          await updateVariantTypeAction(Number(values.id), values);
-          toast.success("Variant type updated successfully");
-        } else {
-          await createVariantTypeAction({ ...values, productId });
-          toast.success("Variant type created successfully");
+        const res = values.id
+          ? await updateVariantTypeAction(Number(values.id), values)
+          : await createVariantTypeAction({ ...values, productId });
+        if (!res.success) {
+          Object.entries(res.fieldErrors ?? {}).forEach(([field, messages]) => {
+            form.setError(field as any, { message: messages?.[0] });
+          });
+          toast.error(res.error || "Failed to save variant type");
+          return;
         }
+        toast.success(
+          values.id
+            ? "Variant type updated successfully"
+            : "Variant type created successfully",
+        );
 
         setSelected(undefined);
         form.reset(defaultValues);
@@ -81,7 +89,11 @@ function VariantsModalContent({
     if (!selected?.id) return;
     startTransition(async () => {
       try {
-        await deleteVariantTypeAction(Number(selected.id));
+        const res = await deleteVariantTypeAction(Number(selected.id));
+        if (!res.success) {
+          toast.error(res.error || "Failed to delete variant type");
+          return;
+        }
         toast.success("Variant type deleted successfully");
         setSelected(undefined);
         form.reset(defaultValues);

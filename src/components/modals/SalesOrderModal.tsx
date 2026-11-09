@@ -121,9 +121,18 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           const res = await getCombinationsByIdsAction(combinationIds);
           if (!isMounted) return;
 
-          const latestCombos = res.success && res.data ? res.data : [];
+          // A failed lookup says nothing about which products still exist; treating it
+          // as "none found" would wipe every line of the draft. Keep the draft as stored.
+          if (!res.success) {
+            form.reset(storedDraft);
+            toast.error(
+              `Failed to sync latest product data for draft: ${res.error}`,
+            );
+            return;
+          }
+
           const comboMap = new Map<number, ProductCombinationData>(
-            (latestCombos || []).map((combo: ProductCombinationData) => [Number(combo.id), combo]),
+            res.data.map((combo: ProductCombinationData) => [Number(combo.id), combo]),
           );
 
           let hasRemovedCombinations = false;

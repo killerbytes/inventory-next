@@ -125,12 +125,12 @@ describe("Auth & Password Actions (Integration)", () => {
     });
 
     // Act & Assert
-    await expect(
-      changePasswordAction({
+    expect(
+      await changePasswordAction({
         oldPassword: wrongOldPassword,
         newPassword,
       }),
-    ).rejects.toThrow(/Incorrect current password|Invalid/i);
+    ).toMatchObject({ success: false, error: expect.stringMatching(/Incorrect current password|Invalid/i) });
   });
 
   it("should successfully execute logoutAction and return success", async () => {

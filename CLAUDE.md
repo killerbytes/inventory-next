@@ -82,7 +82,28 @@ Components go in a subfolder of `src/components/`, never loose at the root:
 - `forms/`: form pieces
 - `layout/`, `providers/`
 
-Client components check `res.success` on action results and report outcomes with `sonner` (`toast.success` / `toast.error(res.error)`). Forms use `react-hook-form` + `@hookform/resolvers/zod` with the shared schemas.
+Forms use `react-hook-form` + `@hookform/resolvers/zod` with the shared schemas.
+
+### Consuming action results
+Actions **never throw**: a failure (no session, missing permission, validation, DB error) comes back as `{ success: false, error, fieldErrors? }`. A `try/catch` around an action call does not catch any of these.
+
+```ts
+const res = await createThingAction(values);
+if (!res.success) {
+  // map res.fieldErrors onto form.setError when it's a form
+  toast.error(res.error);
+  return;               // no success toast, no closing, no clearDraft, no setState
+}
+toast.success("Saved");
+```
+
+- Never discard the result (`await xAction(...)` as a bare statement), never read `res.data` before checking `res.success`, and never annotate the result `: any`.
+- Side effects that assume the save happened (closing the modal, `clearDraft`, `setStatus`, `router.refresh`) go **after** the success check.
+- A failed **read** is not an empty result. Don't write `res.success ? res.data : []`; keep the current state and `toast.error(res.error)`. Treating failure as "nothing found" has wiped saved drafts.
+- Every export in `src/server/actions/*.actions.ts` is built with `createProtectedAction` (only `loginAction` / `logoutAction` are exempt), so all actions share this contract.
+- Mock action failures in component tests with `mockResolvedValue({ success: false, error })`, **not** `mockRejectedValue`; actions don't reject.
+
+Enforced by `tests/unit/actionResultGuard.test.ts` (runs in pre-commit). It checks the call-site shape only; it can't tell whether the failure branch does the right thing. So every component that calls a mutation needs a test where the action returns `{ success: false }`, asserting no success toast and nothing closed or cleared (see `tests/unit/components/MutationFailurePaths.test.tsx`).
 
 Path alias: `@/*` → `src/*`.
 

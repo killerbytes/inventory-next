@@ -140,7 +140,11 @@ export default function SalesOrderDetailClientWidget({
 
   const handleCancelOrder = async (reason: string) => {
     try {
-      await cancelSalesOrderAction(Number(data.id), reason);
+      const res = await cancelSalesOrderAction(Number(data.id), reason);
+      if (!res.success) {
+        toast.error(res.error || "Failed to cancel sales order");
+        return;
+      }
       toast.success("Sales Order cancelled successfully");
       router.refresh();
     } catch (err: any) {

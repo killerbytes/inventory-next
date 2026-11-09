@@ -21,6 +21,7 @@ import { Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 export interface SearchClientWidgetProps {
   initialCategories?: any[];
@@ -50,8 +51,10 @@ export default function SearchClientWidget({
   useEffect(() => {
     if (categories.length === 0) {
       getCategoriesAction().then((res) => {
-        if (Array.isArray(res)) {
-          setCategories(res);
+        if (res.success) {
+          setCategories(res.data);
+        } else {
+          toast.error(res.error || "Failed to load categories");
         }
       });
     }

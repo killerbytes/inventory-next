@@ -93,12 +93,12 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
       setTestSession(null);
 
       // Act & Assert
-      await expect(
-        changePasswordAction({
+      expect(
+      await changePasswordAction({
           userId: 1,
           newPassword: "ExploitPassword123!",
-        })
-      ).rejects.toThrow(/Unauthorized.*sign in/i);
+        }),
+    ).toMatchObject({ success: false, error: expect.stringMatching(/Unauthorized.*sign in/i) });
     });
 
     it("should FORBID non-admin user from changing another user's password", async () => {
@@ -121,12 +121,12 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
       });
 
       // Act & Assert: User 2 tries to change User 1's (victim's) password
-      await expect(
-        changePasswordAction({
+      expect(
+      await changePasswordAction({
           userId: victim.id,
           newPassword: "NewHackedPassword123!",
-        })
-      ).rejects.toThrow(/Forbidden.*permission/i);
+        }),
+    ).toMatchObject({ success: false, error: expect.stringMatching(/Forbidden.*permission/i) });
     });
 
     it("should require oldPassword and reject incorrect current password when changing own password", async () => {
@@ -149,21 +149,21 @@ describe("Role-Based Access Control (RBAC) & Security Hardening (Integration)", 
       });
 
       // Act & Assert: Wrong old password
-      await expect(
-        changePasswordAction({
+      expect(
+      await changePasswordAction({
           userId: user.id,
           oldPassword: "WrongPassword999!",
           newPassword: "BrandNewPassword123!",
-        })
-      ).rejects.toThrow(/Incorrect current password/i);
+        }),
+    ).toMatchObject({ success: false, error: expect.stringMatching(/Incorrect current password/i) });
 
       // Act & Assert: Missing old password
-      await expect(
-        changePasswordAction({
+      expect(
+      await changePasswordAction({
           userId: user.id,
           newPassword: "BrandNewPassword123!",
-        })
-      ).rejects.toThrow(/Current password is required/i);
+        }),
+    ).toMatchObject({ success: false, error: expect.stringMatching(/Current password is required/i) });
     });
 
     it("should ALLOW admin with MANAGE_USERS to reset another user's password without oldPassword", async () => {

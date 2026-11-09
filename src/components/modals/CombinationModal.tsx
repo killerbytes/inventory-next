@@ -90,11 +90,14 @@ function CombinationModalContent({ product }: { product: ProductData }) {
   }: FormCombinations) => {
     startTransition(async () => {
       try {
-        await updateProductCombinationsAction(productId, combinations);
+        const res = await updateProductCombinationsAction(productId, combinations);
+        if (!res.success) {
+          toast.error(res.error || "Failed to save combinations");
+          return;
+        }
         toast.success("Combinations saved successfully");
         // onClose();
       } catch (err: any) {
-        console.error("Batch combination update error:", err);
         toast.error(err?.message || "Failed to save combinations");
       }
     });

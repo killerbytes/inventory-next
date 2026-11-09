@@ -7,7 +7,7 @@ import {
   UserUpdateInput,
   UserUpdateSchema,
 } from "@/schemas";
-import { getSession, setSessionCookie } from "@/server/auth/session";
+import { setSessionCookie } from "@/server/auth/session";
 import { userServerService } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
@@ -32,49 +32,50 @@ export const updateUserAction = createProtectedAction({
   },
 });
 
-export async function changePasswordAction(data: {
-  userId?: number;
-  oldPassword?: string;
-  newPassword: string;
-}) {
-  const session = await getSession();
-  if (!session?.id) {
-    throw new Error("Unauthorized: Please sign in to change password");
-  }
+/**
+ * Any signed-in user may change their own password (old password required);
+ * changing someone else's requires MANAGE_USERS. Not gated by a single
+ * permission, so the self/admin check lives in the handler.
+ */
+export const changePasswordAction = createProtectedAction({
+  handler: async (
+    { user: session },
+    data: { userId?: number; oldPassword?: string; newPassword: string },
+  ) => {
+    const targetUserId = data.userId || session.id;
+    const isSelf = targetUserId === session.id;
+    const isAdmin = hasPermission(session.role, PERMISSIONS.MANAGE_USERS);
 
-  const targetUserId = data.userId || session.id;
-  const isSelf = targetUserId === session.id;
-  const isAdmin = hasPermission(session.role, PERMISSIONS.MANAGE_USERS);
-
-  if (!isSelf && !isAdmin) {
-    throw new Error(
-      "Forbidden: You do not have permission to change another user's password",
-    );
-  }
-
-  const result = await userServerService.changePassword(
-    targetUserId,
-    data.newPassword,
-    data.oldPassword,
-    isAdmin && !isSelf,
-  );
-
-  // The new hash invalidates every session issued under the old password, including
-  // this one; re-issue the caller's cookie so changing your own password keeps you signed in.
-  if (isSelf) {
-    const updated = await userServerService.getSessionRow(session.id);
-    if (updated) {
-      await setSessionCookie(
-        {
-          id: updated.id,
-          name: updated.name,
-          username: updated.username,
-          role: updated.role || "USER",
-        },
-        updated.password,
+    if (!isSelf && !isAdmin) {
+      throw new Error(
+        "Forbidden: You do not have permission to change another user's password",
       );
     }
-  }
 
-  return result;
-}
+    const result = await userServerService.changePassword(
+      targetUserId,
+      data.newPassword,
+      data.oldPassword,
+      isAdmin && !isSelf,
+    );
+
+    // The new hash invalidates every session issued under the old password, including
+    // this one; re-issue the caller's cookie so changing your own password keeps you signed in.
+    if (isSelf) {
+      const updated = await userServerService.getSessionRow(session.id);
+      if (updated) {
+        await setSessionCookie(
+          {
+            id: updated.id,
+            name: updated.name,
+            username: updated.username,
+            role: updated.role || "USER",
+          },
+          updated.password,
+        );
+      }
+    }
+
+    return result;
+  },
+});

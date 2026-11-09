@@ -135,11 +135,15 @@ function BreakPackModalContent({ product }: { product: ProductData }) {
 
     startTransition(async () => {
       try {
-        await breakPackAction({
+        const res = await breakPackAction({
           fromCombinationId: Number(values.fromCombinationId),
           toCombinationId: Number(values.toCombinationId),
           quantity: Number(values.quantity),
         });
+        if (!res.success) {
+          toast.error(res.error || "Failed to execute break pack operation.");
+          return;
+        }
         toast.success(
           packType === "BREAK_PACK"
             ? "Break pack completed successfully!"

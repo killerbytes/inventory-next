@@ -1,4 +1,5 @@
 import { searchProductCombinationsAction } from "@/server/actions/product.actions";
+import { toast } from "sonner";
 
 /**
  * Searches product combinations by keyword with in-memory tokenized matching.
@@ -17,11 +18,12 @@ export const getMappedSearchProductCombinations = async (params: {
     limit: params.limit ?? 20,
     ...params,
   });
-  const searchResults = Array.isArray(response)
-    ? response
-    : Array.isArray((response as any)?.data)
-      ? (response as any).data
-      : [];
+  if (!response.success) {
+    // One toast id so a failing search doesn't stack a toast per keystroke.
+    toast.error(response.error, { id: "product-search-error" });
+    return [];
+  }
+  const searchResults: any[] = Array.isArray(response.data) ? response.data : [];
   const result: any[] = [];
   const words = search
     .toLowerCase()

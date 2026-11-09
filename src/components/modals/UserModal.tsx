@@ -100,7 +100,14 @@ function CreateUserForm({
   const onSubmit = async (values: UserInput) => {
     startTransition(async () => {
       try {
-        await createUserAction(values);
+        const res = await createUserAction(values);
+        if (!res.success) {
+          Object.entries(res.fieldErrors ?? {}).forEach(([field, messages]) => {
+            form.setError(field as any, { message: messages?.[0] });
+          });
+          toast.error(res.error || "Failed to create user");
+          return;
+        }
         toast.success(`User "${values.name}" created successfully!`);
         onSuccess();
       } catch (err: any) {
@@ -148,7 +155,14 @@ function EditUserForm({
   const onSubmit = async (values: UserUpdateInput) => {
     startTransition(async () => {
       try {
-        await updateUserAction(user.id, values);
+        const res = await updateUserAction(user.id, values);
+        if (!res.success) {
+          Object.entries(res.fieldErrors ?? {}).forEach(([field, messages]) => {
+            form.setError(field as any, { message: messages?.[0] });
+          });
+          toast.error(res.error || "Failed to update user");
+          return;
+        }
         toast.success(`User "${values.name}" updated successfully!`);
         onSuccess();
       } catch (err: any) {

@@ -13,6 +13,7 @@ import { UNIT_COLOR } from "@/constants";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Trash2 } from "lucide-react";
 import React from "react";
+import { toast } from "sonner";
 import {
   Controller,
   UseFormReturn,
@@ -70,40 +71,39 @@ export default function PendingOrderForm({
     >
   >({});
 
-  const comboIds = React.useMemo(() => {
-    return Array.from(
-      new Set(
-        (goodReceiptLines || [])
-          .map((line: any) =>
-            Number(line?.combinationId || line?.combination?.id),
-          )
-          .filter((id: number) => id > 0),
-      ),
-    );
-  }, [goodReceiptLines]);
+  // Not memoized on goodReceiptLines: react-hook-form mutates the array in place
+  // when a line's product changes, so its reference stays the same. The joined
+  // string is what lets the effect below notice a newly picked product.
+  const comboIdsKey = Array.from(
+    new Set(
+      (goodReceiptLines || [])
+        .map((line: any) => Number(line?.combinationId || line?.combination?.id))
+        .filter((id: number) => id > 0),
+    ),
+  ).join(",");
 
   React.useEffect(() => {
+    if (!comboIdsKey) return;
     let isMounted = true;
-    if (comboIds.length === 0) return;
 
+    // Single source of last prices; picking a product changes comboIdsKey.
     getLastPurchasePricesAction({
-      combinationIds: comboIds,
+      combinationIds: comboIdsKey.split(",").map(Number),
       supplierId: supplierId ? Number(supplierId) : undefined,
       excludeGoodReceiptId: currentGoodReceiptId,
-    })
-      .then((data: any) => {
-        if (isMounted && data) {
-          setLastPrices(data);
-        }
-      })
-      .catch((err: any) => {
-        console.error("Failed to fetch last purchase prices", err);
-      });
+    }).then((res) => {
+      if (!isMounted) return;
+      if (res.success) {
+        setLastPrices(res.data);
+      } else {
+        toast.error(res.error);
+      }
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [comboIds.join(","), supplierId, currentGoodReceiptId]);
+  }, [comboIdsKey, supplierId, currentGoodReceiptId]);
 
   const columns = React.useMemo(
     () => [
@@ -204,19 +204,6 @@ export default function PendingOrderForm({
                         `goodReceiptLines.${row.index}.combination`,
                         value,
                       );
-
-                      getLastPurchasePricesAction({
-                        combinationIds: [Number(value.id)],
-                        supplierId: supplierId ? Number(supplierId) : undefined,
-                        excludeGoodReceiptId: currentGoodReceiptId,
-                      }).then((res: any) => {
-                        if (res && res[value.id]) {
-                          setLastPrices((prev) => ({
-                            ...prev,
-                            [value.id]: res[value.id],
-                          }));
-                        }
-                      });
                     }}
                   />
                 </Field>

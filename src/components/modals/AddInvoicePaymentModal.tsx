@@ -61,7 +61,7 @@ function AddInvoicePaymentModalContent({
 
     startTransition(async () => {
       try {
-        await createInvoicePaymentAction({
+        const res = await createInvoicePaymentAction({
           supplierId: Number(invoice.supplierId),
           amount: Number(amount),
           paymentDate,
@@ -75,12 +75,15 @@ function AddInvoicePaymentModalContent({
             },
           ],
         });
+        if (!res.success) {
+          toast.error(res.error || "Failed to record payment");
+          return;
+        }
 
         toast.success(`Payment of ${formatCurrency(amount)} recorded successfully`);
         setAddInvoicePaymentModalOpen(false);
         router.refresh();
       } catch (err: any) {
-        console.error("Error recording invoice payment:", err);
         toast.error(err.message || "Failed to record payment");
       }
     });

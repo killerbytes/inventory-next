@@ -11,10 +11,13 @@ import { categoryServerService } from "@/server/services";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
 
-export async function getCategoriesAction() {
-  const result = await categoryServerService.getAll();
-  return result ? JSON.parse(JSON.stringify(result)) : [];
-}
+export const getCategoriesAction = createProtectedAction({
+  permission: PERMISSIONS.VIEW_PRODUCTS,
+  handler: async (_ctx) => {
+    const result = await categoryServerService.getAll();
+    return result ? JSON.parse(JSON.stringify(result)) : [];
+  },
+});
 
 export const createCategoryAction = createProtectedAction({
   permission: PERMISSIONS.MANAGE_CATEGORIES,

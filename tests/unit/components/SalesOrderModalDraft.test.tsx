@@ -233,6 +233,54 @@ describe("SalesOrderModal Draft Rehydration (Unit)", () => {
     expect(document.body.textContent).toContain("Fallback Widget");
   });
 
+  it("keeps every draft line when the product lookup returns a failure, instead of treating them as deleted", async () => {
+    // Arrange: actions return { success: false } rather than throwing (session expired, DB down)
+    const draft = {
+      salesOrderNumber: "SO-DRAFT-005",
+      customerId: 1,
+      orderDate: new Date(),
+      modeOfPayment: MODE_OF_PAYMENT.CASH,
+      status: ORDER_STATUS.RECEIVED,
+      isDelivery: false,
+      deliveryDate: new Date(),
+      dueDate: new Date(),
+      salesOrderItems: [
+        {
+          combinationId: 101,
+          quantity: 1,
+          discount: 0,
+          combination: {
+            id: 101,
+            name: "Kept Widget",
+            unit: "PCS",
+            price: 75,
+            inventory: { quantity: "10" },
+          },
+        },
+      ],
+    };
+    saveDraft(DRAFT_STORAGE_KEYS.SALES_ORDER, draft);
+    vi.mocked(getCombinationsByIdsAction).mockResolvedValue({
+      success: false,
+      error: "Unauthorized: Please sign in",
+    });
+
+    // Act
+    act(() => {
+      useUIStore.getState().setSalesOrderModalOpen(true);
+    });
+    await act(async () => {
+      root?.render(<SalesOrderModal customers={[{ id: 1, name: "Customer Acme" } as any]} />);
+    });
+
+    // Assert
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Unauthorized: Please sign in"),
+    );
+    expect(document.body.textContent).toContain("Kept Widget");
+  });
+
   it("should not call getCombinationsByIdsAction if draft has no valid combination IDs", async () => {
     // Arrange: Draft with no combination selected (combinationId: 0)
     const draft = {

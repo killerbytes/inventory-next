@@ -6,6 +6,8 @@ import {
   GoodReceiptInputSchema,
   GoodReceiptLineData,
   GoodReceiptUpdateSchema,
+  LastPurchasePricesQuery,
+  LastPurchasePricesQuerySchema,
   ReturnExchangeFormSchema,
 } from "@/schemas";
 import { goodReceiptServerService } from "@/server/services";
@@ -86,14 +88,8 @@ export const supplierReturnsAction = createProtectedAction({
 
 export const getLastPurchasePricesAction = createProtectedAction({
   permission: PERMISSIONS.VIEW_GOODS,
-  handler: async (
-    _ctx,
-    params: {
-      combinationIds: number[];
-      supplierId?: number;
-      excludeGoodReceiptId?: number;
-    },
-  ) => {
+  schema: LastPurchasePricesQuerySchema,
+  handler: async (_ctx, params: LastPurchasePricesQuery) => {
     const result = await goodReceiptServerService.getLastPurchasePrices(params);
     return result ? JSON.parse(JSON.stringify(result)) : {};
   },

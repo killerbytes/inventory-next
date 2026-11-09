@@ -40,7 +40,14 @@ function StockAdjustmentModalContent() {
   const handleSubmit = async (values: StockAdjustmentInput) => {
     startTransition(async () => {
       try {
-        await createStockAdjustmentAction(values);
+        const res = await createStockAdjustmentAction(values);
+        if (!res.success) {
+          Object.entries(res.fieldErrors ?? {}).forEach(([field, messages]) => {
+            form.setError(field as any, { message: messages?.[0] });
+          });
+          toast.error(res.error || "Failed to record stock adjustment.");
+          return;
+        }
         toast.success(
           `Stock adjustment recorded for ${editingCombination?.name}!`,
         );

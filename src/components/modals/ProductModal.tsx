@@ -44,9 +44,11 @@ function ProductModalContent() {
   const isEditing = Boolean(editingProduct?.id);
   useEffect(() => {
     if (isProductModalOpen) {
-      getCategoriesAction().then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
+      getCategoriesAction().then((res) => {
+        if (res.success) {
+          setCategories(res.data);
+        } else {
+          toast.error(res.error || "Failed to load categories");
         }
       });
     }

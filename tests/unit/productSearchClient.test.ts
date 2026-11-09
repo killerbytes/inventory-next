@@ -1,9 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { getMappedSearchProductCombinations } from "@/lib/api-clients/productSearch";
 import { searchProductCombinationsAction } from "@/server/actions/product.actions";
+import { toast } from "sonner";
 
 vi.mock("@/server/actions/product.actions", () => ({
   searchProductCombinationsAction: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn() },
 }));
 
 describe("getMappedSearchProductCombinations (Unit)", () => {
@@ -51,7 +56,7 @@ describe("getMappedSearchProductCombinations (Unit)", () => {
       },
     ];
 
-    vi.mocked(searchProductCombinationsAction).mockResolvedValue(mockApiResponse as any);
+    vi.mocked(searchProductCombinationsAction).mockResolvedValue({ success: true, data: mockApiResponse as any });
 
     // Act
     const results = await getMappedSearchProductCombinations({ search: "pipe" });
@@ -85,7 +90,7 @@ describe("getMappedSearchProductCombinations (Unit)", () => {
       },
     ];
 
-    vi.mocked(searchProductCombinationsAction).mockResolvedValue(mockApiResponse as any);
+    vi.mocked(searchProductCombinationsAction).mockResolvedValue({ success: true, data: mockApiResponse as any });
 
     // Act
     const results = await getMappedSearchProductCombinations({ search: "garden" });
@@ -117,7 +122,7 @@ describe("getMappedSearchProductCombinations (Unit)", () => {
       },
     ];
 
-    vi.mocked(searchProductCombinationsAction).mockResolvedValue(mockApiResponse as any);
+    vi.mocked(searchProductCombinationsAction).mockResolvedValue({ success: true, data: mockApiResponse as any });
 
     // Act
     const results = await getMappedSearchProductCombinations({ search: "cement portland" });
@@ -125,5 +130,22 @@ describe("getMappedSearchProductCombinations (Unit)", () => {
     // Assert
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe(301);
+  });
+
+  it("reports a failed search instead of showing it as 'no products found'", async () => {
+    // Arrange
+    vi.mocked(searchProductCombinationsAction).mockResolvedValue({
+      success: false,
+      error: "Unauthorized: Please sign in",
+    });
+
+    // Act
+    const results = await getMappedSearchProductCombinations({ search: "pipe" });
+
+    // Assert
+    expect(results).toEqual([]);
+    expect(toast.error).toHaveBeenCalledWith("Unauthorized: Please sign in", {
+      id: "product-search-error",
+    });
   });
 });

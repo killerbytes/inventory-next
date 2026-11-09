@@ -69,9 +69,12 @@ function PriceManagerModalContent() {
     setIsLoadingHistory(true);
     try {
       const res = await getPriceHistoryAction({ combinationId });
-      setHistoryLogs(res?.success && res.data?.data ? res.data.data : []);
-    } catch (err: any) {
-      console.error("Failed to load price history:", err);
+      if (res.success) {
+        setHistoryLogs(res.data?.data ?? []);
+      } else {
+        toast.error(res.error || "Failed to load price history logs.");
+      }
+    } catch {
       toast.error("Failed to load price history logs.");
     } finally {
       setIsLoadingHistory(false);

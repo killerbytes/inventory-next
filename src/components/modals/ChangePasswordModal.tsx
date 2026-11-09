@@ -37,10 +37,14 @@ function ChangePasswordModalContent() {
 
     startTransition(async () => {
       try {
-        await changePasswordAction({
+        const res = await changePasswordAction({
           oldPassword: values.oldPassword,
           newPassword: values.newPassword,
         });
+        if (!res.success) {
+          toast.error(res.error || "Failed to update password.");
+          return;
+        }
         toast.success("Password changed successfully!");
         setChangePasswordModalOpen(false);
       } catch (error: any) {

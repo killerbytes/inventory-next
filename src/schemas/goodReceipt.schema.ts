@@ -168,3 +168,14 @@ export type GoodReceiptLineWithCombination = z.infer<
 >;
 export type GoodReceiptModalForm = z.infer<typeof GoodReceiptFormSchema>;
 
+const positiveId = z.number().int().positive();
+
+/** Input for looking up the most recent purchase price per product combination. */
+export const LastPurchasePricesQuerySchema = z.object({
+  combinationIds: z.array(positiveId),
+  supplierId: positiveId.optional(),
+  /** Receipt being edited; excluded so a line's own price isn't reported as its "last" price. */
+  excludeGoodReceiptId: positiveId.optional(),
+});
+export type LastPurchasePricesQuery = z.infer<typeof LastPurchasePricesQuerySchema>;
+

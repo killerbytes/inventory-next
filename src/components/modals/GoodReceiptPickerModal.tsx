@@ -14,6 +14,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { ORDER_STATUS, STATUS_COLOR } from "@/constants";
 import { ColumnDef } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 export interface GoodReceiptPickerModalProps {
   supplierId: number;
@@ -44,7 +45,12 @@ function GoodReceiptPickerModalContent({
       .then((res) => {
         if (!mounted) return;
 
-        const items = res?.success && res.data?.data ? res.data.data : [];
+        if (!res.success) {
+          // An empty list would read as "this supplier has no receipts".
+          toast.error(res.error || "Failed to load good receipts");
+          return;
+        }
+        const items = res.data?.data ?? [];
         setData(items);
 
         // Pre-select items that match defaultSelected
@@ -58,9 +64,6 @@ function GoodReceiptPickerModalContent({
           }
         });
         setRowSelection(initialSelection);
-      })
-      .catch((err) => {
-        console.error("Error loading good receipts for supplier:", err);
       })
       .finally(() => {
         if (mounted) setIsLoading(false);

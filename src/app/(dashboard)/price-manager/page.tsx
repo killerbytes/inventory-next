@@ -159,12 +159,17 @@ export default function PriceManagerPage() {
 
     setIsUpdating(true);
     try {
-      await updatePricesAction(
+      const res = await updatePricesAction(
         validItems.map((item) => ({
           id: item.id,
           newPrice: item.newPrice,
         })),
       );
+      if (!res.success) {
+        // Keep the file and preview so the user can retry without re-uploading.
+        toast.error(res.error || "Failed to update prices.");
+        return;
+      }
 
       toast.success(
         `Successfully updated ${validItems.length} combination prices!`,
