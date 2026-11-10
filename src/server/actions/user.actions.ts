@@ -2,6 +2,8 @@
 
 import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 import {
+  ChangePasswordActionInput,
+  ChangePasswordActionSchema,
   UserInput,
   UserInputSchema,
   UserUpdateInput,
@@ -38,10 +40,8 @@ export const updateUserAction = createProtectedAction({
  * permission, so the self/admin check lives in the handler.
  */
 export const changePasswordAction = createProtectedAction({
-  handler: async (
-    { user: session },
-    data: { userId?: number; oldPassword?: string; newPassword: string },
-  ) => {
+  schema: ChangePasswordActionSchema,
+  handler: async ({ user: session }, data: ChangePasswordActionInput) => {
     const targetUserId = data.userId || session.id;
     const isSelf = targetUserId === session.id;
     const isAdmin = hasPermission(session.role, PERMISSIONS.MANAGE_USERS);

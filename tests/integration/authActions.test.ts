@@ -30,13 +30,44 @@ describe("Auth & Password Actions (Integration)", () => {
       role: "USER",
     });
 
-    // Act & Assert
-    await expect(
-      loginAction({
-        username: inactiveUser.username,
-        password,
-      }),
-    ).rejects.toThrow(/Account is inactive|disabled/i);
+    // Act: returned, not thrown, so the message survives Next.js production error redaction
+    const result = await loginAction({
+      username: inactiveUser.username,
+      password,
+    });
+
+    // Assert
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringMatching(/Account is inactive/i),
+    });
+  });
+
+  it("returns the same generic failure for a wrong password and an unknown username, so usernames can't be probed", async () => {
+    // Arrange
+    const password = "ValidPassword123!";
+    await userServerService.create({
+      name: "Real User",
+      username: "realuser",
+      email: "real@example.com",
+      password,
+      confirmPassword: password,
+      isActive: true,
+      role: "USER",
+    });
+
+    // Act
+    const wrongPassword = await loginAction({ username: "realuser", password: "nope-nope" });
+    const unknownUser = await loginAction({ username: "ghost", password: "nope-nope" });
+
+    // Assert
+    expect(wrongPassword).toEqual({ success: false, error: "Invalid username or password" });
+    expect(unknownUser).toEqual(wrongPassword);
+  });
+
+  it("rejects oversized credentials without querying further", async () => {
+    const result = await loginAction({ username: "a".repeat(300), password: "x" });
+    expect(result.success).toBe(false);
   });
 
   it("should successfully log in active users with valid credentials", async () => {
@@ -100,6 +131,57 @@ describe("Auth & Password Actions (Integration)", () => {
     expect(reloaded).not.toBeNull();
     expect(bcrypt.compareSync(newPassword, reloaded!.password)).toBe(true);
     expect(bcrypt.compareSync(oldPassword, reloaded!.password)).toBe(false);
+  });
+
+  describe("changePasswordAction input rules", () => {
+    const currentPassword = "CurrentPassword123!";
+    let userId: number;
+
+    beforeEach(async () => {
+      const user = await userServerService.create({
+        name: "Rule Checker",
+        username: "rulechecker",
+        email: "rules@example.com",
+        password: currentPassword,
+        confirmPassword: currentPassword,
+        isActive: true,
+        role: "ADMIN",
+      });
+      userId = user.id;
+      setTestSession({ id: user.id, username: user.username, name: user.name, role: "ADMIN" });
+    });
+
+    const storedHash = async () =>
+      (await db.query.users.findFirst({ where: (t, { eq }) => eq(t.id, userId) }))!.password;
+
+    it.each([
+      ["shorter than the minimum", "abc"],
+      ["longer than bcrypt's 72-byte limit, which would be silently truncated", "x".repeat(73)],
+    ])("rejects a new password %s and leaves the stored hash unchanged", async (_label, newPassword) => {
+      const before = await storedHash();
+
+      const result = await changePasswordAction({ oldPassword: currentPassword, newPassword });
+
+      expect(result.success).toBe(false);
+      expect(await storedHash()).toBe(before);
+    });
+
+    it("rejects a non-integer target userId", async () => {
+      const result = await changePasswordAction({
+        userId: "1 OR 1=1" as any,
+        newPassword: "AnotherPassword1!",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects unknown fields", async () => {
+      const result = await changePasswordAction({
+        oldPassword: currentPassword,
+        newPassword: "AnotherPassword1!",
+        role: "ADMIN",
+      } as any);
+      expect(result.success).toBe(false);
+    });
   });
 
   it("should reject changePasswordAction when old password is incorrect", async () => {

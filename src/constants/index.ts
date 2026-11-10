@@ -87,6 +87,11 @@ export const STATUS_COLOR = {
   CHECK: "text-yellow-500 border-yellow-500",
 };
 
+/** Minimum length when a password is set (create user, change password). Login accepts any length so legacy accounts still work. */
+export const PASSWORD_MIN_LENGTH = 4;
+/** bcrypt only hashes the first 72 bytes; anything longer would be silently truncated. */
+export const PASSWORD_MAX_LENGTH = 72;
+
 export const PAGINATION = {
   PAGE: 1,
   PAGE_SIZE: 25,
