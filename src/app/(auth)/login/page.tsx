@@ -47,7 +47,8 @@ export default function LoginPage() {
       }
 
       toast.success(`Welcome back, ${result.user.name || values.username}`);
-      router.push("/dashboard");
+      // `/` picks the landing page for the user's role; not every role can open the dashboard.
+      router.push("/");
     } catch (error: any) {
       toast.error(error?.message || "Login failed. Please check credentials.");
     } finally {

@@ -1,7 +1,7 @@
 import "server-only";
 import { getSession, SessionUser } from "./session";
 import { hasPermission, Permission } from "@/lib/rbac";
-import { UserRole } from "@/constants";
+import { ROUTES, UserRole } from "@/constants";
 import { redirect } from "next/navigation";
 
 /**
@@ -22,11 +22,12 @@ export async function requireSession(
 
 /**
  * Requires the authenticated user to possess a specific capability permission.
- * Redirects unauthenticated users to /login and unauthorized users to fallback (default: /).
+ * Redirects unauthenticated users to /login and unauthorized users to fallback (default: /forbidden).
+ * Never default to `/`: it redirects to a guarded page, which loops for roles that can't open it.
  */
 export async function requirePermission(
   permission: Permission,
-  redirectTo = "/",
+  redirectTo: string = ROUTES.FORBIDDEN,
 ): Promise<SessionUser> {
   const session = await requireSession("/login");
 
@@ -39,11 +40,11 @@ export async function requirePermission(
 
 /**
  * Requires the authenticated user to belong to one of the allowed system roles.
- * Redirects unauthenticated users to /login and unauthorized users to fallback (default: /).
+ * Redirects unauthenticated users to /login and unauthorized users to fallback (default: /forbidden).
  */
 export async function requireRole(
   allowedRoles: UserRole[],
-  redirectTo = "/",
+  redirectTo: string = ROUTES.FORBIDDEN,
 ): Promise<SessionUser> {
   const session = await requireSession("/login");
 

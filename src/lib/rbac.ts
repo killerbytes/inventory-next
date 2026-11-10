@@ -1,4 +1,4 @@
-import { UserRole } from "@/constants";
+import { ROUTES, UserRole } from "@/constants";
 
 /**
  * Granular system capability permissions.
@@ -93,7 +93,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.MANAGE_SALES,
     PERMISSIONS.VIEW_REPORTS,
   ],
-  [UserRole.USER]: [PERMISSIONS.VIEW_REPORTS, PERMISSIONS.VIEW_PRODUCTS],
+  [UserRole.USER]: [PERMISSIONS.VIEW_PRODUCTS],
 };
 
 /**
@@ -111,4 +111,28 @@ export function hasPermission(
 
   if (!permissions) return false;
   return permissions.includes(permission);
+}
+
+/**
+ * Landing pages in order of preference, each with the permission its page requires.
+ * Keep each `permission` in sync with the `requirePermission` call in that page.
+ */
+export const HOME_ROUTE_CANDIDATES = [
+  { route: ROUTES.DASHBOARD, permission: PERMISSIONS.VIEW_REPORTS },
+  { route: ROUTES.SALES_ORDERS, permission: PERMISSIONS.VIEW_SALES },
+  { route: ROUTES.GOOD_RECEIPT, permission: PERMISSIONS.VIEW_GOODS },
+  { route: ROUTES.PRODUCTS, permission: PERMISSIONS.VIEW_PRODUCTS },
+] as const;
+
+/**
+ * The first page `role` is allowed to open, used for `/` and after login.
+ * Why: sending everyone to the dashboard looped (`/` → `/dashboard` → denied → `/`)
+ * for roles without VIEW_REPORTS. A role with none of the candidates gets the
+ * forbidden page, which requires only a session, so this can never loop.
+ */
+export function getHomeRoute(role: string | null | undefined): string {
+  const candidate = HOME_ROUTE_CANDIDATES.find((c) =>
+    hasPermission(role, c.permission),
+  );
+  return candidate ? candidate.route : ROUTES.FORBIDDEN;
 }

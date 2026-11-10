@@ -49,7 +49,12 @@ const navGroups = [
   {
     label: "APPLICATION",
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: Home },
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: Home,
+        permission: PERMISSIONS.VIEW_REPORTS,
+      },
       {
         title: "Good Receipt",
         href: "/good-receipts",
