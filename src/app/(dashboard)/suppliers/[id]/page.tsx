@@ -37,23 +37,19 @@ export default async function SupplierDetailPage({
     totalReturnAmount: 0,
   };
 
-  try {
-    const [supplierResult, receiptsResult] = await Promise.all([
-      supplierServerService.get(Number(id)),
-      goodReceiptServerService.getBySupplierId(Number(id), {
-        page,
-        limit,
-        offset,
-      }),
-    ]);
+  const [supplierResult, receiptsResult] = await Promise.all([
+    supplierServerService.get(Number(id)),
+    goodReceiptServerService.getBySupplierId(Number(id), {
+      page,
+      limit,
+      offset,
+    }),
+  ]);
 
-    supplier = supplierResult;
-    receipts = receiptsResult.data;
-    initialPagination = receiptsResult.pagination;
-    initialSummary = receiptsResult.summary
-  } catch (err) {
-    console.error("Error querying supplier profile from PostgreSQL:", err);
-  }
+  supplier = supplierResult;
+  receipts = receiptsResult.data;
+  initialPagination = receiptsResult.pagination;
+  initialSummary = receiptsResult.summary
 
   if (!supplier) {
     notFound();

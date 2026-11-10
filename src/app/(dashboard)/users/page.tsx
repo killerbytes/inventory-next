@@ -9,13 +9,8 @@ export default async function UsersPage() {
   await requirePermission(PERMISSIONS.VIEW_USERS);
 
   let users: any[] = [];
-  try {
-    const result = await userServerService.getAll();
-    users = result || [];
-  } catch (err) {
-    console.error("Error fetching users on server:", err);
-    users = [];
-  }
+  const result = await userServerService.getAll();
+  users = result || [];
 
   return <UsersClientWidget initialUsers={JSON.parse(JSON.stringify(users))} />;
 }

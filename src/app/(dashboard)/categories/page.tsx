@@ -11,11 +11,7 @@ export const metadata = {
 export default async function CategoriesPage() {
   await requirePermission(PERMISSIONS.MANAGE_CATEGORIES);
   let categories: any[] = [];
-  try {
-    categories = await categoryServerService.getAll();
-  } catch (err) {
-    console.error("Failed to query Category from PostgreSQL:", err);
-  }
+  categories = await categoryServerService.getAll();
 
   return <CategoriesWidget initialCategories={categories} />;
 }

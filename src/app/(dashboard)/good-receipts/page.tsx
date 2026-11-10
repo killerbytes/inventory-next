@@ -52,28 +52,24 @@ export default async function GoodReceiptsPage({
     totalReturnAmount: 0,
   };
 
-  try {
-    const result = await goodReceiptServerService.getAll({
-      startDate,
-      endDate,
-      status: params.status === "ALL" ? undefined : params.status,
-      search: params.q,
-      limit,
-      offset,
-      sort: params.sort,
-      order: params.order as "ASC" | "DESC" | undefined,
-    });
+  const result = await goodReceiptServerService.getAll({
+    startDate,
+    endDate,
+    status: params.status === "ALL" ? undefined : params.status,
+    search: params.q,
+    limit,
+    offset,
+    sort: params.sort,
+    order: params.order as "ASC" | "DESC" | undefined,
+  });
 
-    initialRows = result.data;
-    pagination = result.pagination;
-    if (result.summary) {
-      summary = result.summary;
-    }
-
-    suppliers = await supplierServerService.getAll();
-  } catch (err) {
-    console.error("Failed to fetch good receipts on server:", err);
+  initialRows = result.data;
+  pagination = result.pagination;
+  if (result.summary) {
+    summary = result.summary;
   }
+
+  suppliers = await supplierServerService.getAll();
 
   return (
     <GoodReceiptsClientWidget

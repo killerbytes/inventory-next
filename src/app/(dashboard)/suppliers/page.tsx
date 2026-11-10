@@ -15,12 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function SuppliersPage() {
   await requirePermission(PERMISSIONS.MANAGE_SUPPLIERS);
   let suppliers: { data: SupplierData[]; pagination: Pagination };
-  try {
-    suppliers = await supplierServerService.getAll();
-  } catch (err) {
-    console.error("Failed to query Supplier from PostgreSQL:", err);
-    suppliers = { data: [], pagination: { total: 0, totalPages: 0, currentPage: 0 } };
-  }
+  suppliers = await supplierServerService.getAll();
 
   return <SuppliersWidget initialSuppliers={suppliers.data} />;
 }

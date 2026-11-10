@@ -14,12 +14,7 @@ export default async function InvoiceDetailPage({
   await requirePermission(PERMISSIONS.MANAGE_INVOICES);
   const { id } = await params;
   let invoice: any = null;
-  try {
-    invoice = await invoiceServerService.get(Number(id));
-  } catch (err) {
-    console.error("Error fetching invoice details on server:", err);
-    invoice = null;
-  }
+  invoice = await invoiceServerService.get(Number(id));
 
   return (
     <InvoiceDetailClientWidget invoice={invoice} />

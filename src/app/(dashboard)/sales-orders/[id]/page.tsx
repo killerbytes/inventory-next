@@ -15,12 +15,7 @@ export default async function SalesOrderDetailsPage({
   await requirePermission(PERMISSIONS.VIEW_SALES);
   const { id } = await params;
   let order: SalesOrderData | null = null;
-  try {
-    order = await salesServerService.get(Number(id));
-  } catch (err) {
-    console.error("Error fetching sales order details:", err);
-    order = null;
-  }
+  order = await salesServerService.get(Number(id));
   if (!order) {
     notFound();
   }

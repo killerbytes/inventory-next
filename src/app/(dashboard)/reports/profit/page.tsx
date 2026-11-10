@@ -37,27 +37,23 @@ export default async function ProfitReportPage({
     },
   };
 
-  try {
-    const [summaryRes, productsRes] = await Promise.all([
-      reportsServerService.getProfitSummary({ startDate, endDate }),
-      reportsServerService.getProfitProducts({
-        page,
-        limit,
-        startDate,
-        endDate,
-        sort,
-        order,
-      }),
-    ]);
+  const [summaryRes, productsRes] = await Promise.all([
+    reportsServerService.getProfitSummary({ startDate, endDate }),
+    reportsServerService.getProfitProducts({
+      page,
+      limit,
+      startDate,
+      endDate,
+      sort,
+      order,
+    }),
+  ]);
 
-    if (summaryRes) {
-      summary = summaryRes;
-    }
-    if (productsRes) {
-      productsResult = productsRes as any;
-    }
-  } catch (err) {
-    console.error("Error fetching profit report data:", err);
+  if (summaryRes) {
+    summary = summaryRes;
+  }
+  if (productsRes) {
+    productsResult = productsRes as any;
   }
 
   return (

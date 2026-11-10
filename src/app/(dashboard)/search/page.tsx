@@ -18,11 +18,7 @@ export const metadata = {
 export default async function GlobalSearchPage() {
   await requirePermission(PERMISSIONS.VIEW_PRODUCTS);
   let categories: any[] = [];
-  try {
-    categories = await categoryServerService.getAll();
-  } catch {
-    categories = [];
-  }
+  categories = await categoryServerService.getAll();
 
   return (
     <Suspense

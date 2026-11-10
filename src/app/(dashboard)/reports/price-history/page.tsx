@@ -23,17 +23,13 @@ export default async function PriceHistoryPage({
     currentPage: page,
   };
 
-  try {
-    const result = await inventoryServerService.getPriceHistory({
-      page,
-      limit,
-      q,
-    });
-    logs = result.data || [];
-    meta = result.meta;
-  } catch (err) {
-    console.error("Error fetching price history logs:", err);
-  }
+  const result = await inventoryServerService.getPriceHistory({
+    page,
+    limit,
+    q,
+  });
+  logs = result.data || [];
+  meta = result.meta;
 
   return (
     <PriceHistoryClientWidget

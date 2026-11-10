@@ -40,31 +40,22 @@ export default async function SalesOrdersPage({
     totalExchangeAmount: 0,
   };
 
-  try {
-    const result = await salesServerService.getAll({
-      startDate,
-      endDate,
-      status: params.status === "ALL" ? undefined : params.status,
-      search: params.q,
-      limit,
-      page,
-      sort: params.sort,
-      order: params.order as "ASC" | "DESC" | undefined,
-    });
+  const result = await salesServerService.getAll({
+    startDate,
+    endDate,
+    status: params.status === "ALL" ? undefined : params.status,
+    search: params.q,
+    limit,
+    page,
+    sort: params.sort,
+    order: params.order as "ASC" | "DESC" | undefined,
+  });
 
-    initialRows = result.rows;
-    initialPagination = result.pagination;
-    initialSummary = result.summary
-  } catch (err: any) {
-    console.error(
-      "Error fetching sales orders on server:",
-      err?.message || err,
-    );
-  }
+  initialRows = result.rows;
+  initialPagination = result.pagination;
+  initialSummary = result.summary
   let customers: CustomerData[] = [];
-  try {
-    customers = await customerServerService.getAll();
-  } catch (error) { }
+  customers = await customerServerService.getAll();
   return (
     <SalesOrdersClientWidget
       initialRows={initialRows}

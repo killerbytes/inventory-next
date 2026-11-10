@@ -33,27 +33,21 @@ export default async function InvoicesPage({
     currentPage: 0,
   };
 
-  try {
-    const [invResult, suppResult] = await Promise.all([
-      invoiceServerService.getAll({
-        startDate,
-        endDate,
-        status: params.status === "ALL" ? undefined : params.status,
-        q: params.q,
-        limit,
-        page,
-      }),
-      supplierServerService.getAll(),
-    ]);
-    invoices = invResult.data || [];
-    meta = invResult.meta;
+  const [invResult, suppResult] = await Promise.all([
+    invoiceServerService.getAll({
+      startDate,
+      endDate,
+      status: params.status === "ALL" ? undefined : params.status,
+      q: params.q,
+      limit,
+      page,
+    }),
+    supplierServerService.getAll(),
+  ]);
+  invoices = invResult.data || [];
+  meta = invResult.meta;
 
-    suppliers = suppResult.data || [];
-  } catch (err) {
-    console.error("Error fetching invoices on server:", err);
-    invoices = [];
-    suppliers = [];
-  }
+  suppliers = suppResult.data || [];
 
   return (
     <InvoicesClientWidget

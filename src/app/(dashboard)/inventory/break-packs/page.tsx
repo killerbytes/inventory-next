@@ -13,8 +13,6 @@ type BreakPackRow = Awaited<
   ReturnType<typeof reportsServerService.getBreakPacks>
 >["rows"][number];
 
-
-
 export default async function BreakPacksPage({
   searchParams,
 }: {
@@ -40,18 +38,12 @@ export default async function BreakPacksPage({
     currentPage: 0,
   };
 
-  try {
-    const result = await reportsServerService.getBreakPacks({
-      limit,
-      offset,
-    });
-    initialRows = result.rows;
-    initialPagination = result.pagination;
-
-  } catch (err) {
-    console.error("Error fetching break packs on server:", err);
-    initialRows = [];
-  }
+  const result = await reportsServerService.getBreakPacks({
+    limit,
+    offset,
+  });
+  initialRows = result.rows;
+  initialPagination = result.pagination;
 
   return <BreakPacksWidget initialBreakPacks={initialRows}
 

@@ -13,11 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage() {
   await requirePermission(PERMISSIONS.MANAGE_CUSTOMERS);
   let customers: any[] = [];
-  try {
-    customers = await customerServerService.getAll();
-  } catch (err) {
-    console.error("Failed to query Customer from PostgreSQL:", err);
-  }
+  customers = await customerServerService.getAll();
 
   return <CustomersWidget initialCustomers={customers} />;
 }

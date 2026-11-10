@@ -20,12 +20,7 @@ export default async function SalesOrderPrintPage({
   const autoPrint = query?.auto === "true" || query?.auto === "1";
 
   let order: SalesOrderData | null = null;
-  try {
-    order = await salesServerService.get(Number(id));
-  } catch (err) {
-    console.error("Error fetching sales order for print:", err);
-    order = null;
-  }
+  order = await salesServerService.get(Number(id));
 
   if (!order) {
     notFound();

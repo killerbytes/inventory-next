@@ -29,19 +29,15 @@ export default async function NoSalesPage({
     },
   };
 
-  try {
-    const response = await reportsServerService.noSaleProducts({
-      page,
-      limit,
-      sort,
-      order,
-      q,
-    });
-    if (response) {
-      result = response as any;
-    }
-  } catch (err) {
-    console.error("Error fetching no sales report:", err);
+  const response = await reportsServerService.noSaleProducts({
+    page,
+    limit,
+    sort,
+    order,
+    q,
+  });
+  if (response) {
+    result = response as any;
   }
 
   return (

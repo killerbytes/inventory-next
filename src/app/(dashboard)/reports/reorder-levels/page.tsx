@@ -28,18 +28,14 @@ export default async function ReorderLevelsPage({
     },
   };
 
-  try {
-    const response = await reportsServerService.getReorderLevels({
-      page,
-      limit,
-      sort,
-      order,
-    });
-    if (response) {
-      result = response as any;
-    }
-  } catch (err) {
-    console.error("Error fetching reorder levels:", err);
+  const response = await reportsServerService.getReorderLevels({
+    page,
+    limit,
+    sort,
+    order,
+  });
+  if (response) {
+    result = response as any;
   }
 
   return (

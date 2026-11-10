@@ -14,18 +14,7 @@ export default async function GoodReceiptDetailsPage({
 }) {
   await requirePermission(PERMISSIONS.VIEW_GOODS);
   const { id } = await params;
-  let receipt: GoodReceiptData | null = null;
-  try {
-    const data = await goodReceiptServerService.get(Number(id));
-
-    if (!data) {
-      notFound();
-    }
-    receipt = data;
-  } catch (err) {
-    console.error("Error fetching good receipt details:", err);
-    receipt = null;
-  }
+  const receipt: GoodReceiptData | null = await goodReceiptServerService.get(Number(id));
   if (!receipt) {
     notFound();
   }

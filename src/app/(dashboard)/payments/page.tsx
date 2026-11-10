@@ -9,13 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function PaymentsPage() {
   await requirePermission(PERMISSIONS.VIEW_REPORTS);
   let payments: any[] = [];
-  try {
-    const result = await paymentServerService.getAll();
-    payments = result || [];
-  } catch (err) {
-    console.error("Error fetching payments on server:", err);
-    payments = [];
-  }
+  const result = await paymentServerService.getAll();
+  payments = result || [];
 
   return <PaymentsClientWidget initialPayments={JSON.parse(JSON.stringify(payments))} />;
 }

@@ -37,22 +37,18 @@ export default async function MovementsPage({
   };
   let summary: InventoryMovementsSummary | undefined;
 
-  try {
-    const result = await inventoryServerService.getMovements({
-      page,
-      limit,
-      type: status,
-      ids: ids.length > 0 ? [Number(ids)] : [],
-      startDate,
-      endDate,
-      includeSummary: true,
-    });
-    rows = result.data || [];
-    meta = result.meta;
-    summary = result.summary;
-  } catch (err) {
-    console.error("Error fetching inventory movements:", err);
-  }
+  const result = await inventoryServerService.getMovements({
+    page,
+    limit,
+    type: status,
+    ids: ids.length > 0 ? [Number(ids)] : [],
+    startDate,
+    endDate,
+    includeSummary: true,
+  });
+  rows = result.data || [];
+  meta = result.meta;
+  summary = result.summary;
 
   return (
     <InventoryMovementsClientWidget

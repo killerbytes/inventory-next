@@ -9,13 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function StockAdjustmentsPage() {
   await requirePermission(PERMISSIONS.VIEW_REPORTS);
   let adjustments: StockAdjustmentData[] = [];
-  try {
-    const result = await reportsServerService.getStockAdjustments();
-    adjustments = result || [];
-  } catch (err) {
-    console.error("Error fetching stock adjustments:", err);
-    adjustments = [];
-  }
+  const result = await reportsServerService.getStockAdjustments();
+  adjustments = result || [];
 
   return (
     <StockAdjustmentsClientWidget

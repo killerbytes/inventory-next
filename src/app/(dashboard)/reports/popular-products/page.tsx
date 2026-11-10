@@ -33,24 +33,17 @@ export default async function PopularProductsPage({
 
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;
-  try {
 
+  const result = await reportsServerService.getPopularProducts({
+    limit,
+    page,
+    offset,
+    startDate,
+    endDate,
+  });
 
-
-    const result = await reportsServerService.getPopularProducts({
-      limit,
-      page,
-      offset,
-      startDate,
-      endDate,
-    });
-
-    products = result?.data || [];
-    pagination = result?.pagination || [];
-  } catch (err) {
-    console.error("Error fetching popular products:", err);
-    products = [];
-  }
+  products = result?.data || [];
+  pagination = result?.pagination || [];
   return <PopularProductsClientWidget initialProducts={products}
     initialPagination={pagination}
     startDate={startDate}
