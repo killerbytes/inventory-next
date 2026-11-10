@@ -3,7 +3,7 @@ import { requirePermission } from "@/server/auth/guards";
 import InvoicesClientWidget from "@/components/widgets/InvoicesClientWidget";
 import { invoiceServerService } from "@/server/services/invoiceServer.service";
 import { supplierServerService } from "@/server/services/supplierServer.service";
-import { endOfMonth, format, startOfMonth } from "date-fns";
+import { getBusinessCalendar } from "@/server/services/dateFilter";
 import { Meta } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +18,9 @@ export default async function InvoicesPage({
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 25;
 
-  const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const defaultEndDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  // Business-timezone month; the server clock can still be on last month's date.
+  const { monthStart: defaultStartDate, monthEnd: defaultEndDate } =
+    getBusinessCalendar();
 
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;

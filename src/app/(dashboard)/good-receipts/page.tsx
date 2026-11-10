@@ -9,7 +9,7 @@ import {
 import {
   PAGINATION,
 } from "@/constants";
-import { endOfMonth, format, startOfMonth } from "date-fns";
+import { getBusinessCalendar } from "@/server/services/dateFilter";
 import { GoodReceiptSummary, Pagination } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,9 @@ export default async function GoodReceiptsPage({
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const offset = (page - 1) * limit;
 
-  const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const defaultEndDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  // Business-timezone month; the server clock can still be on last month's date.
+  const { monthStart: defaultStartDate, monthEnd: defaultEndDate } =
+    getBusinessCalendar();
 
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;

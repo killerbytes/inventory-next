@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDateBounds } from "@/server/services";
+import { getDateBounds, getRecentBusinessDays, toBusinessDay } from "@/server/services";
 
 describe("getDateBounds (Unit)", () => {
   it("should return undefined bounds when neither startDate nor endDate is provided", () => {
@@ -86,3 +86,23 @@ describe("getDateBounds (Unit)", () => {
   });
 });
 
+
+describe("business-day helpers (Manila vs UTC boundary)", () => {
+  // 2026-11-10T20:00Z is 04:00 on 2026-11-11 in Manila: UTC still says the 10th.
+  const now = new Date("2026-11-10T20:00:00.000Z");
+  const tz = "Asia/Manila";
+
+  it("lists the last N business days ending on today's Manila date, oldest first", () => {
+        const days = getRecentBusinessDays(3, now, tz);
+
+    expect(days.map((d) => d.date)).toEqual(["2026-11-09", "2026-11-10", "2026-11-11"]);
+    expect(days[2].label).toBe("Nov 11");
+  });
+
+  it("assigns an early-morning Manila sale to its Manila day, not the UTC day", () => {
+        // 01:30 Manila on Nov 11 = 17:30 UTC on Nov 10.
+    expect(toBusinessDay(new Date("2026-11-10T17:30:00.000Z"), tz)).toBe("2026-11-11");
+    // 23:30 Manila on Nov 10 = 15:30 UTC on Nov 10.
+    expect(toBusinessDay(new Date("2026-11-10T15:30:00.000Z"), tz)).toBe("2026-11-10");
+  });
+});

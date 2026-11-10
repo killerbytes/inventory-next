@@ -1,8 +1,10 @@
+import { PERMISSIONS } from "@/lib/rbac";
+import { requirePermission } from "@/server/auth/guards";
 import React from "react";
 import { reportsServerService } from "@/server/services/reportsServer.service";
 import PopularProductsClientWidget from "@/components/widgets/PopularProductsClientWidget";
 import { PAGINATION } from "@/constants";
-import { endOfMonth, format, startOfMonth } from "date-fns";
+import { getBusinessCalendar } from "@/server/services/dateFilter";
 import { Pagination } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,7 @@ export default async function PopularProductsPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | undefined }>;
 }) {
+  await requirePermission(PERMISSIONS.VIEW_REPORTS);
   let products: any[] = [];
   let pagination: Pagination = {
     total: 0,
@@ -24,8 +27,9 @@ export default async function PopularProductsPage({
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const offset = (page - 1) * limit;
 
-  const defaultStartDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const defaultEndDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  // Business-timezone month; the server clock can still be on last month's date.
+  const { monthStart: defaultStartDate, monthEnd: defaultEndDate } =
+    getBusinessCalendar();
 
   const startDate = params.startDate || defaultStartDate;
   const endDate = params.endDate || defaultEndDate;

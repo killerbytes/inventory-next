@@ -7,7 +7,7 @@ import {
 } from "@/server/services";
 import { salesServerService } from "@/server/services/salesServer.service";
 import { ORDER_STATUS, RETURN_TYPE, INVENTORY_MOVEMENT_TYPE } from "@/constants";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { productCombinations } from "@/server/db/schema/productCombinations";
 import { eq } from "drizzle-orm";
 import { resetDatabase, setupDatabase } from "../setup";
@@ -681,6 +681,45 @@ describe("Sales Order Service (Integration)", () => {
       expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
       expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
       expect(await stockOf(1)).toBe(10);
+    });
+  });
+
+  describe("business-timezone calendar days (Asia/Manila, UTC+8)", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("puts a 01:30 Manila sale on its Manila day in the weekly sales graph, not the previous UTC day", async () => {
+      // 01:30 Manila on Nov 11 = 17:30 UTC on Nov 10.
+      await salesServerService.create(
+        {
+          ...getTestData(),
+          status: ORDER_STATUS.RECEIVED,
+          orderDate: new Date("2026-11-10T17:30:00.000Z"),
+        },
+        user0.id,
+      );
+
+      const series = await salesServerService.getDailySales(
+        new Date("2026-11-10T20:00:00.000Z"),
+        "Asia/Manila",
+      );
+
+      expect(series.at(-1)).toEqual({ name: "Nov 11", totalAmount: 3000 });
+      expect(series.find((d) => d.name === "Nov 10")?.totalAmount).toBe(0);
+    });
+
+    it("numbers an order created at 01:00 Manila on Dec 1 with December's prefix", async () => {
+      // 01:00 Manila on Dec 1 = 17:00 UTC on Nov 30. Only Date is faked so pg timers keep working.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-30T17:00:00.000Z"));
+
+      const order = await salesServerService.create(
+        { ...getTestData(), salesOrderNumber: "" },
+        user0.id,
+      );
+
+      expect(order?.salesOrderNumber).toMatch(/^SO-2026-12-\d{4}$/);
     });
   });
 

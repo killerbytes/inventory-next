@@ -59,7 +59,7 @@ export const dashboardServerService = {
       salesServerService.getAll({ startDate: cal.yesterday, endDate: cal.yesterday, limit: 1 }),
       goodReceiptServerService.getAll({ status: "RECEIVED", limit: 1 }),
       salesServerService.getAll({ startDate: cal.lastMonthStart, endDate: cal.lastMonthEnd, limit: 1 }),
-      salesServerService.getDailySales(),
+      salesServerService.getDailySales(now, timezone),
       salesServerService.getAll({ limit: DASHBOARD_LIST_LIMIT, sort: "orderDate", order: "DESC" }),
       inventoryServerService.getMovements({
         limit: DASHBOARD_LIST_LIMIT,

@@ -8,7 +8,9 @@ import { redirect } from "next/navigation";
  * Requires an active authenticated session in Server Components.
  * Redirects to /login if no valid session cookie is present.
  */
-export async function requireSession(redirectTo = "/login"): Promise<SessionUser> {
+export async function requireSession(
+  redirectTo = "/login",
+): Promise<SessionUser> {
   const session = await getSession();
 
   if (!session) {
@@ -24,7 +26,7 @@ export async function requireSession(redirectTo = "/login"): Promise<SessionUser
  */
 export async function requirePermission(
   permission: Permission,
-  redirectTo = "/"
+  redirectTo = "/",
 ): Promise<SessionUser> {
   const session = await requireSession("/login");
 
@@ -41,13 +43,13 @@ export async function requirePermission(
  */
 export async function requireRole(
   allowedRoles: UserRole[],
-  redirectTo = "/"
+  redirectTo = "/",
 ): Promise<SessionUser> {
   const session = await requireSession("/login");
 
   const normalizedRole = session.role?.trim().toUpperCase();
   const isAllowed = allowedRoles.some(
-    (role) => role.toUpperCase() === normalizedRole
+    (role) => role.toUpperCase() === normalizedRole,
   );
 
   if (!isAllowed) {

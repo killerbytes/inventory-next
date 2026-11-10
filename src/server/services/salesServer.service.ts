@@ -5,7 +5,6 @@ import {
 } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
 import { getNextSequence } from "@/lib/sequence";
-import { format } from "date-fns";
 import { SalesOrderInput, SalesOrderItemData, SalesOrderData } from "@/schemas";
 import { db } from "@/server/db/drizzle";
 import { salesOrders } from "@/server/db/schema/salesOrders";
@@ -42,7 +41,12 @@ import {
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
-import { getDateBounds } from "./dateFilter";
+import {
+  getBusinessCalendar,
+  getDateBounds,
+  getRecentBusinessDays,
+  toBusinessDay,
+} from "./dateFilter";
 
 export interface ListSalesOrdersParams {
   startDate?: string | Date | null;
@@ -673,10 +677,16 @@ export const salesServerService = {
     return await salesServerService.getAll(params);
   },
 
-  getDailySales: async () => {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7);
-    startDate.setHours(0, 0, 0, 0);
+  /**
+   * Sales totals for each of the last 8 calendar days (today included), grouped by
+   * business-timezone day. `now` and `timezone` are injectable for testing.
+   */
+  getDailySales: async (now: Date = new Date(), timezone?: string) => {
+    const days = getRecentBusinessDays(8, now, timezone).map((d) => ({
+      ...d,
+      totalAmount: 0,
+    }));
+    const { startBound } = getDateBounds(days[0].date, null, timezone);
 
     const sales = await db
       .select({
@@ -687,34 +697,21 @@ export const salesServerService = {
       .where(
         and(
           inArray(salesOrders.status, ["RECEIVED", "COMPLETED", "POSTED"]),
-          gte(salesOrders.orderDate, startDate),
+          gte(salesOrders.orderDate, startBound!),
           isNull(salesOrders.deletedAt),
         ),
       );
 
-    const days: { name: string; totalAmount: number; fullDate: string }[] = [];
-    for (let i = 7; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const fullDate = d.toISOString().split("T")[0];
-      const name = d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-      days.push({ name, totalAmount: 0, fullDate });
-    }
-
     sales.forEach((sale) => {
-      const dateStr = sale.orderDate
-        ? new Date(sale.orderDate).toISOString().split("T")[0]
-        : "";
-      const match = days.find((r) => r.fullDate === dateStr);
+      if (!sale.orderDate) return;
+      const day = toBusinessDay(sale.orderDate, timezone);
+      const match = days.find((d) => d.date === day);
       if (match) {
         match.totalAmount += parseFloat(String(sale.totalAmount || 0));
       }
     });
 
-    return days.map((r) => ({ name: r.name, totalAmount: r.totalAmount }));
+    return days.map((d) => ({ name: d.label, totalAmount: d.totalAmount }));
   },
 
   create: async (data: SalesOrderInput, userId: number) => {
@@ -732,7 +729,8 @@ export const salesServerService = {
         const totalAmount = getTotalAmount(processedItems);
         let salesOrderNumber = data.salesOrderNumber;
         if (!salesOrderNumber) {
-          const currentYearMonth = format(new Date(), "yyyy-MM");
+          // Business-timezone month: the server clock may still be on last month's date.
+          const currentYearMonth = getBusinessCalendar().monthStart.slice(0, 7);
           const nextval = await getNextSequence("sales_order_seq");
           salesOrderNumber = `SO-${currentYearMonth}-${String(nextval).padStart(4, "0")}`;
         }
