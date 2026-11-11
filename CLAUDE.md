@@ -19,6 +19,7 @@ npm test                    # unit + integration
 - Git hooks (husky): **pre-commit** runs `type-check` + `test:unit`; **pre-push** runs `npm test`. Never bypass with `--no-verify`.
 - Integration tests load `.env.test` and hard-fail unless `DB_NAME=inventory_test_db`. Never point tests at another database.
 - There is no migrations folder; schema lives in `src/server/db/schema/` and maps to existing legacy tables. Do not run `drizzle-kit push`/`generate` without asking.
+- `tests/db/schema.sql` is a structure-only export of production; CI loads it into an empty Postgres before `test:integration`. After any production schema change, regenerate it with `npm run db:dump-schema` (read-only; needs `pg_dump` ≥ the server version) and commit it.
 
 ## Architecture & data flow
 

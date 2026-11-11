@@ -48,6 +48,55 @@ jobs:
       - name: Unit and component tests
         run: npm run test:unit
 
-  # Integration tests (npm run test:integration) are not run yet: they need a
-  # Postgres whose schema can be rebuilt from the repo, which depends on adding
-  # migrations (issue #5). Add a job with a postgres service container then.
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Same major version as production. The image runs in UTC, like production.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-only
+          POSTGRES_DB: inventory_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inventory_test_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: ci-test-only
+      DB_NAME: inventory_test_db
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # The tests expect existing tables; tests/db/schema.sql is the production structure
+      # (regenerate with `npm run db:dump-schema` after schema changes). psql runs inside
+      # the service container so the client always matches the server version.
+      - name: Load database schema
+        run: >-
+          docker exec -i ${{ job.services.postgres.id }}
+          psql -U postgres -d inventory_test_db -v ON_ERROR_STOP=1 -q
+          < tests/db/schema.sql
+
+      - name: Integration tests
+        run: npm run test:integration
