@@ -17,6 +17,7 @@
     "backup": "node backup.cjs backup",
     "restore": "node backup.cjs restore",
     "verify:dump": "node scripts/verify-db-dump.cjs",
+    "db:dump-schema": "node scripts/dump-schema.cjs",
     "type-check": "tsc --noEmit",
     "prepare": "husky"
   },
