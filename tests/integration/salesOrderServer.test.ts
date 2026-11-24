@@ -397,6 +397,101 @@ describe("Sales Order Service (Integration)", () => {
     );
   });
 
+  describe("duplicate receipt numbers from pre-printed booklets", () => {
+    const usedMessage =
+      "Receipt No 0001 is already used. If this is a new booklet, add its code, e.g. B2-0001.";
+
+    const createOrder = (salesOrderNumber: string) =>
+      salesServerService.create({ ...getTestData(), salesOrderNumber }, user0.id);
+
+    it("rejects a used number on create but accepts it with a booklet code", async () => {
+      await createOrder("0001");
+
+      await expect(createOrder("0001")).rejects.toThrow(usedMessage);
+      await expect(createOrder("B2-0001")).resolves.toMatchObject({
+        salesOrderNumber: "B2-0001",
+      });
+    });
+
+    it("rejects a used number on draft edit without leaking SQL", async () => {
+      await createOrder("0001");
+      const draft = await createOrder("0002");
+
+      await expect(
+        salesServerService.update(
+          draft!.id,
+          { ...getTestData(), salesOrderNumber: "0001" },
+          user0.id,
+        ),
+      ).rejects.toThrow(usedMessage);
+    });
+
+    it("shows the order holding the number and suggests the first booklet code", async () => {
+      const existing = await createOrder("0001");
+
+      const result = await salesServerService.checkReceiptNumber("0001");
+
+      expect(result.existing).toMatchObject({
+        id: existing!.id,
+        customerName: customer0.name,
+      });
+      expect(Number(result.existing?.totalAmount)).toBe(3000);
+      expect(result.suggestion).toBe("B2-0001");
+    });
+
+    it.each(["0001", "B2-0001"])(
+      "suggests the next code for %s when the second booklet also used the number",
+      async (number) => {
+        await createOrder("0001");
+        await createOrder("B2-0001");
+
+        const result = await salesServerService.checkReceiptNumber(number);
+
+        expect(result.suggestion).toBe("B3-0001");
+      },
+    );
+
+    it("suggests the booklet in use rather than an older one that skipped the number", async () => {
+      await createOrder("0005");
+      await createOrder("B3-0001");
+
+      const result = await salesServerService.checkReceiptNumber("0005");
+
+      expect(result.suggestion).toBe("B3-0005");
+    });
+
+    it("reports a voided order because it still holds its number", async () => {
+      const order = await createOrder("0001");
+      await salesServerService.delete(order!.id, user0.id);
+
+      const result = await salesServerService.checkReceiptNumber("0001");
+
+      expect(result.existing?.id).toBe(order!.id);
+    });
+
+    it("does not report a draft as conflicting with its own number", async () => {
+      const draft = await createOrder("0001");
+
+      const result = await salesServerService.checkReceiptNumber("0001", draft!.id);
+
+      expect(result).toEqual({ existing: null, suggestion: null });
+    });
+
+    it("reports an unused number as free", async () => {
+      const result = await salesServerService.checkReceiptNumber("0001");
+
+      expect(result).toEqual({ existing: null, suggestion: null });
+    });
+
+    it("carries the booklet code of the most recently created order", async () => {
+      expect(await salesServerService.getReceiptPrefix()).toBe("");
+      await createOrder("0001");
+      expect(await salesServerService.getReceiptPrefix()).toBe("");
+      await createOrder("B2-0001");
+      expect(await salesServerService.getReceiptPrefix()).toBe("B2-");
+    });
+  });
+
   it("should get a paginated list of sales orders", async () => {
     await salesServerService.create(getTestData() as any, user0.id);
     await salesServerService.create(

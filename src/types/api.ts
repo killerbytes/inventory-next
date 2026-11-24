@@ -42,6 +42,18 @@ export type SalesOrderSummary = {
   totalExchangeAmount: number;
 };
 
+/** Outcome of checking whether a receipt number is already taken by another order. */
+export type ReceiptNumberCheck = {
+  existing: {
+    id: number;
+    orderDate: Date | string | null;
+    customerName: string | null;
+    totalAmount: string;
+  } | null;
+  /** The same receipt number with a free booklet code; null when there is no conflict. */
+  suggestion: string | null;
+};
+
 /**
  * Standard Result contract for Server Actions preventing Next.js production error masking.
  */

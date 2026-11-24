@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { z } from "zod";
+import { DrizzleQueryError } from "drizzle-orm/errors";
 import * as sessionModule from "@/server/auth/session";
 import { PERMISSIONS } from "@/lib/rbac";
 import { createProtectedAction } from "@/server/actions/safeAction";
@@ -149,6 +150,47 @@ describe("createProtectedAction (Unit)", () => {
       success: false,
       error: "A record with this name already exists.",
     });
+  });
+
+  it.each([
+    [
+      "a duplicate",
+      { code: "23505", detail: "Key (sku)=(SKU-1) already exists." },
+      "A record with this sku already exists.",
+    ],
+    [
+      "a record still in use",
+      { code: "23503", detail: "Key (id)=(1) is still referenced." },
+      "Cannot process request: referenced item does not exist or is currently in use.",
+    ],
+    ["an unmapped database error", { code: "40P01", message: "deadlock detected" }, "deadlock detected"],
+  ])("reports %s without leaking SQL or parameters to the user", async (_case, cause, message) => {
+    vi.mocked(sessionModule.getSession).mockResolvedValue({
+      id: 99,
+      username: "admin",
+      name: "Admin User",
+      role: "ADMIN",
+    });
+    const action = createProtectedAction({
+      handler: async () => {
+        throw new DrizzleQueryError('insert into "Products" values ($1)', ["secret"], cause as any);
+      },
+    });
+
+    const result = await action();
+
+    expect(result).toEqual({ success: false, error: message });
+  });
+
+  it("does not leak SQL when reading the session fails", async () => {
+    vi.mocked(sessionModule.getSession).mockRejectedValue(
+      new DrizzleQueryError('select * from "Users"', ["secret"], new Error("connection refused")),
+    );
+    const action = createProtectedAction({ handler: async () => ({ id: 1 }) });
+
+    const result = await action();
+
+    expect(result).toEqual({ success: false, error: "connection refused" });
   });
 });
 

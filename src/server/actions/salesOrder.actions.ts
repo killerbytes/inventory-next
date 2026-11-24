@@ -2,6 +2,8 @@
 
 import { PERMISSIONS } from "@/lib/rbac";
 import {
+  ReceiptNumberCheckInput,
+  ReceiptNumberCheckSchema,
   ReturnExchangeInput,
   ReturnExchangeInputSchema,
   SalesOrderInputSchema,
@@ -9,6 +11,7 @@ import {
   SalesOrderUpdateInputSchema,
 } from "@/schemas/salesOrder.schema";
 import { salesServerService } from "@/server/services";
+import { ReceiptNumberCheck } from "@/types";
 import { revalidatePath } from "next/cache";
 import { createProtectedAction } from "./safeAction";
 
@@ -39,6 +42,26 @@ export const getSalesOrderAction = createProtectedAction({
     if (!result) {
       throw new Error("Sales order not found");
     }
+    return JSON.parse(JSON.stringify(result));
+  },
+});
+
+export const getReceiptPrefixAction = createProtectedAction({
+  permission: PERMISSIONS.MANAGE_SALES,
+  handler: async () => salesServerService.getReceiptPrefix(),
+});
+
+export const checkReceiptNumberAction = createProtectedAction({
+  permission: PERMISSIONS.MANAGE_SALES,
+  schema: ReceiptNumberCheckSchema,
+  handler: async (
+    _ctx,
+    { receiptNumber, excludeId }: ReceiptNumberCheckInput,
+  ): Promise<ReceiptNumberCheck> => {
+    const result = await salesServerService.checkReceiptNumber(
+      receiptNumber,
+      excludeId,
+    );
     return JSON.parse(JSON.stringify(result));
   },
 });
