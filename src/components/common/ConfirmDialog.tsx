@@ -23,7 +23,7 @@ export default function ConfirmDialog({
   isLoading,
   shouldConfirm,
 }: {
-  children: React.ReactNode;
+  children: React.ReactElement;
   onConfirm: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
   title?: string;
   description?: string;
@@ -51,7 +51,7 @@ export default function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger>{children}</AlertDialogTrigger>
+      <AlertDialogTrigger render={children} />
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

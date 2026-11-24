@@ -40,6 +40,7 @@ interface InventoryMovementsClientWidgetProps {
   summary?: InventoryMovementsSummary;
   startDate?: string;
   endDate?: string;
+  allTime?: boolean;
 }
 
 export default function InventoryMovementsClientWidget({
@@ -48,6 +49,7 @@ export default function InventoryMovementsClientWidget({
   summary,
   startDate,
   endDate,
+  allTime = false,
 }: InventoryMovementsClientWidgetProps) {
   const defaultFilters = useMemo(
     () => ({
@@ -331,6 +333,11 @@ export default function InventoryMovementsClientWidget({
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <CalendarDatePicker
           date={dateRange}
+          placeholder={
+            allTime && !filters.startDate && !filters.endDate
+              ? "All Time"
+              : "Pick a date"
+          }
           onDateSelect={(range) => {
             setFilters((prev) => ({
               ...prev,
@@ -338,6 +345,7 @@ export default function InventoryMovementsClientWidget({
                 ? format(range.from, "yyyy-MM-dd")
                 : undefined,
               endDate: range.to ? format(range.to, "yyyy-MM-dd") : undefined,
+              allTime: undefined,
               page: 1,
             }));
           }}

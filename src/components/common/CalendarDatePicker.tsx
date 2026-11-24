@@ -83,6 +83,7 @@ interface CalendarDatePickerProps
   closeOnSelect?: boolean;
   numberOfMonths?: 1 | 2;
   yearsRange?: number;
+  placeholder?: string;
   onDateSelect: (range: { from: Date; to: Date }) => void;
 }
 
@@ -99,6 +100,7 @@ export const CalendarDatePicker = React.forwardRef<
       closeOnSelect = false,
       numberOfMonths = 2,
       yearsRange = 10,
+      placeholder,
       onDateSelect,
       variant,
       ...props
@@ -298,6 +300,11 @@ export const CalendarDatePicker = React.forwardRef<
         label: "Last Year",
         start: startOfYear(subDays(today, 365)),
         end: endOfYear(subDays(today, 365)),
+      },
+      {
+        label: "All Time",
+        start: new Date(MAX_START_DATE),
+        end: today,
       },
     ];
 
@@ -541,7 +548,7 @@ export const CalendarDatePicker = React.forwardRef<
                   </>
                 )
               ) : (
-                <span>Pick a date</span>
+                <span>{placeholder || "Pick a date"}</span>
               )}
             </span>
           </Button>
