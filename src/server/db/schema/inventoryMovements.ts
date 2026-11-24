@@ -6,6 +6,7 @@ import {
   numeric,
   timestamp,
   index,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -18,15 +19,15 @@ export const inventoryMovements = pgTable(
   {
     id: serial("id").primaryKey(),
     type: varchar("type", { length: 255 }).notNull(),
-    quantity: numeric("quantity", { precision: 18, scale: 6 }).notNull(),
+    quantity: numeric("quantity", { precision: 18, scale: 6 }).notNull().default("0"),
     costPerUnit: numeric("costPerUnit", { precision: 18, scale: 6 }),
     totalCost: numeric("totalCost", { precision: 18, scale: 6 }),
     referenceType: varchar("referenceType", { length: 255 }),
-    referenceId: integer("referenceId"),
+    referenceId: integer("referenceId").notNull(),
     combinationId: integer("combinationId"),
     userId: integer("userId"),
-    createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }),
-    updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [
     index("idx_inventory_movements_updated_at").on(table.updatedAt),
@@ -34,6 +35,8 @@ export const inventoryMovements = pgTable(
     index("idx_inventory_movements_combo_id_id").on(table.combinationId, table.id),
     index("idx_inventory_movements_type").on(table.type),
     index("idx_inventory_movements_reference").on(table.referenceType, table.referenceId),
+    foreignKey({ name: "InventoryMovements_combinationId_fkey", columns: [table.combinationId], foreignColumns: [productCombinations.id] }).onDelete("set null").onUpdate("cascade"),
+    foreignKey({ name: "InventoryMovements_userId_fkey", columns: [table.userId], foreignColumns: [users.id] }).onDelete("set null").onUpdate("cascade"),
   ],
 );
 

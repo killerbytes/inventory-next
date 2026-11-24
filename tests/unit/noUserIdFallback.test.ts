@@ -52,7 +52,7 @@ describe("user ID fallbacks", () => {
         inventoryServerService.inventoryIncrease(
           { combinationId: 1, quantity: 1 },
           INVENTORY_MOVEMENT_TYPE.IN,
-          null,
+          1, // referenceId is required; this test only exercises userId
           null,
           null,
           userId as unknown as number,
@@ -68,7 +68,7 @@ describe("user ID fallbacks", () => {
         inventoryServerService.inventoryDecrease(
           { combinationId: 1, quantity: 1 },
           INVENTORY_MOVEMENT_TYPE.OUT,
-          null,
+          1, // referenceId is required; this test only exercises userId
           null,
           null,
           userId as unknown as number,

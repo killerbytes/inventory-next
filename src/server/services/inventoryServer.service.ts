@@ -382,7 +382,7 @@ export const inventoryServerService = {
       totalCost?: number;
     },
     type: string,
-    referenceId: number | null = null,
+    referenceId: number,
     referenceType: string | null = null,
     transaction: any = null,
     userId: number,
@@ -476,7 +476,7 @@ export const inventoryServerService = {
   inventoryDecrease: async (
     item: { combinationId: number; quantity: number; averagePrice?: number },
     type: string,
-    referenceId: number | null = null,
+    referenceId: number,
     referenceType: string | null = null,
     transaction: any = null,
     userId: number,

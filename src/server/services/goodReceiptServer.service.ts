@@ -1220,7 +1220,7 @@ export const goodReceiptServerService = {
   }): Promise<Record<number, {
     combinationId: number;
     lastPrice: number;
-    receiptDate: Date;
+    receiptDate: Date | null;
     supplierId: number;
     isSupplierMatch: boolean;
   }>> => {
@@ -1271,7 +1271,7 @@ export const goodReceiptServerService = {
       {
         combinationId: number;
         lastPrice: number;
-        receiptDate: Date;
+        receiptDate: Date | null;
         supplierId: number;
         isSupplierMatch: boolean;
       }

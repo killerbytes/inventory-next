@@ -76,7 +76,8 @@ export const LoginCredentialsSchema = z
 export const UserUpdateSchema = UserBaseSchema.partial().strict();
 
 export const UserSelectSchema = createSelectSchema(users);
-export const UserSchema = UserSelectSchema.extend({
+// refreshToken is a legacy Sequelize column; keep it out of anything sent to the client.
+export const UserSchema = UserSelectSchema.omit({ refreshToken: true }).extend({
   role: z.string().default("USER"),
 });
 

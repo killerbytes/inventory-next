@@ -1,19 +1,34 @@
-import { pgTable, serial, integer, varchar, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  integer,
+  varchar,
+  timestamp,
+  foreignKey,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { goodReceipts } from "./goodReceipts";
 import { salesOrders } from "./salesOrders";
 
-export const orderStatusHistories = pgTable("OrderStatusHistories", {
-  id: serial("id").primaryKey(),
-  goodReceiptId: integer("goodReceiptId"),
-  salesOrderId: integer("salesOrderId"),
-  status: varchar("status", { length: 50 }).notNull(),
-  changedBy: integer("changedBy").notNull(),
-  changedAt: timestamp("changedAt", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-  createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }),
-  updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }),
-});
+export const orderStatusHistories = pgTable(
+  "OrderStatusHistories",
+  {
+    id: serial("id").primaryKey(),
+    goodReceiptId: integer("goodReceiptId"),
+    salesOrderId: integer("salesOrderId"),
+    status: varchar("status", { length: 255 }).notNull(),
+    changedBy: integer("changedBy").notNull(),
+    changedAt: timestamp("changedAt", { withTimezone: true, mode: "date" }).notNull().$defaultFn(() => new Date()),
+    createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    foreignKey({ name: "OrderStatusHistories_changedBy_fkey", columns: [table.changedBy], foreignColumns: [users.id] }).onDelete("no action").onUpdate("cascade"),
+    foreignKey({ name: "OrderStatusHistories_goodReceiptId_fkey", columns: [table.goodReceiptId], foreignColumns: [goodReceipts.id] }).onDelete("cascade").onUpdate("cascade"),
+    foreignKey({ name: "OrderStatusHistories_salesOrderId_fkey", columns: [table.salesOrderId], foreignColumns: [salesOrders.id] }).onDelete("no action").onUpdate("cascade"),
+  ],
+);
 
 export const orderStatusHistoriesRelations = relations(orderStatusHistories, ({ one }) => ({
   user: one(users, {
