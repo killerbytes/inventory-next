@@ -27,6 +27,8 @@ vi.mock("@/server/actions/salesOrder.actions", () => ({
   createSalesOrderAction: vi.fn(),
   updateSalesOrderAction: vi.fn(),
   getSalesOrderAction: vi.fn(),
+  getReceiptPrefixAction: vi.fn().mockResolvedValue({ success: true, data: "" }),
+  checkReceiptNumberAction: vi.fn(),
 }));
 
 vi.mock("@/server/actions/product.actions", () => ({

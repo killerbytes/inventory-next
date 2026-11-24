@@ -2,6 +2,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { salesOrders } from "@/server/db/schema/salesOrders";
 import { salesOrderItems } from "@/server/db/schema/salesOrderItems";
 import { MODE_OF_PAYMENT, ORDER_STATUS } from "@/constants";
+import { isBookletCodeOnly } from "@/lib/receiptNumber";
 import * as z from "zod";
 import { CustomerSchema } from "./customer.schema";
 import { InventorySchema } from "./inventory.schema";
@@ -47,9 +48,15 @@ export type SalesOrderItemData = z.infer<typeof SalesOrderItemSchema>;
 
 export const SalesOrderBaseSchema = createInsertSchema(salesOrders, {
   salesOrderNumber: () =>
-    z.string().min(2, {
-      message: "Sales order number is required.",
-    }),
+    z
+      .string()
+      .trim()
+      .min(2, {
+        message: "Sales order number is required.",
+      })
+      .refine((value) => !isBookletCodeOnly(value), {
+        message: "Add the receipt number after the booklet code.",
+      }),
   customerId: () =>
     z.coerce
       .number()
@@ -103,6 +110,15 @@ export const SalesOrderInputSchema = SalesOrderBaseSchema.omit({
       message: "At least one product is required.",
     }),
   });
+
+export const ReceiptNumberCheckSchema = z
+  .object({
+    receiptNumber: z.string().trim().min(1).max(255),
+    excludeId: z.coerce.number().int().positive().optional(),
+  })
+  .strict();
+
+export type ReceiptNumberCheckInput = z.infer<typeof ReceiptNumberCheckSchema>;
 
 /**
  * Payload for editing a DRAFT or receiving it. Same strict shape as create, plus the

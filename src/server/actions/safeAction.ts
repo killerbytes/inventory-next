@@ -1,5 +1,6 @@
 import { hasPermission, Permission } from "@/lib/rbac";
 import { getSession, SessionUser } from "@/server/auth/session";
+import { handleServiceError } from "@/server/services/errorHandler";
 import { ActionResult } from "@/types";
 import "server-only";
 import { z } from "zod";
@@ -67,11 +68,16 @@ export function createProtectedAction<THandler extends (...args: any[]) => Promi
             success: true,
             data: result,
           };
-        } catch (err: any) {
-          return {
-            success: false,
-            error: err?.message || "An unexpected error occurred",
-          };
+        } catch (err) {
+          try {
+            // Raw Drizzle messages contain the SQL text and its parameters.
+            handleServiceError(err);
+          } catch (safeErr: any) {
+            return {
+              success: false,
+              error: safeErr?.message || "An unexpected error occurred",
+            };
+          }
         }
     };
   }

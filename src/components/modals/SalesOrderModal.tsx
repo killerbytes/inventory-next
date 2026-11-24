@@ -4,6 +4,7 @@ import DraftAutoSaver from "@/components/common/DraftAutoSaver";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { clearDraft, DRAFT_STORAGE_KEYS, loadDraft } from "@/lib/draftStorage";
+import { isBookletCodeOnly } from "@/lib/receiptNumber";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import {
@@ -19,6 +20,7 @@ import {
 import { getCombinationsByIdsAction } from "@/server/actions/product.actions";
 import {
   createSalesOrderAction,
+  getReceiptPrefixAction,
   getSalesOrderAction,
   updateSalesOrderAction,
 } from "@/server/actions/salesOrder.actions";
@@ -45,6 +47,7 @@ import FormField from "../forms/FormField";
 import FormTableFooter from "../forms/FormTableFooter";
 import LineColumn from "../forms/LineColumn";
 import ProductLookupInput from "../forms/ProductLookupInput";
+import ReceiptNumberField from "../forms/ReceiptNumberField";
 import { Field, FieldError } from "../ui/field";
 import { Input } from "../ui/input";
 import {
@@ -252,7 +255,26 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
       }
     }
 
-    loadAndSyncDraft();
+    /** Runs after the draft load, whose form.reset would otherwise wipe the prefix. */
+    async function prefillBookletCode() {
+      if (!isMounted || initialOrder || form.getValues("salesOrderNumber")) return;
+      try {
+        const res = await getReceiptPrefixAction();
+        if (!isMounted) return;
+        if (!res.success) {
+          toast.error(res.error);
+          return;
+        }
+        // Staff may have started typing while the prefix was loading.
+        if (res.data && !form.getValues("salesOrderNumber")) {
+          form.setValue("salesOrderNumber", res.data);
+        }
+      } catch {
+        if (isMounted) toast.error("Failed to load the booklet code.");
+      }
+    }
+
+    loadAndSyncDraft().then(prefillBookletCode);
 
     return () => {
       isMounted = false;
@@ -568,7 +590,8 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
     const quotationOrder = {
       isQuotation: true,
       salesOrderNumber:
-        values.salesOrderNumber?.trim() ||
+        (!isBookletCodeOnly(values.salesOrderNumber) &&
+          values.salesOrderNumber?.trim()) ||
         `QT-${format(new Date(), "yyyyMMdd-HHmmss")}`,
       orderDate: values.orderDate || new Date(),
       status: "QUOTATION",
@@ -659,7 +682,12 @@ function SalesOrderModalContent({ customers }: { customers: CustomerData[] }) {
           )}
         />
         <div className="grid grid-cols-3 gap-4">
-          <FormField form={form} name="salesOrderNumber" label="Receipt No" />
+          <ReceiptNumberField
+            form={form}
+            excludeId={
+              editingSalesOrder?.id ? Number(editingSalesOrder.id) : undefined
+            }
+          />
           <FormField
             form={form}
             name="orderDate"

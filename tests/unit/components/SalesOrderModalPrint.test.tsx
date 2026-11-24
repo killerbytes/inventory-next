@@ -1,4 +1,5 @@
 import SalesOrderModal from "@/components/modals/SalesOrderModal";
+import { getReceiptPrefixAction } from "@/server/actions/salesOrder.actions";
 import { useUIStore } from "@/stores/uiStore";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -24,6 +25,8 @@ vi.mock("sonner", () => ({
 // Mock server actions
 vi.mock("@/server/actions/salesOrder.actions", () => ({
   createSalesOrderAction: vi.fn(),
+  getReceiptPrefixAction: vi.fn().mockResolvedValue({ success: true, data: "" }),
+  checkReceiptNumberAction: vi.fn(),
 }));
 
 vi.mock("@/server/actions/product.actions", () => ({
@@ -164,5 +167,25 @@ describe("SalesOrderModal Quotation Print", () => {
     expect(stored.salesOrderItems).toHaveLength(1);
     expect(stored.salesOrderItems[0].nameSnapshot).toBe("Portland Cement 40kg");
     expect(stored.salesOrderItems[0].purchasePrice).toBe(250);
+  });
+
+  it("numbers a quotation itself when only the prefilled booklet code is present", async () => {
+    vi.mocked(getReceiptPrefixAction).mockResolvedValueOnce({ success: true, data: "B2-" });
+    await act(async () => {
+      root?.render(<SalesOrderModal customers={mockCustomers} />);
+    });
+    expect(
+      document.querySelector<HTMLInputElement>('input[name="salesOrderNumber"]')?.value,
+    ).toBe("B2-");
+
+    await act(async () => {
+      (document.body.querySelector("button[data-testid='mock-select-product']") as HTMLButtonElement).click();
+    });
+    await act(async () => {
+      (document.body.querySelector("button[data-testid='print-order-btn']") as HTMLButtonElement).click();
+    });
+
+    const stored = JSON.parse(sessionStorage.getItem("quotation_print_data")!);
+    expect(stored.salesOrderNumber).toMatch(/^QT-/);
   });
 });

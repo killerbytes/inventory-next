@@ -4,6 +4,11 @@ import {
   isDiscountWithinLineAmount,
 } from "@/lib/compute";
 import { getMappedVariantValues } from "@/lib/mapped";
+import {
+  getBookletCode,
+  getBookletPrefix,
+  withBookletCode,
+} from "@/lib/receiptNumber";
 import { getNextSequence } from "@/lib/sequence";
 import { SalesOrderInput, SalesOrderItemData, SalesOrderData } from "@/schemas";
 import { db } from "@/server/db/drizzle";
@@ -31,6 +36,7 @@ import {
   asc,
   count,
   inArray,
+  ne,
   notInArray,
   gte,
   lte,
@@ -38,6 +44,7 @@ import {
   ilike,
   sql,
 } from "drizzle-orm";
+import { ReceiptNumberCheck } from "@/types";
 import "server-only";
 import { handleServiceError } from "./errorHandler";
 import { inventoryServerService } from "./inventoryServer.service";
@@ -446,6 +453,44 @@ const getSummary = async (
   };
 };
 
+/** Booklets are used one at a time, so the newest order tells which one is in use. */
+const getLatestReceiptNumber = async () => {
+  const [latest] = await db
+    .select({ salesOrderNumber: salesOrders.salesOrderNumber })
+    .from(salesOrders)
+    .where(isNull(salesOrders.deletedAt))
+    .orderBy(desc(salesOrders.id))
+    .limit(1);
+  return latest?.salesOrderNumber;
+};
+
+/**
+ * Deliberately includes voided, cancelled and soft-deleted orders: the unique
+ * constraint covers them too, so their numbers are not free.
+ */
+const findReceiptNumberHolder = async (
+  receiptNumber: string,
+  excludeId?: number,
+): Promise<ReceiptNumberCheck["existing"]> => {
+  const [holder] = await db
+    .select({
+      id: salesOrders.id,
+      orderDate: salesOrders.orderDate,
+      customerName: customers.name,
+      totalAmount: salesOrders.totalAmount,
+    })
+    .from(salesOrders)
+    .leftJoin(customers, eq(salesOrders.customerId, customers.id))
+    .where(
+      and(
+        eq(salesOrders.salesOrderNumber, receiptNumber),
+        excludeId ? ne(salesOrders.id, excludeId) : undefined,
+      ),
+    )
+    .limit(1);
+  return holder ?? null;
+};
+
 export const salesServerService = {
   get: async (id: number, tx?: any): Promise<SalesOrderData | null> => {
     const client = tx || db;
@@ -714,6 +759,29 @@ export const salesServerService = {
     return days.map((d) => ({ name: d.label, totalAmount: d.totalAmount }));
   },
 
+  /** Booklet code to prefill on a new order; empty while the original booklet is in use. */
+  getReceiptPrefix: async () => getBookletPrefix(await getLatestReceiptNumber()),
+
+  /**
+   * Finds the order already holding a receipt number and suggests the number with a
+   * booklet code, starting at the booklet in use so older booklets are never reused.
+   */
+  checkReceiptNumber: async (
+    receiptNumber: string,
+    excludeId?: number,
+  ): Promise<ReceiptNumberCheck> => {
+    const existing = await findReceiptNumberHolder(receiptNumber, excludeId);
+    if (!existing) return { existing: null, suggestion: null };
+
+    let code = Math.max(2, getBookletCode(await getLatestReceiptNumber()));
+    while (
+      await findReceiptNumberHolder(withBookletCode(receiptNumber, code), excludeId)
+    ) {
+      code++;
+    }
+    return { existing, suggestion: withBookletCode(receiptNumber, code) };
+  },
+
   create: async (data: SalesOrderInput, userId: number) => {
     try {
       return await db.transaction(async (tx) => {
@@ -848,7 +916,7 @@ export const salesServerService = {
       }
 
       return await salesServerService.get(id, tx);
-    });
+    }).catch(handleServiceError);
   },
 
   delete: async (id: number, userId: number) => {

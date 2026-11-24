@@ -1,3 +1,4 @@
+import { getBookletCode, withBookletCode } from "@/lib/receiptNumber";
 import {
   DrizzleError,
   DrizzleQueryError,
@@ -84,6 +85,18 @@ export function handleServiceError(error: any): never {
     }
     if (fieldStr.includes("email")) {
       throw new Error("A record with this email address already exists.");
+    }
+
+    if (fieldStr.includes("salesOrderNumber")) {
+      const number =
+        typeof detail === "string"
+          ? detail.match(/=\((.*)\) already exists/)?.[1]
+          : null;
+      throw new Error(
+        number
+          ? `Receipt No ${number} is already used. If this is a new booklet, add its code, e.g. ${withBookletCode(number, getBookletCode(number) + 1)}.`
+          : "This Receipt No is already used.",
+      );
     }
 
     const item = fieldStr || "field value";

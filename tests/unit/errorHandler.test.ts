@@ -79,6 +79,20 @@ describe("handleServiceError (Unit)", () => {
       );
     });
 
+    it.each([
+      ["0001", "B2-0001"],
+      ["B2-0001", "B3-0001"],
+    ])("tells staff that receipt %s is used and suggests %s for a new booklet", (number, example) => {
+      const error = {
+        code: "23505",
+        detail: `Key ("salesOrderNumber")=(${number}) already exists.`,
+        constraint: "SalesOrders_salesOrderNumber_key",
+      };
+      expect(() => handleServiceError(error)).toThrowError(
+        `Receipt No ${number} is already used. If this is a new booklet, add its code, e.g. ${example}.`,
+      );
+    });
+
     it("should unwrap 23505 error nested inside DrizzleQueryError", () => {
       const dbCause = {
         code: "23505",
