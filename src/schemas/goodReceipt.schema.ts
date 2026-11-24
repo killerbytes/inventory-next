@@ -49,8 +49,6 @@ export type GoodReceiptLineData = z.infer<typeof GoodReceiptLineSchema>;
 
 export const GoodReceiptBaseSchema = createInsertSchema(goodReceipts, {
   supplierId: () => z.coerce.number().positive("Supplier is Required"),
-  receiptDate: () => z.coerce.date(),
-  referenceNo: () => z.string().nonempty("Reference No is Required"),
   internalNotes: () => z.string().optional().nullable(),
 })
   .pick({
@@ -60,6 +58,10 @@ export const GoodReceiptBaseSchema = createInsertSchema(goodReceipts, {
     internalNotes: true,
   })
   .extend({
+    // Nullable in the DB, but every receipt needs them. Declared via .extend because
+    // drizzle-zod re-applies column nullability to createInsertSchema overrides.
+    receiptDate: z.coerce.date(),
+    referenceNo: z.string().nonempty("Reference No is Required"),
     goodReceiptLines: z
       .array(GoodReceiptLineSchema)
       .min(1, "Product/s must be included"),
@@ -150,9 +152,10 @@ export type GoodReceiptData = z.infer<typeof GoodReceiptSchema>;
 
 export const InvoiceGoodReceiptSchema = z.object({
   id: z.coerce.number(),
-  referenceNo: z.string(),
+  // Both nullable in the DB (legacy rows may lack them).
+  referenceNo: z.string().nullable(),
   status: z.string(),
-  receiptDate: z.union([z.string(), z.date()]),
+  receiptDate: z.union([z.string(), z.date()]).nullable(),
   totalAmount: z.coerce.number(),
   totalReturnAmount: z.coerce.number().nullish(),
   supplier: z.any().optional(),

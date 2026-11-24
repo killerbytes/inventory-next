@@ -29,6 +29,31 @@ describe("Supplier Service (Integration)", () => {
     expect(supplier?.address).toBe("123 Main St");
   });
 
+  it("should create a supplier with only name and allow multiple suppliers without email", async () => {
+    const supp1 = await supplierServerService.create({
+      name: "Only Name Supplier 1",
+    });
+    const supp2 = await supplierServerService.create({
+      name: "Only Name Supplier 2",
+      email: "",
+      phone: "",
+      address: "",
+    });
+
+    const fetched1 = await supplierServerService.get(supp1.id);
+    const fetched2 = await supplierServerService.get(supp2.id);
+
+    expect(fetched1?.name).toBe("Only Name Supplier 1");
+    expect(fetched1?.email).toBeNull();
+    expect(fetched1?.phone).toBeNull();
+    expect(fetched1?.address).toBeNull();
+
+    expect(fetched2?.name).toBe("Only Name Supplier 2");
+    expect(fetched2?.email).toBeNull();
+    expect(fetched2?.phone).toBeNull();
+    expect(fetched2?.address).toBeNull();
+  });
+
   it("should list all suppliers", async () => {
     const allSuppliers = await supplierServerService.getAll();
     expect(allSuppliers.data.length).toBe(2);

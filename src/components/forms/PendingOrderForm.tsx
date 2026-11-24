@@ -64,7 +64,7 @@ export default function PendingOrderForm({
       {
         combinationId: number;
         lastPrice: number;
-        receiptDate: Date;
+        receiptDate: Date | null;
         supplierId: number;
         isSupplierMatch: boolean;
       }

@@ -285,43 +285,7 @@ function CombinationModalContent({ product }: { product: ProductData }) {
           );
         },
       },
-      {
-        accessorKey: "price",
-        header: () => <div className="text-right">Selling Price</div>,
-        meta: {
-          className: "w-28",
-        },
-        cell: ({ row }) => (
-          <FormField
-            name={`combinations.${row.index}.price`}
-            form={form}
-            render={({ field }) => (
-              <NumberInput {...field} type="currency" className="text-right!" />
-            )}
-          />
-        ),
-      },
-      {
-        accessorKey: "inventory.averagePrice",
-        header: () => <div className="text-right">Avg Cost</div>,
-        cell: ({ row }) => (
-          <div className="text-right  text-xs text-muted-foreground">
-            {formatCurrency(row.original.inventory?.averagePrice || 0)}
-          </div>
-        ),
-      },
-      {
-        accessorKey: "inventory.quantity",
-        header: () => <div className="text-right">Stock Qty</div>,
-        meta: {
-          align: "right",
-        },
-        cell: ({ row }) => (
-          <div className="font-semibold">
-            {Number(row.original.inventory?.quantity || 0)}
-          </div>
-        ),
-      },
+
       {
         accessorKey: "conversionFactor",
         header: () => <div className="text-right">Conversion</div>,

@@ -179,7 +179,8 @@ export const invoiceServerService = {
               ? new Date(data.invoiceDate)
               : new Date(),
             totalAmount: totalAmount.toString(),
-            dueDate: data.dueDate ? new Date(data.dueDate) : null,
+            // NOT NULL in the DB; InvoiceInputSchema requires it.
+            dueDate: new Date(data.dueDate),
             status: data.status || INVOICE_STATUS.DRAFT,
             notes: data.notes || null,
             changedBy: userId,
