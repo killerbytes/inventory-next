@@ -351,7 +351,7 @@ export default function ProductDetailClientWidget({
                 variant="link"
                 size="sm"
                 onClick={() => {
-                  router.push(`/reports/inventory-movements?ids=${combo?.id}`);
+                  router.push(`/reports/inventory-movements?ids=${combo?.id}&allTime=true`);
                 }}
               >
                 <Activity />
@@ -624,7 +624,25 @@ export default function ProductDetailClientWidget({
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Inventory Movement & Audit Ledger</CardTitle>
               <CardAction>
-                {VariantSelect}
+                <div className="flex items-center gap-2">
+                  {VariantSelect}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const idsParam =
+                        filterCombinationId !== "ALL"
+                          ? filterCombinationId
+                          : combinations.map((c: any) => c.id).join(",");
+                      router.push(
+                        `/reports/inventory-movements?ids=${idsParam}&allTime=true`,
+                      );
+                    }}
+                  >
+                    <Activity className="h-4 w-4 mr-1.5" />
+                    View Full Ledger
+                  </Button>
+                </div>
               </CardAction>
 
             </CardHeader>

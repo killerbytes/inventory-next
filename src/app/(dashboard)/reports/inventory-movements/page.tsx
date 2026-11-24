@@ -20,14 +20,21 @@ export default async function MovementsPage({
   const page = Number(params.page) || PAGINATION.PAGE;
   const limit = Number(params.limit) || PAGINATION.PAGE_SIZE;
   const status = params.status === "ALL" ? undefined : params.status;
-  const ids = params.ids || [];
+  const isAllTime = params.allTime === "true" || params.startDate === "ALL";
+  const idsParam = params.ids;
+  const ids = idsParam
+    ? String(idsParam)
+        .split(",")
+        .map((id) => Number(id.trim()))
+        .filter((id) => !isNaN(id) && id > 0)
+    : [];
 
   // Business-timezone month; the server clock can still be on last month's date.
   const { monthStart: defaultStartDate, monthEnd: defaultEndDate } =
     getBusinessCalendar();
 
-  const startDate = params.startDate || defaultStartDate;
-  const endDate = params.endDate || defaultEndDate;
+  const startDate = isAllTime ? undefined : (params.startDate || defaultStartDate);
+  const endDate = isAllTime ? undefined : (params.endDate || defaultEndDate);
 
   let rows: any[] = [];
   let meta = {
@@ -41,7 +48,7 @@ export default async function MovementsPage({
     page,
     limit,
     type: status,
-    ids: ids.length > 0 ? [Number(ids)] : [],
+    ids: ids.length > 0 ? ids : undefined,
     startDate,
     endDate,
     includeSummary: true,
@@ -57,6 +64,7 @@ export default async function MovementsPage({
       summary={summary}
       startDate={startDate}
       endDate={endDate}
+      allTime={isAllTime}
     />
   );
 }
