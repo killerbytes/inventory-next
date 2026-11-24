@@ -207,11 +207,11 @@ export const supplierServerService = {
         validated.code ||
         null;
     }
-    if (validated.email !== undefined) updateValues.email = validated.email;
-    if (validated.phone !== undefined) updateValues.phone = validated.phone;
+    if (validated.email !== undefined) updateValues.email = validated.email || null;
+    if (validated.phone !== undefined) updateValues.phone = validated.phone || null;
     if (validated.address !== undefined)
-      updateValues.address = validated.address;
-    if (validated.notes !== undefined) updateValues.notes = validated.notes;
+      updateValues.address = validated.address || null;
+    if (validated.notes !== undefined) updateValues.notes = validated.notes || null;
     if (validated.isActive !== undefined)
       updateValues.isActive = validated.isActive;
 

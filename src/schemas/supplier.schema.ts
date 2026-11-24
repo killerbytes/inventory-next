@@ -7,25 +7,13 @@ export const SupplierBaseSchema = createInsertSchema(suppliers, {
     schema.min(2, {
       message: "Name must be at least 2 characters.",
     }),
-  address: (schema) =>
-    schema
-      .min(2, {
-        message: "Address must be at least 2 characters.",
-      })
-      .optional()
-      .nullable(),
-  phone: (schema) =>
-    schema
-      .min(2, {
-        message: "Phone must be at least 2 characters.",
-      })
-      .optional()
-      .nullable(),
-  email: (schema) =>
-    schema
-      .email({
-        message: "Please enter a valid email address.",
-      })
+  email: () =>
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Please enter a valid email address.")
+      .or(z.string().trim().max(0).transform(() => null))
       .optional()
       .nullable(),
   isActive: () => z.boolean().optional(),

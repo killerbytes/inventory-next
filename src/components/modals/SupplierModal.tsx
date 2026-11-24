@@ -41,37 +41,37 @@ function SupplierModalContent() {
   const onSubmit = async (values: SupplierInput) => {
     startTransition(async () => {
       try {
-          const res =
-            isEditing && editingSupplier?.id
-              ? await updateSupplierAction(editingSupplier.id, values)
-              : await createSupplierAction(values);
+        const res =
+          isEditing && editingSupplier?.id
+            ? await updateSupplierAction(editingSupplier.id, values)
+            : await createSupplierAction(values);
 
-          if (res && !res.success) {
-            if (res.fieldErrors) {
-              Object.entries(res.fieldErrors).forEach(([field, messages]) => {
-                form.setError(field as any, { message: messages?.[0] });
-              });
-            }
-            toast.error(
-              res.error ||
-              `Failed to ${isEditing ? "update" : "create"} supplier`,
-            );
-            return;
+        if (res && !res.success) {
+          if (res.fieldErrors) {
+            Object.entries(res.fieldErrors).forEach(([field, messages]) => {
+              form.setError(field as any, { message: messages?.[0] });
+            });
           }
-
-          toast.success(
-            `Supplier "${values.name}" ${isEditing ? "updated" : "created"} successfully!`,
-          );
-          form.reset();
-          setSupplierModalOpen(false, null);
-          router.refresh();
-        } catch (err: any) {
           toast.error(
-            err?.message ||
+            res.error ||
             `Failed to ${isEditing ? "update" : "create"} supplier`,
           );
+          return;
         }
-      });
+
+        toast.success(
+          `Supplier "${values.name}" ${isEditing ? "updated" : "created"} successfully!`,
+        );
+        form.reset();
+        setSupplierModalOpen(false, null);
+        router.refresh();
+      } catch (err: any) {
+        toast.error(
+          err?.message ||
+          `Failed to ${isEditing ? "update" : "create"} supplier`,
+        );
+      }
+    });
   };
   const onDelete = () => {
     startTransition(async () => {
@@ -125,15 +125,17 @@ function SupplierModalContent() {
           placeholder="John Doe"
         />
         <DialogFooter className="justify-between!">
-          <ConfirmDialog
-            title={`Delete ${editingSupplier?.name}`}
-            description={`Are you sure you want to delete ${editingSupplier?.name}?`}
-            onConfirm={onDelete}
-          >
-            <Button type="button" variant="destructive" size="icon">
-              <Trash2 />
-            </Button>
-          </ConfirmDialog>
+          {isEditing && (
+            <ConfirmDialog
+              title={`Delete ${editingSupplier?.name}`}
+              description={`Are you sure you want to delete ${editingSupplier?.name}?`}
+              onConfirm={onDelete}
+            >
+              <Button type="button" variant="destructive" size="icon">
+                <Trash2 />
+              </Button>
+            </ConfirmDialog>
+          )}
           <div className="flex gap-2">
             <Button
               type="button"
